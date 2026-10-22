@@ -1,0 +1,33 @@
+{
+  "name": "tynys-booking",
+  "version": "0.1.0",
+  "description": "Map-first sanatorium booking prototype",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "postinstall": "node scripts/vendor.mjs",
+    "test": "node --test",
+    "build": "npm run arch:sync && node scripts/build.mjs",
+    "arch:sync": "node scripts/architecture.mjs",
+    "arch:check": "npm run arch:sync && likec4 validate architecture",
+    "arch": "node scripts/arch-dev.mjs",
+    "arch:build": "npm run arch:sync && likec4 build architecture -o dist/architecture"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bekasyl00/Hotel_Business.git"
+  },
+  "keywords": [],
+  "author": "",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/bekasyl00/Hotel_Business/issues"
+  },
+  "homepage": "https://github.com/bekasyl00/Hotel_Business#readme",
+  "dependencies": {
+    "leaflet": "1.9.4"
+  },
+  "devDependencies": {
+    "likec4": "1.60.0"
+  },
+  "private": true
+}

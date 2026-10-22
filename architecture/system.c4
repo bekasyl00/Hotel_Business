@@ -1,0 +1,46 @@
+specification {
+  element actor
+  element system
+  element service
+  element store
+}
+model {
+  guest = actor 'Гость' {
+    description 'Выбирает санаторий на географической карте, даты, номер и тариф.'
+  }
+  prototype = system 'Тыныс — браузерный прототип' {
+    description 'Реализован на HTML, CSS и JavaScript. Без серверного API и реальных платежей.'
+    page = service 'Интерфейс' {
+      description 'index.html + styles.css + src/app.js. Список, карта, номера, тарифы, диалоги.'
+    }
+    logic = service 'Правила бронирования' {
+      description 'src/domain.js. Проверка дат и вместимости, полуоткрытые интервалы [заезд, выезд), стоимость и свободные номера.'
+    }
+    catalog = store 'Демо-каталог' {
+      description 'src/data.js. Данные приблизительные и иллюстративные. Фотографии не относятся к указанным санаториям.'
+    }
+    browserStore = store 'localStorage' {
+      description 'src/storage.js. Только брони этого браузера; без персональных данных. Нет гарантии защиты от одновременной записи двух вкладок.'
+    }
+  }
+  tiles = service 'OpenStreetMap' {
+    description 'Внешние картографические тайлы по HTTPS. Требуют интернета. Сбой не блокирует каталог.'
+  }
+  guest -> prototype.page 'Выбор и демо-бронирование'
+  prototype.page -> prototype.logic 'Даты, гости, номер и тариф'
+  prototype.page -> prototype.catalog 'Читает каталог'
+  prototype.page -> prototype.browserStore 'Сохраняет и отменяет демо-бронь'
+  prototype.page -> tiles 'Загружает карту через Leaflet'
+}
+views {
+  view index {
+    title 'Тыныс: действующая архитектура прототипа'
+    description 'Гость, браузерный сервис и внешний источник карты. Двойной клик по системе открывает детали.'
+    include guest, prototype, tiles
+  }
+  view browser of prototype {
+    title 'Внутри прототипа: сценарий и данные'
+    description 'Ответственность интерфейса, правил бронирования, каталога и локального хранилища.'
+    include guest, prototype.*, tiles
+  }
+}
