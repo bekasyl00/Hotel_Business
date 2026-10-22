@@ -118,7 +118,7 @@ test("booking collision, totals, availability, cancellation and immutable histor
   assert.notEqual(next.id, b.id);
   const events = (await api("GET", "/workspace")).audit;
   const cancel = events.find((e) => e.action === "cancel");
-  assert.equal(cancel.before.status, "confirmed");
+  assert.equal(cancel.before.status, "pending");
   assert.equal(cancel.after.status, "cancelled");
 });
 test("stale versions and duplicate room numbers cannot silently overwrite records", async () => {

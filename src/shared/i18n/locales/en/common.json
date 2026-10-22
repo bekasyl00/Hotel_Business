@@ -1,0 +1,67 @@
+{
+  "language": "Language",
+  "appName": "Tynys · resorts and stays",
+  "notFound": "Page not found",
+  "home": "Home",
+  "reload": "Reload page",
+  "loadError": "This section could not load. Check your connection and reload the page.",
+  "category": {
+    "standard": "Standard",
+    "comfort": "Comfort",
+    "suite": "Suite"
+  },
+  "status": {
+    "published": "Published",
+    "draft": "Draft",
+    "archived": "Archived",
+    "active": "Active",
+    "maintenance": "Maintenance",
+    "pending": "Awaiting confirmation",
+    "rejected": "Rejected",
+    "confirmed": "Confirmed",
+    "cancelled": "Cancelled",
+    "disabled": "Disabled"
+  },
+  "error": {
+    "network": "Cannot reach the server. Check your connection and try again.",
+    "csrf": "The request could not be secured. Reload the page.",
+    "invalidResponse": "The server returned an invalid response.",
+    "validation": "Check the form fields.",
+    "forbidden": "You do not have permission for this action.",
+    "notFound": "This record was not found or is unavailable.",
+    "conflict": "The data changed. Reload and try again.",
+    "unauthorized": "Sign in to continue.",
+    "generic": "The request failed. Please try again.",
+    "rateLimit": "Too many attempts. Please wait and try again.",
+    "fileType": "The server returned an unsupported file format.",
+    "font": "The PDF font could not load. Please retry.",
+    "fileNetwork": "The file could not be downloaded. Check your connection and try again."
+  },
+  "media": {
+    "avatar": "Profile photo",
+    "addAvatar": "Add photo",
+    "replaceAvatar": "Replace photo",
+    "removeAvatar": "Remove photo",
+    "avatarSaved": "Profile photo updated.",
+    "imageHint": "JPG, PNG or WebP, up to 8 MB.",
+    "catalogHint": "Choose files from your device: JPG, PNG or WebP photos up to 8 MB; MP4 or WebM videos up to 40 MB. Up to 12 files in total.",
+    "demoHint": "Demo: files are stored only in this browser. Use fictional materials, without personal photos or documents.",
+    "avatarAccount": "Sign in or register to add a profile photo.",
+    "invalid": "Choose a valid JPG, PNG or WebP photo, or MP4 or WebM video.",
+    "imageRequired": "Choose a JPG, PNG or WebP photo.",
+    "imageSize": "Photos must be no larger than 8 MB.",
+    "videoSize": "Videos must be no larger than 40 MB.",
+    "storageUnavailable": "The file could not be saved in this browser. Check storage permissions and retry.",
+    "quota": "Demo files can use up to 100 MB. Free some browser storage or choose a smaller file.",
+    "notFound": "This file is unavailable for this record. Please upload it again."
+  },
+  "booking": {
+    "invalidDates": "Enter valid check-in and check-out dates.",
+    "past": "Check-in cannot be in the past.",
+    "order": "Check-out must be after check-in.",
+    "maxNights": "Choose up to 30 nights.",
+    "guests": "Choose between 1 and 4 guests.",
+    "missingRoom": "Room not found. Please choose again.",
+    "occupied": "This room is already booked for those dates. Choose another room."
+  }
+}

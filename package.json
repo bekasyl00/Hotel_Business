@@ -6,6 +6,9 @@
     "start": "vite --host 127.0.0.1 --port 4173",
     "test": "node --test && node scripts/check-fsd.mjs",
     "build": "npm run arch:sync && vite build",
+    "build:public": "npm run arch:sync && vite build --mode public",
+    "build:staff": "npm run arch:sync && vite build --mode staff",
+    "build:surfaces": "npm run build:public && npm run build:staff && node scripts/check-surfaces.mjs",
     "arch:sync": "node scripts/architecture.mjs",
     "arch:check": "npm run arch:sync && likec4 validate architecture",
     "arch": "node scripts/arch-dev.mjs",
@@ -25,9 +28,11 @@
   },
   "homepage": "https://github.com/bekasyl00/Hotel_Business#readme",
   "dependencies": {
+    "jspdf": "^4.2.1",
     "leaflet": "1.9.4",
     "pinia": "^3.0.4",
     "vue": "^3.5.44",
+    "vue-i18n": "11.4.16",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {

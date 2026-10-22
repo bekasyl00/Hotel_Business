@@ -14,5 +14,35 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - run: npm run build:surfaces
       - run: npm run arch:check
       - run: git diff --exit-code -- architecture/modules.c4
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: tynys
+          POSTGRES_USER: tynys
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U tynys -d tynys"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DJANGO_SECRET_KEY: ci-only-key-never-used-outside-the-isolated-test-job-1234
+      DEBUG: "True"
+      DATABASE_URL: postgresql://tynys:ci-only-password@localhost:5432/tynys
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - run: pip install -r backend/requirements.txt
+      - run: python backend/manage.py check
+      - run: python backend/manage.py makemigrations --check --dry-run
+      - run: python backend/manage.py collectstatic --noinput
+      - run: python backend/manage.py test booking commerce --noinput
