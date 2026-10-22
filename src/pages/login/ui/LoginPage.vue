@@ -1,9 +1,12 @@
 <script setup>
+import { useI18n } from "vue-i18n";
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useSessionStore } from "@/entities/session";
 import { request } from "@/shared/api";
-import { isDemo } from "@/shared/config";
+import { isDemo, publicUrl } from "@/shared/config";
+import { LanguageSwitcher } from "@/shared/ui";
+const { t } = useI18n();
 const accounts = ref([]),
   accountId = ref(""),
   email = ref(""),
@@ -49,59 +52,54 @@ onMounted(load);
 <template>
   <main class="login-page">
     <section class="login-story">
-      <RouterLink class="staff-brand" to="/"
-        ><img src="/assets/logo.svg" alt="" width="38" />тыныс.</RouterLink
+      <a class="staff-brand" :href="publicUrl"
+        ><img src="/assets/logo.svg" alt="" width="38" />тыныс.</a
       >
       <div>
-        <span class="eyebrow">ДЛЯ КОМАНДЫ САНАТОРИЯ</span>
-        <h1>
-          Хороший отдых <br />
-          начинается <br />
-          с порядка.
-        </h1>
-        <p>
-          Номера, тарифы и бронирования —<br />в одном рабочем пространстве.
-        </p>
+        <span class="eyebrow">{{ t("staff.teamEyebrow") }}</span>
+        <h1>{{ t("staff.loginHeadline") }}</h1>
+        <p>{{ t("staff.loginDescription") }}</p>
       </div>
-      <span class="login-bottom"
-        >С заботой о гостях. С вниманием к деталям.</span
-      >
+      <span class="login-bottom">{{ t("staff.loginTagline") }}</span>
     </section>
     <section class="login-panel">
       <div class="login-box">
-        <RouterLink class="back-link" to="/"
-          >← Вернуться к санаториям</RouterLink
-        ><span class="eyebrow">КАБИНЕТ СОТРУДНИКА</span>
-        <h2>Добро пожаловать</h2>
+        <div class="login-language"><LanguageSwitcher /></div>
+        <a class="back-link" :href="publicUrl">{{ t("staff.backToResorts") }}</a
+        ><span class="eyebrow">{{ t("staff.staffEyebrow") }}</span>
+        <h2>{{ t("staff.welcome") }}</h2>
         <p class="muted">
           {{
-            isDemo
-              ? "Выберите рабочий демо-аккаунт."
-              : "Войдите в аккаунт вашей организации."
+            isDemo ? t("staff.chooseDemoAccount") : t("staff.loginOrganization")
           }}
         </p>
-        <p v-if="loading" role="status">Загружаем аккаунты…</p>
+        <p v-if="loading" role="status">{{ t("staff.loadingAccounts") }}</p>
         <form v-else class="editor-form" @submit.prevent="login">
           <template v-if="isDemo"
             ><label
-              >Демо-аккаунт<select v-model="accountId" required>
+              >{{ t("staff.demoAccount")
+              }}<select v-model="accountId" required>
                 <option v-for="a in accounts" :key="a.id" :value="a.id">
                   {{ a.name }} ·
-                  {{ a.role === "admin" ? "администратор" : "управляющий" }}
+                  {{
+                    a.role === "admin"
+                      ? t("staff.adminLower")
+                      : t("staff.managerLower")
+                  }}
                 </option>
               </select></label
             >
             <div class="role-explanation">
               <strong>{{
                 accounts.find((a) => a.id === accountId)?.role === "admin"
-                  ? "Вся платформа"
-                  : "Только свой санаторий"
+                  ? t("staff.wholePlatform")
+                  : t("staff.ownResortOnly")
               }}</strong>
               <p>
                 {{
                   accounts.find((a) => a.id === accountId)?.role === "admin"
-                    ? "Создание санаториев, настройка номеров и управление доступами."
-                    : "Номера, тарифы, брони и история закреплённого санатория."
+                    ? t("staff.adminScope")
+                    : t("staff.managerScope")
                 }}
               </p>
             </div></template
@@ -113,7 +111,8 @@ onMounted(load);
                 autocomplete="username"
                 required /></label
             ><label
-              >Пароль<input
+              >{{ t("staff.password")
+              }}<input
                 v-model="password"
                 type="password"
                 autocomplete="current-password"
@@ -124,16 +123,22 @@ onMounted(load);
             class="primary full-width"
             :disabled="busy || (isDemo && !accounts.length)"
           >
-            {{ busy ? "Входим…" : "Войти в кабинет →" }}</button
+            {{ busy ? t("staff.signingIn") : t("staff.signIn") }}</button
           ><button v-if="error" type="button" class="text-button" @click="load">
-            Повторить загрузку
+            {{ t("staff.retryLoading") }}
           </button>
         </form>
         <p v-if="isDemo" class="demo-note">
-          Демонстрационный режим. Пароль не требуется. Данные сохраняются в этом
-          браузере; настоящая авторизация появится после подключения бэкенда.
+          {{ t("staff.demoLoginNote") }}
         </p>
       </div>
     </section>
   </main>
 </template>
+<style scoped>
+.login-language {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+}
+</style>

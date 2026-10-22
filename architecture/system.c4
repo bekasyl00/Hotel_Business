@@ -5,40 +5,109 @@ specification {
   element store
 }
 model {
-  guest = actor 'Гость' { description 'Ищет санаторий на карте и создаёт демонстрационную бронь.' }
+  guest = actor 'Гость' { description 'Выбирает санаторий на карте, затем даты и номер; создаёт заявку, оплачивает в симуляторе и оставляет отзыв после проживания.' }
   admin = actor 'Администратор' { description 'Создаёт санатории, настраивает каталог, назначает управляющих.' }
-  manager = actor 'Управляющий' { description 'Работает с номерами, тарифами, бронями и историей своего санатория.' }
+  manager = actor 'Управляющий' { description 'Управляет каталогом, заявками, отзывами и историей своего санатория.' }
   frontend = system 'Тыныс — Vue 3' {
-    description 'SPA на Vue 3, Pinia, Vue Router и Vite. FSD, русский интерфейс. i18n отложен.'
-    publicPage = service 'Гостевой сайт' { description 'pages/catalog: географическая карта, фильтры, номера, тарифы и собственные брони.' }
-    staffPage = service 'Кабинет сотрудников' { description 'pages/workspace + pages/login: обзор, CRUD каталога, аккаунты и журнал изменений.' }
-    features = service 'Формы действий' { description 'features: создание и редактирование санатория, комнаты, тарифа, аккаунта и брони.' }
-    stores = store 'Pinia' { description 'entities: session, resort, booking. Состояние интерфейса и загруженные данные, без прямого доступа к localStorage.' }
-    transport = service 'API transport' { description 'shared/api: единый асинхронный контракт. app/main выбирает demo или HTTP по VITE_DATA_MODE.' }
-    demo = service 'Демо-адаптер' { description 'app/providers/demo.js: проверки ролей и связей, доступность, версии записей, история. Это имитация сервера в браузере, не защита данных.' }
-    local = store 'Локальные данные' { description 'localStorage tynys:workspace:v2: общий демо-каталог, брони и история. sessionStorage: выбранный демо-аккаунт. Нет синхронизации между устройствами.' }
-    http = service 'HTTP-адаптер — подготовлен' { description 'fetch + cookies. VITE_DATA_MODE=api. Контракт в docs/api-contract.md; сервер пока не реализован.' }
+    description 'Vue 3, Pinia, Vue Router, Vite и FSD. Отдельные public/staff сборки и адреса; combined для локальной разработки. vue-i18n RU/KK/EN. Будущие native-приложения пока не реализованы.'
+    discovery = service 'Категории и карта' { description 'pages/catalog + widgets/public-header: поиск без дат, каталог по умолчанию; плавающая кнопка открывает модальную карту и загружает Leaflet.' }
+    guestAuth = service 'Вход гостя по телефону' { description 'pages/guest-auth + entities/guest-account: регистрация, пароль, demo OTP, сброс, выход. Аккаунты сотрудников имеют отдельную модель и вход.' }
+    localization = service 'RU / KK / EN' { description 'shared/i18n: vue-i18n, JSON namespaces, сохранённый выбор языка, формат дат/денег. Контент объектов остаётся языком автора; тесты ключей, placeholders и компиляции.' }
+    profiles = service 'Профили санатория и номера' { description 'pages/resort-profile, pages/room-profile: даты после выбора санатория, класс, описание, фото/видео, тарифы и отзывы.' }
+    bookingsPage = service 'Мои бронирования' { description 'pages/my-bookings: заявки гостевой сессии, решение управляющего, симуляция оплаты, расчёт возврата, отмена и отзыв.' }
+    guestProfile = service 'Профиль и квитанции' { description 'pages/guest-profile, receipt, staff-guest: аккаунт или анонимная история, подтверждённый телефон нельзя редактировать без новой проверки. Сотрудник видит гостя своего объекта. PDF по действию пользователя.' }
+    analyticsPage = service 'Аналитика сотрудников' { description 'pages/analytics: периоды и сравнение, дни/недели/месяцы, заявки, demo-поступления/возвраты, отзывы и разрезы.' }
+    staffPage = service 'Кабинет сотрудников' { description 'pages/workspace + pages/login: обзор, каталог, аккаунты, решения по заявкам, модерация/ответы и история.' }
+    features = service 'Действия и формы' { description 'Создание брони; редактирование объектов/номеров/тарифов/аккаунтов; demo-payment и review-form. shared/ui загружает медиа.' }
+    gallery = service 'Галерея медиа' { description 'widgets/media-gallery: фотографии, alt-тексты и видео без автозапуска со звуком.' }
+    stores = store 'Pinia' { description 'entities/session, guest-account, resort, booking: состояние интерфейса и загруженные записи; без прямого доступа представлений к localStorage.' }
+    transport = service 'API transport' { description 'shared/api: асинхронный JSON/FormData контракт; app/main выбирает demo или HTTP по VITE_DATA_MODE.' }
+    demo = service 'Браузерная демонстрация' { description 'app/providers/demo + demo-marketplace: каталог, заявки, отзывы, оплата/возврат, проверки версий и история. Фиксированный Asia/Almaty. Это имитация, не защита данных.' }
+    local = store 'Локальные данные браузера' { description 'localStorage tynys:workspace:v2; sessionStorage гостя/сотрудника, demo-хеши паролей и OTP. Отдельные origins имеют разные данные; нет общей БД между устройствами. Только вымышленные данные.' }
+    http = service 'HTTP + CSRF' { description 'VITE_DATA_MODE=api: fetch, cookie-сессия и X-CSRFToken, JSON/FormData. /api и /media проксируются в локальной среде.' }
   }
-  tiles = service 'OpenStreetMap' { description 'Leaflet загружает тайлы по HTTPS. При сбое остаются список и ручные координаты.' }
-  hosting = service 'Vercel' { description 'Публикуется только dist/site. Vue Router /staff/* обслуживается через index.html. LikeC4 не публикуется.' link https://vercel-site-puce-two.vercel.app 'Сайт' }
-  guest -> frontend.publicPage 'Поиск и бронирование'
+  backend = system 'Django + DRF — локальный API' {
+    description 'Реализованный backend; публикация в облаке не выполнена. Операционные ограничения: docs/backend.md и docs/verification.md.'
+    auth = service 'Аккаунты и сессии' { description 'Staff User и отдельный GuestAccount по телефону. Cookie+CSRF, серверные password/OTP hashes, TTL/лимиты, одноразовые challenge, отзыв сессий при reset. Demo OTP только DEBUG+флаг; реальный SMS адаптер и mobile tokens ещё не реализованы.' }
+    profiles = service 'Гости и проживание' { description 'booking GuestProfile: контакт/история гостевой сессии и scoped view сотрудника. Оплаченная confirmed-бронь: not_arrived → in_house → checked_out. После заселения отмена недоступна.' }
+    catalog = service 'Каталог и профили' { description 'booking: санатории, физические номера, классы, категории, медиа-ссылки, обычные/скидочные тарифы, время заезда и IANA timezone.' }
+    reservations = service 'Заявки и бронирования' { description 'booking/services.py: pending удерживает номер; управляющий confirmed/rejected; отмена. Серверная цена, фиксированные условия/время заезда, idempotency, версии и транзакции.' }
+    reviews = service 'Отзывы и модерация' { description 'booking: один отзыв владельца завершённой подтверждённой брони, текст/оценка/фото, решение и ответ сотрудника. Публичны только approved.' }
+    media = service 'Загрузка файлов' { description 'booking/media.py: scoped staff фото/видео или фото для гостевого отзыва. Изображения перекодируются без EXIF; видео проверяется по заголовку/размеру. Нет облачного медиапайплайна.' }
+    commerce = service 'Оплата и возврат — симулятор' { description 'commerce: DemoPayment/DemoRefund, только после confirmed и до заезда. Kaspi-themed demo без вызовов банка. >=48ч:100%; >=24ч:70%; иначе0%. Защита повторов, возврат в транзакции отмены.' }
+    receipts = service 'Демо-квитанции JSON / PDF' { description 'commerce/receipts.py: исходный снимок при оплате, отдельные сведения возврата, no-store и доступ владельцу/сотруднику. ReportLab + OFL Noto Sans. source=demo; настоящий чек от Kaspi не интегрирован.' }
+    analytics = service 'Агрегаты аналитики' { description 'booking/analytics.py: PostgreSQL-агрегаты по датам событий в Asia/Almaty, сравнение периодов, нулевые интервалы, top500 по объектам/номерам. Net demo-поступления не являются прибылью.' }
+    audit = service 'История изменений' { description 'booking Audit: before/after и актор записываются с мутацией в одной транзакции. Нет endpoint изменения журнала; DB-администратор всё ещё может менять БД.' }
+  }
+  database = store 'PostgreSQL' { description 'Каталог, пользователи/сессии, гостевые профили, брони/проживания, отзывы, demo-платежи/возвраты/снимки квитанций и аудит. GiST исключает пересечение pending/confirmed; частичный unique допускает один успешный demo-платёж на бронь.' }
+  files = store 'Локальные медиафайлы' { description 'backend/mediafiles: Django default storage. Отдача через Django только в DEBUG; durable storage/CDN, квоты и очистка остаются будущей работой.' }
+  tiles = service 'OpenStreetMap' { description 'Leaflet запрашивает тайлы по HTTPS с attribution. При сбое доступны список и ручной выбор координат.' }
+  hosting = service 'Vercel — два сайта' { description 'Public dist/site и staff dist/staff на отдельных проектах. Маршруты выбираются при сборке. LikeC4 не публикуется; облачный Django API пока не подключён.' link https://vercel-site-puce-two.vercel.app 'Сайт' }
+  staffHosting = service 'Адрес сотрудников' { description 'tynys-staff.vercel.app; отдельный сайт. Демо-данные не синхронизируются с public origin; для общих данных требуется облачный API.' link https://tynys-staff.vercel.app 'Кабинет' }
+  guest -> frontend.discovery 'Категория и карта'
+  guest -> frontend.profiles 'Даты, номер, тариф'
+  guest -> frontend.bookingsPage 'Заявка, оплата, отмена, отзыв'
+  guest -> frontend.guestProfile 'История, контакт и PDF'
+  guest -> frontend.guestAuth 'Телефон и пароль'
+  frontend.guestAuth -> frontend.transport 'guest-auth endpoints'
+  frontend.guestProfile -> frontend.guestAuth 'Регистрация и восстановление'
+  frontend.discovery -> frontend.localization 'Перевод интерфейса'
+  frontend.staffPage -> frontend.localization 'Перевод кабинета'
+  manager -> frontend.analyticsPage 'Показатели своего санатория'
+  admin -> frontend.analyticsPage 'Показатели платформы'
   admin -> frontend.staffPage 'Вся платформа'
   manager -> frontend.staffPage 'Свой санаторий'
-  frontend.publicPage -> frontend.features 'Создание брони'
-  frontend.staffPage -> frontend.features 'Управление данными'
-  frontend.publicPage -> frontend.stores 'Каталог и брони'
-  frontend.staffPage -> frontend.stores 'Роль и рабочие данные'
-  frontend.features -> frontend.transport 'Запросы изменений'
-  frontend.stores -> frontend.transport 'Загрузка и действия'
-  frontend.transport -> frontend.demo 'Режим demo — по умолчанию'
-  frontend.transport -> frontend.http 'Режим api — сервер нужен отдельно'
-  frontend.demo -> frontend.local 'Атомарная запись состояния и истории'
-  frontend.publicPage -> tiles 'Карта поиска'
-  frontend.features -> tiles 'Выбор положения санатория'
+  frontend.discovery -> frontend.profiles 'Выбор санатория'
+  frontend.profiles -> frontend.gallery 'Фото и видео'
+  frontend.profiles -> frontend.features 'Создание заявки'
+  frontend.bookingsPage -> frontend.features 'Демо-оплата и отзыв'
+  frontend.staffPage -> frontend.features 'Управление и модерация'
+  frontend.discovery -> frontend.stores 'Каталог'
+  frontend.profiles -> frontend.transport 'Профили и доступность'
+  frontend.bookingsPage -> frontend.stores 'Собственные брони'
+  frontend.bookingsPage -> frontend.transport 'Предпросмотр отмены'
+  frontend.guestProfile -> frontend.transport 'Профили и защищённые квитанции'
+  frontend.analyticsPage -> frontend.transport 'GET /analytics с фильтрами'
+  frontend.staffPage -> frontend.stores 'Роль и данные'
+  frontend.features -> frontend.transport 'Мутации и загрузки'
+  frontend.stores -> frontend.transport 'Чтение и действия'
+  frontend.transport -> frontend.demo 'Режим demo по умолчанию'
+  frontend.transport -> frontend.http 'Режим api'
+  frontend.demo -> frontend.local 'Состояние и история'
+  frontend.http -> backend 'JSON/FormData, cookies + CSRF'
+  frontend.discovery -> tiles 'Карта поиска'
+  frontend.profiles -> tiles 'Положение санатория'
+  frontend.features -> tiles 'Выбор координат'
+  frontend.gallery -> files 'Загруженные изображения/видео через /media'
+  backend.auth -> database 'Пользователи и сессии'
+  backend.profiles -> database 'Контакт и история в разрешённой области'
+  backend.profiles -> backend.reservations 'Отметки заезда и выезда'
+  backend.catalog -> database 'Каталог'
+  backend.reservations -> database 'Блокировка санатория и защита пересечений'
+  backend.reservations -> backend.commerce 'Отмена и возврат в одной транзакции'
+  backend.commerce -> database 'Попытки платежа и возврат'
+  backend.commerce -> backend.receipts 'Снимок при успешной demo-оплате'
+  backend.receipts -> database 'Исходные поля и текущий возврат'
+  backend.receipts -> backend.auth 'Владелец либо scoped staff'
+  backend.analytics -> database 'Агрегация событий без выгрузки всего workspace'
+  backend.analytics -> backend.auth 'Доступные санатории'
+  backend.reviews -> backend.reservations 'Право на отзыв по завершённому проживанию'
+  backend.reviews -> database 'Отзывы и агрегат рейтинга'
+  backend.media -> backend.auth 'Доступ сотрудника к санаторию'
+  backend.media -> backend.reviews 'Право гостя загрузить фото'
+  backend.media -> files 'Проверенные файлы с UUID-именами'
+  backend.catalog -> backend.audit 'Изменение каталога'
+  backend.reservations -> backend.audit 'Переходы брони'
+  backend.reviews -> backend.audit 'Отзыв и модерация'
+  backend.commerce -> backend.audit 'Demo-payment и demo-refund'
+  backend.audit -> database 'Внутри транзакции операции'
   hosting -> frontend 'Отдаёт статическую сборку'
 }
 views {
-  view index { title 'Тыныс: роли и приложение' include guest, admin, manager, frontend, tiles, hosting }
-  view browser of frontend { title 'Vue / Pinia / адаптеры данных' include frontend.*, guest, admin, manager, tiles }
-  view publication { title 'Публикация только сайта' include hosting, frontend, tiles }
+  view index { title 'Тыныс: роли и платформа' include guest, admin, manager, frontend, backend, database, files, tiles, hosting }
+  view browser of frontend { title 'Vue / FSD / адаптеры данных' include frontend.*, guest, admin, manager, tiles }
+  view api { title 'Локальный backend: каталог, брони, отзывы и commerce' include frontend.http, backend.*, database, files }
+  view bookingFlow { title 'Заявка, оплата и отмена' include guest, manager, frontend.bookingsPage, frontend.staffPage, backend.reservations, backend.commerce, backend.audit, database }
+  view reporting { title 'История, квитанции и аналитика' include guest, manager, admin, frontend.guestProfile, frontend.analyticsPage, backend.profiles, backend.receipts, backend.analytics, database }
+  view publication { title 'Статический сайт и отдельно запускаемый API' include hosting, frontend, backend, files, tiles }
 }

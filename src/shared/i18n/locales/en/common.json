@@ -1,0 +1,49 @@
+{
+  "language": "Language",
+  "appName": "Tynys · resorts and stays",
+  "notFound": "Page not found",
+  "home": "Home",
+  "reload": "Reload page",
+  "loadError": "This section could not load. Check your connection and reload the page.",
+  "category": {
+    "standard": "Standard",
+    "comfort": "Comfort",
+    "suite": "Suite"
+  },
+  "status": {
+    "published": "Published",
+    "draft": "Draft",
+    "archived": "Archived",
+    "active": "Active",
+    "maintenance": "Maintenance",
+    "pending": "Awaiting confirmation",
+    "rejected": "Rejected",
+    "confirmed": "Confirmed",
+    "cancelled": "Cancelled",
+    "disabled": "Disabled"
+  },
+  "error": {
+    "network": "Cannot reach the server. Check your connection and try again.",
+    "csrf": "The request could not be secured. Reload the page.",
+    "invalidResponse": "The server returned an invalid response.",
+    "validation": "Check the form fields.",
+    "forbidden": "You do not have permission for this action.",
+    "notFound": "This record was not found or is unavailable.",
+    "conflict": "The data changed. Reload and try again.",
+    "unauthorized": "Sign in to continue.",
+    "generic": "The request failed. Please try again.",
+    "rateLimit": "Too many attempts. Please wait and try again.",
+    "fileType": "The server returned an unsupported file format.",
+    "font": "The PDF font could not load. Please retry.",
+    "fileNetwork": "The file could not be downloaded. Check your connection and try again."
+  },
+  "booking": {
+    "invalidDates": "Enter valid check-in and check-out dates.",
+    "past": "Check-in cannot be in the past.",
+    "order": "Check-out must be after check-in.",
+    "maxNights": "Choose up to 30 nights.",
+    "guests": "Choose between 1 and 4 guests.",
+    "missingRoom": "Room not found. Please choose again.",
+    "occupied": "This room is already booked for those dates. Choose another room."
+  }
+}

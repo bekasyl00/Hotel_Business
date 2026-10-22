@@ -2,11 +2,26 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:public",
   "outputDirectory": "dist/site",
   "rewrites": [
+    { "source": "/account/:path*", "destination": "/index.html" },
+    { "source": "/profile", "destination": "/index.html" },
+    { "source": "/receipts/:path*", "destination": "/index.html" },
     {
       "source": "/staff/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/resorts/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/rooms/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/bookings",
       "destination": "/index.html"
     }
   ]

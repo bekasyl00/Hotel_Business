@@ -1,4 +1,7 @@
 <script setup>
+import { useI18n } from "vue-i18n";
+const { t, locale } = useI18n();
+
 import { ref, watch, onMounted, onBeforeUnmount } from "vue";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -14,6 +17,7 @@ const element = ref();
 const error = ref("");
 const loading = ref(true);
 let map,
+  zoom,
   markers,
   observer,
   failed = false;
@@ -24,7 +28,7 @@ function redraw() {
     ? [
         {
           id: "location",
-          name: "Место санатория",
+          name: t("staff.resortLocation"),
           lat: props.lat,
           lng: props.lng,
         },
@@ -40,7 +44,7 @@ function redraw() {
       continue;
     const node = document.createElement("span");
     node.className = `price-marker ${p.id === props.selected ? "selected" : ""}`;
-    node.textContent = props.editable ? "● Санаторий" : p.label;
+    node.textContent = props.editable ? t("staff.resortMarker") : p.label;
     const marker = L.marker([p.lat, p.lng], {
       icon: L.divIcon({
         className: "price-marker-wrap",
@@ -61,7 +65,7 @@ function redraw() {
       .getElement()
       ?.setAttribute(
         "aria-label",
-        props.editable ? "Место санатория" : `${p.name}, ${p.label}`,
+        props.editable ? t("staff.resortLocation") : `${p.name}, ${p.label}`,
       );
   }
 }
@@ -80,7 +84,7 @@ onMounted(() => {
     [props.lat, props.lng],
     16,
   );
-  L.control.zoom({ position: "bottomright" }).addTo(map);
+  updateZoom();
   const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution:
@@ -88,8 +92,7 @@ onMounted(() => {
   });
   tiles.on("tileerror", () => {
     failed = true;
-    error.value =
-      "Не все участки карты загрузились. Можно продолжить через список или координаты.";
+    error.value = t("staff.mapPartialError");
     loading.value = false;
   });
   tiles.on("load", () => {
@@ -109,6 +112,22 @@ onMounted(() => {
     );
   observer = new ResizeObserver(() => map.invalidateSize());
   observer.observe(element.value);
+});
+function updateZoom() {
+  if (!map) return;
+  zoom?.remove();
+  zoom = L.control
+    .zoom({
+      position: "bottomright",
+      zoomInTitle: t("staff.zoomIn"),
+      zoomOutTitle: t("staff.zoomOut"),
+    })
+    .addTo(map);
+}
+watch(locale, () => {
+  redraw();
+  updateZoom();
+  if (failed) error.value = t("staff.mapPartialError");
 });
 watch(() => [props.points, props.selected, props.lat, props.lng], redraw, {
   deep: true,
@@ -135,21 +154,21 @@ defineExpose({ reset });
       ref="element"
       class="geo-map"
       :aria-label="
-        editable ? 'Выбрать положение санатория на карте' : 'Карта санаториев'
+        editable ? t('staff.chooseMapLocation') : t('staff.resortMap')
       "
     ></div>
     <div v-if="error || loading" class="geo-notice" role="status">
-      {{ error || "Загружаем карту…" }}
+      {{ error || t("staff.loadingMap") }}
     </div>
     <button
       v-if="!editable"
       class="map-reset"
       type="button"
-      aria-label="Показать все санатории"
+      :aria-label="t('staff.showAllResorts')"
       @click="reset"
     >
       ◎
     </button>
-    <div v-else class="geo-tip">Нажмите на карту, чтобы поставить метку</div>
+    <div v-else class="geo-tip">{{ t("staff.placeMapMarker") }}</div>
   </div>
 </template>

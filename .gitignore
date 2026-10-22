@@ -6,3 +6,11 @@ output/
 .env*
 !.env.example
 .vercel/
+backend/.venv/
+__pycache__/
+*.pyc
+backend/staticfiles/
+backend/mediafiles/
+.coverage
+htmlcov/
+.ruff_cache/

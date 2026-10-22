@@ -1,28 +1,32 @@
 <script setup>
+import { useI18n } from "vue-i18n";
 import { computed } from "vue";
 import { useSessionStore } from "@/entities/session";
+import { LanguageSwitcher } from "@/shared/ui";
+import { publicUrl } from "@/shared/config";
+const { t } = useI18n();
 const props = defineProps({ section: String });
 const emit = defineEmits(["logout"]);
 const session = useSessionStore();
 const nav = computed(() => [
-  ["overview", "◫", "Обзор"],
-  ["resorts", "⌖", session.isAdmin ? "Санатории" : "Мой санаторий"],
-  ["rooms", "▦", "Номера"],
-  ["tariffs", "◈", "Тарифы"],
-  ["bookings", "▤", "Бронирования"],
-  ["history", "◷", "История изменений"],
-  ...(session.isAdmin ? [["accounts", "♙", "Управляющие"]] : []),
+  ["overview", "◫", t("staff.overview")],
+  ["analytics", "↗", t("staff.analytics")],
+  ["resorts", "⌖", session.isAdmin ? t("staff.resorts") : t("staff.myResort")],
+  ["rooms", "▦", t("staff.rooms")],
+  ["tariffs", "◈", t("staff.tariffs")],
+  ["bookings", "▤", t("staff.bookings")],
+  ["reviews", "☆", t("staff.reviews")],
+  ["history", "◷", t("staff.history")],
+  ...(session.isAdmin ? [["accounts", "♙", t("staff.managers")]] : []),
 ]);
 </script>
 <template>
   <div class="staff-layout">
     <aside class="staff-sidebar">
-      <RouterLink to="/" class="staff-brand"
-        ><img src="/assets/logo.svg" alt="" width="32" /><span
-          >тыныс.</span
-        ></RouterLink
-      ><span class="sidebar-caption">РАБОЧЕЕ ПРОСТРАНСТВО</span>
-      <nav aria-label="Кабинет сотрудника">
+      <a :href="publicUrl" class="staff-brand"
+        ><img src="/assets/logo.svg" alt="" width="32" /><span>тыныс.</span></a
+      ><span class="sidebar-caption">{{ t("staff.workspaceEyebrow") }}</span>
+      <nav :aria-label="t('staff.staffWorkspace')">
         <RouterLink
           v-for="[key, icon, title] in nav"
           :key="key"
@@ -37,13 +41,13 @@ const nav = computed(() => [
         <span class="avatar">{{ session.user?.name[0] }}</span>
         <div>
           <strong>{{
-            session.isAdmin ? "Администратор" : "Управляющий"
+            session.isAdmin ? t("staff.admin") : t("staff.manager")
           }}</strong
           ><small>{{ session.user?.login }}</small>
         </div>
         <button
           class="logout-button"
-          aria-label="Выйти из кабинета"
+          :aria-label="t('staff.signOut')"
           @click="emit('logout')"
         >
           ↪
@@ -53,13 +57,40 @@ const nav = computed(() => [
     <div class="staff-content">
       <header class="staff-topbar">
         <span
-          >Кабинет /
+          >{{ t("staff.workspaceBreadcrumb") }}
           <strong>{{
-            session.isAdmin ? "Платформа" : "Санаторий"
+            session.isAdmin ? t("staff.platform") : t("staff.resort")
           }}</strong></span
-        ><RouterLink to="/">Открыть сайт ↗</RouterLink>
+        >
+        <div class="staff-topbar-actions">
+          <LanguageSwitcher />
+          <a :href="publicUrl">{{ t("staff.openWebsite") }}</a>
+        </div>
       </header>
       <slot />
     </div>
   </div>
 </template>
+<style scoped>
+.staff-topbar {
+  height: auto;
+  min-height: 76px;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-block: 12px;
+}
+.staff-topbar-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+@media (max-width: 760px) {
+  .staff-topbar {
+    min-height: 52px;
+  }
+  .staff-topbar-actions {
+    gap: 10px;
+  }
+}
+</style>
