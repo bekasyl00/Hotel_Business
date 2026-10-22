@@ -10,6 +10,7 @@
 8. Initial decision: no hosting, backend framework, database provider or payment provider was selected. Update: GitHub Pages is selected for the static demo; backend, database and payments remain undecided.
 9. Assets: generic photos from Unsplash (photo-1566073771259-6a8506099945 and photo-1611892440504-42a792e24d32). Font: Manrope via Google Fonts with system fallback. No personal data is requested by the demo.
 10. Publishing: `.github/workflows/pages.yml` builds and publishes the static prototype after pushes to main. The architecture viewer is built into `/Hotel_Business/architecture/` with hash navigation so deep links work on static hosting. Only `dist/site` is uploaded, not the repository or node_modules. Public access does not turn localStorage into shared inventory.
+11. Deployment attempt: GitHub Actions remained queued during a reported service degradation. A Vercel fallback is configured in `vercel.json`; deployment requires account authentication because the CLI rejected its anonymous temporary mode. This is a prepared alternative, not a confirmed deployment. Vercel uses `/architecture/`, whereas GitHub Pages uses the repository prefix.
 
 ## Interface contract
 
