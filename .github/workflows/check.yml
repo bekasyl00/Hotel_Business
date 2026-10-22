@@ -28,7 +28,7 @@ jobs:
           POSTGRES_PASSWORD: ci-only-password
         ports: ["5432:5432"]
         options: >-
-          --health-cmd 'pg_isready -U tynys -d tynys'
+          --health-cmd "pg_isready -U tynys -d tynys"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
       DJANGO_SECRET_KEY: ci-only-key-never-used-outside-the-isolated-test-job-1234
