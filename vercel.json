@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci",
-  "buildCommand": "npm run build && npx likec4 build architecture -o dist/site/architecture --base /architecture/ --use-hash-history",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist/site"
 }
