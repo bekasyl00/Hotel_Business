@@ -19,6 +19,7 @@ const loading = ref(true);
 let map,
   zoom,
   markers,
+  tiles,
   observer,
   failed = false;
 function redraw() {
@@ -76,26 +77,30 @@ function reset() {
   if (map && points.length)
     map.fitBounds(
       points.map((p) => [p.lat, p.lng]),
-      { padding: [65, 65], maxZoom: 16 },
+      { padding: [65, 65], maxZoom: 16, animate: false },
     );
 }
 onMounted(() => {
-  map = L.map(element.value, { zoomControl: false }).setView(
-    [props.lat, props.lng],
-    16,
-  );
+  // Leaflet 1.9 leaves its CSS zoom timeout alive after remove().
+  map = L.map(element.value, {
+    zoomControl: false,
+    zoomAnimation: false,
+    markerZoomAnimation: false,
+  }).setView([props.lat, props.lng], 16);
   updateZoom();
-  const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19,
     attribution:
       '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
   });
   tiles.on("tileerror", () => {
+    if (!map) return;
     failed = true;
     error.value = t("staff.mapPartialError");
     loading.value = false;
   });
   tiles.on("load", () => {
+    if (!map) return;
     loading.value = false;
     if (!failed) error.value = "";
   });
@@ -110,7 +115,7 @@ onMounted(() => {
         lng: Number(e.latlng.lng.toFixed(6)),
       }),
     );
-  observer = new ResizeObserver(() => map.invalidateSize());
+  observer = new ResizeObserver(() => map?.invalidateSize({ pan: false }));
   observer.observe(element.value);
 });
 function updateZoom() {
@@ -144,7 +149,15 @@ watch(
 );
 onBeforeUnmount(() => {
   observer?.disconnect();
-  map?.remove();
+  const currentMap = map;
+  map = null;
+  tiles?.off();
+  currentMap?.stop();
+  currentMap?.remove();
+  markers = null;
+  zoom = null;
+  tiles = null;
+  observer = null;
 });
 defineExpose({ reset });
 </script>
