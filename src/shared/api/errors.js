@@ -15,6 +15,14 @@ const codes = {
   name_invalid: "common.error.validation",
   session_expired: "auth.sessionExpired",
   phone_change_requires_verification: "auth.phoneLocked",
+  media_invalid: "common.media.invalid",
+  media_image_required: "common.media.imageRequired",
+  media_image_size: "common.media.imageSize",
+  media_video_size: "common.media.videoSize",
+  media_storage_unavailable: "common.media.storageUnavailable",
+  media_quota: "common.media.quota",
+  media_avatar_account: "common.media.avatarAccount",
+  media_not_found: "common.media.notFound",
 };
 export function errorMessage(message, status, code) {
   if (codes[code]) return t(codes[code]);

@@ -257,6 +257,8 @@ def transition_booking(request, pk, staff=False):
 
 @transaction.atomic
 def save_catalog(request, kind, pk=None):
+    from .media_access import validate_asset_references
+
     require_staff(request.user)
     model, serializer_cls = MODELS[kind], SERIALIZERS[kind]
     item = get_object_or_404(model, pk=pk) if pk else None
@@ -278,6 +280,8 @@ def save_catalog(request, kind, pk=None):
     inp = serializer_cls(item, data=request.data, partial=bool(item))
     inp.is_valid(raise_exception=True)
     data = inp.validated_data
+    if "media" in data:
+        validate_asset_references(data["media"], purpose="catalog", resort_id=resort_id)
     if kind != "resorts":
         if item and data.get("resort", item.resort).pk != item.resort_id:
             raise Problem("Нельзя переносить запись в другой санаторий.")
@@ -394,11 +398,16 @@ def review_booking(request, booking_id):
 
 @transaction.atomic
 def create_review(request):
+    from .media_access import validate_asset_references
+
     inp = ReviewInput(data=request.data)
     inp.is_valid(raise_exception=True)
     data = inp.validated_data
     booking = review_booking(request, data["bookingId"])
     Resort.objects.select_for_update().get(pk=booking.resort_id)
+    validate_asset_references(
+        data["photos"], purpose="review", resort_id=booking.resort_id, booking_id=booking.pk
+    )
     if Review.objects.filter(booking=booking).exists():
         raise Problem("Отзыв об этом проживании уже отправлен.", 409)
     review = Review.objects.create(

@@ -120,6 +120,13 @@ class GuestProfile(Record):
     phone = models.CharField(max_length=30)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    avatar = models.ForeignKey(
+        "MediaAsset",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="avatar_profiles",
+    )
 
 
 class GuestAccount(Record):
@@ -229,3 +236,51 @@ class LoginAttempt(models.Model):
     key = models.CharField(max_length=64, primary_key=True)
     count = models.PositiveIntegerField(default=0)
     since = models.DateTimeField()
+
+
+class MediaAsset(Record):
+    purpose = models.CharField(
+        max_length=16, choices=[(v, v) for v in ["catalog", "review", "avatar"]]
+    )
+    kind = models.CharField(max_length=8, choices=[("image", "image"), ("video", "video")])
+    storage_key = models.CharField(max_length=300, unique=True, editable=False)
+    size = models.PositiveBigIntegerField()
+    content_type = models.CharField(max_length=40)
+    resort = models.ForeignKey(Resort, null=True, blank=True, on_delete=models.PROTECT)
+    booking = models.ForeignKey(Booking, null=True, blank=True, on_delete=models.PROTECT)
+    profile = models.ForeignKey(GuestProfile, null=True, blank=True, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def url(self):
+        return f"/api/media/files/{self.pk}"
+
+    class Meta:
+        indexes = [models.Index(fields=["purpose", "created_at"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=(
+                    Q(
+                        purpose="catalog",
+                        resort__isnull=False,
+                        booking__isnull=True,
+                        profile__isnull=True,
+                    )
+                    | Q(
+                        purpose="review",
+                        resort__isnull=False,
+                        booking__isnull=False,
+                        profile__isnull=True,
+                        kind="image",
+                    )
+                    | Q(
+                        purpose="avatar",
+                        resort__isnull=True,
+                        booking__isnull=True,
+                        profile__isnull=False,
+                        kind="image",
+                    )
+                ),
+                name="media_owner_matches_purpose",
+            )
+        ]

@@ -11,7 +11,7 @@ from PIL import Image
 from psycopg.types.range import Range
 from rest_framework.test import APIClient
 
-from .models import Audit, Booking, Resort, Review
+from .models import Audit, Booking, MediaAsset, Resort, Review
 from .tests import fixture
 
 
@@ -220,7 +220,12 @@ class CatalogueTests(TestCase):
             )
             self.assertEqual(response.status_code, 201, response.content)
             self.assertEqual(response.json()["kind"], "image")
-            self.assertTrue(response.json()["url"].endswith(".jpg"))
+            self.assertEqual(
+                response.json()["url"], MediaAsset.objects.get(pk=response.json()["id"]).url
+            )
+            self.assertTrue(
+                MediaAsset.objects.get(pk=response.json()["id"]).storage_key.endswith(".jpg")
+            )
             fake = SimpleUploadedFile("fake.png", b"<script>bad</script>", content_type="image/png")
             self.assertEqual(
                 self.client.post(
@@ -266,7 +271,7 @@ class CatalogueTests(TestCase):
                 HTTP_X_CSRFTOKEN=self.token,
             )
             self.assertEqual(response.status_code, 201, response.content)
-            self.assertIn("/media/reviews/", response.json()["url"])
+            self.assertIn("/api/media/files/", response.json()["url"])
             self.assertNotIn(booking.pk, response.json()["url"])
 
     def test_upload_requires_csrf_and_strips_original_filename_and_metadata(self):

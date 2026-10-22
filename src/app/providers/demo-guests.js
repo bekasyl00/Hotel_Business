@@ -4,10 +4,19 @@ import { ApiError } from "../../shared/api/index.js";
 const fail = (message, status = 422) => {
   throw new ApiError(message, status);
 };
-const publicProfile = ({ id, name, phone, version, createdAt, updatedAt }) => ({
+const publicProfile = ({
   id,
   name,
   phone,
+  avatarUrl = "",
+  version,
+  createdAt,
+  updatedAt,
+}) => ({
+  id,
+  name,
+  phone,
+  avatarUrl,
   version,
   createdAt,
   updatedAt,

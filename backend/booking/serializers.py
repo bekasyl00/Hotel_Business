@@ -29,7 +29,7 @@ def validate_media_url(value):
     relative = (
         not parsed.scheme
         and not parsed.netloc
-        and path.startswith(("/assets/", "/media/"))
+        and path.startswith(("/assets/", "/media/", "/api/media/files/"))
         and not parsed.query
         and not parsed.fragment
     )
@@ -256,6 +256,7 @@ def guest_profile_data(profile):
         "id": profile.pk,
         "name": profile.name,
         "phone": profile.phone,
+        "avatarUrl": f"/api/media/files/{profile.avatar_id}" if profile.avatar_id else None,
         "version": profile.version,
         "createdAt": profile.created_at.isoformat(),
         "updatedAt": profile.updated_at.isoformat(),

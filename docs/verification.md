@@ -1,6 +1,22 @@
 # Проверки проекта
 
-## Аккаунты, языки и отдельный кабинет — 23 октября 2026
+## Файлы, мобильные сессии, Django Admin и Supabase — 23 октября 2026
+
+Текущая реализация проверена локально с настоящим PostgreSQL 17. Отдельно через официальный коннектор Supabase создана и проверена облачная структура; это не подтверждение соединения запущенного Django с облаком.
+
+- Backend: **107/107** (`backend/.venv/bin/python backend/manage.py test booking commerce --noinput`). Проверены изоляция mobile Bearer/cookie и staff, ротация/replay/revoke/reset, конкурентные сессии, частные файлы/аватары, владение медиа, лимиты/Range/очистка и read-only Django Admin. В дополнительном review исправлены обход проверки ссылок через encoded URL и HTTP 500 при слишком длинном Range; регрессии включены. Migration drift, Django check, Ruff check/format — pass.
+- Frontend: **59/59**, FSD — 87 файлов / 214 импортов. `npm run build`, `npm run build:surfaces`, `npm run arch:check` — pass. Проверены обе границы сборок и паритет RU/KK/EN.
+- Браузер: в demo и через локальный Django выполнены загрузка фото санатория с сохранением/повторным открытием, регистрация вымышленного гостя, загрузка/замена/удаление аватара и восстановление после reload. Ширины 390/1440px, без горизонтального переполнения и ошибок консоли в проверенных сценариях. Ключевые снимки: `output/playwright/api-avatar-mobile.png`, `output/playwright/media-avatar-desktop.png`, `output/playwright/media-avatar-mobile.png`.
+- Django Admin `/django-admin/` отвечает отдельной формой входа. Superuser-only доступ, поиск/фильтры, счётчики, запреты записи/удаления и скрытие секретов проверены серверными тестами. Админка работает на локальном backend; в статические Vercel-сборки она не входит.
+- Supabase `uchqzxxqioixhzbnwcak`: 25 таблиц в закрытой схеме `tynys`, 26 записей Django migrations, RLS на всех 25 таблицах, USAGE для `anon`/`authenticated` отсутствует. `btree_gist` и `no_overlapping_active_bookings` присутствуют. Аккаунты и брони в облако не переносились. Private bucket `tynys-private`: 40 MiB, JPEG/MP4/WebM, без клиентских политик.
+- Облачный bootstrap получен из реальных миграций в одноразовой локальной базе; восстановление в другой базе, `migrate --check`, отсутствие новых миграций и защита от повторного применения проверены. SHA-256: `d09e525d407e569ad75ac5bec1fa03297a14a02363558122818024580bc1ba6a`. Источник: `scripts/export-django-schema.py`; SQL и manifest — `output/supabase-bootstrap-20261023.*`.
+- Supabase advisors: нет ERROR/WARN; INFO `RLS enabled no policy` соответствует намеренному запрету клиентского доступа. INFO о неиспользованных индексах ожидаемо для пустой базы, индексы не удалялись. [RLS advisory](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy), [unused-index advisory](https://supabase.com/docs/guides/database/database-linter?lint=0005_unused_index).
+
+Гостевой сайт и staff опубликованы отдельно из `dist/site` и `dist/staff`; Vercel сообщает READY. Прямые страницы возвращают HTTP 200 и тот же index.html, что проверенные локальные артефакты. Веб-публикации остаются demo с раздельным хранилищем origins. LikeC4, backend и секретные настройки не публиковались.
+
+Остаётся: реальная runtime-проверка Django → Supabase PostgreSQL/S3 после заполнения секретов/CA, ограниченная серверная роль с RLS-политиками, cloud hosting и same-origin API proxy, реальные SMS/Kaspi, native-регистрация/reset и сами iOS/Android клиенты. Для масштаба ещё нужны пагинация/поиск больших реестров, нагрузочные замеры, фоновые задачи, проверки/транскодирование видео, backup/restore и эксплуатационный мониторинг. [Подключение Supabase](supabase.md), [критерии запуска](production-readiness.md). Это фундамент, а не завершение всей платформы.
+
+## Историческая проверка аккаунтов, языков и отдельного кабинета — 23 октября 2026
 
 Текущая проверка дополняет реализованные ранее бронирования, аналитику и квитанции. Услуги SMS и Kaspi не подключены; реальные персональные данные не использовались.
 

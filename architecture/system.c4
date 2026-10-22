@@ -8,6 +8,8 @@ model {
   guest = actor 'Гость' { description 'Выбирает санаторий на карте, затем даты и номер; создаёт заявку, оплачивает в симуляторе и оставляет отзыв после проживания.' }
   admin = actor 'Администратор' { description 'Создаёт санатории, настраивает каталог, назначает управляющих.' }
   manager = actor 'Управляющий' { description 'Управляет каталогом, заявками, отзывами и историей своего санатория.' }
+  operator = actor 'Оператор платформы' { description 'Активный Django staff-superuser; просматривает общую БД в технической консоли. Обычный администратор/управляющий этого доступа не получает.' }
+  native = system 'iOS / Android — будущий клиент' { description 'Само приложение ещё не реализовано. Подготовлен общий /api/v1 и native guest access/refresh API. Keychain/Keystore, native OTP, push и публикация остаются работой клиента.' }
   frontend = system 'Тыныс — Vue 3' {
     description 'Vue 3, Pinia, Vue Router, Vite и FSD. Отдельные public/staff сборки и адреса; combined для локальной разработки. vue-i18n RU/KK/EN. Будущие native-приложения пока не реализованы.'
     discovery = service 'Категории и карта' { description 'pages/catalog + widgets/public-header: поиск без дат, каталог по умолчанию; плавающая кнопка открывает модальную карту и загружает Leaflet.' }
@@ -15,32 +17,37 @@ model {
     localization = service 'RU / KK / EN' { description 'shared/i18n: vue-i18n, JSON namespaces, сохранённый выбор языка, формат дат/денег. Контент объектов остаётся языком автора; тесты ключей, placeholders и компиляции.' }
     profiles = service 'Профили санатория и номера' { description 'pages/resort-profile, pages/room-profile: даты после выбора санатория, класс, описание, фото/видео, тарифы и отзывы.' }
     bookingsPage = service 'Мои бронирования' { description 'pages/my-bookings: заявки гостевой сессии, решение управляющего, симуляция оплаты, расчёт возврата, отмена и отзыв.' }
-    guestProfile = service 'Профиль и квитанции' { description 'pages/guest-profile, receipt, staff-guest: аккаунт или анонимная история, подтверждённый телефон нельзя редактировать без новой проверки. Сотрудник видит гостя своего объекта. PDF по действию пользователя.' }
+    guestProfile = service 'Профиль, аватар и квитанции' { description 'pages/guest-profile, receipt, staff-guest: история и загрузка аватара зарегистрированного гостя; подтверждённый телефон нельзя редактировать без новой проверки. Сотрудник видит гостя своего объекта. PDF по действию пользователя.' }
     analyticsPage = service 'Аналитика сотрудников' { description 'pages/analytics: периоды и сравнение, дни/недели/месяцы, заявки, demo-поступления/возвраты, отзывы и разрезы.' }
     staffPage = service 'Кабинет сотрудников' { description 'pages/workspace + pages/login: обзор, каталог, аккаунты, решения по заявкам, модерация/ответы и история.' }
-    features = service 'Действия и формы' { description 'Создание брони; редактирование объектов/номеров/тарифов/аккаунтов; demo-payment и review-form. shared/ui загружает медиа.' }
+    features = service 'Действия и формы' { description 'Создание брони; редактирование объектов/номеров/тарифов/аккаунтов; demo-payment и review-form. shared/ui выбирает фото/видео с устройства и отправляет FormData.' }
     gallery = service 'Галерея медиа' { description 'widgets/media-gallery: фотографии, alt-тексты и видео без автозапуска со звуком.' }
     stores = store 'Pinia' { description 'entities/session, guest-account, resort, booking: состояние интерфейса и загруженные записи; без прямого доступа представлений к localStorage.' }
     transport = service 'API transport' { description 'shared/api: асинхронный JSON/FormData контракт; app/main выбирает demo или HTTP по VITE_DATA_MODE.' }
     demo = service 'Браузерная демонстрация' { description 'app/providers/demo + demo-marketplace: каталог, заявки, отзывы, оплата/возврат, проверки версий и история. Фиксированный Asia/Almaty. Это имитация, не защита данных.' }
-    local = store 'Локальные данные браузера' { description 'localStorage tynys:workspace:v2; sessionStorage гостя/сотрудника, demo-хеши паролей и OTP. Отдельные origins имеют разные данные; нет общей БД между устройствами. Только вымышленные данные.' }
+    local = store 'Локальные данные браузера' { description 'localStorage tynys:workspace:v2; sessionStorage гостя/сотрудника, demo-хеши паролей/OTP; IndexedDB для загруженных blobs. Отдельные origins имеют разные данные; общей БД между устройствами нет. Только вымышленные данные.' }
     http = service 'HTTP + CSRF' { description 'VITE_DATA_MODE=api: fetch, cookie-сессия и X-CSRFToken, JSON/FormData. /api и /media проксируются в локальной среде.' }
   }
   backend = system 'Django + DRF — локальный API' {
-    description 'Реализованный backend; публикация в облаке не выполнена. Операционные ограничения: docs/backend.md и docs/verification.md.'
-    auth = service 'Аккаунты и сессии' { description 'Staff User и отдельный GuestAccount по телефону. Cookie+CSRF, серверные password/OTP hashes, TTL/лимиты, одноразовые challenge, отзыв сессий при reset. Demo OTP только DEBUG+флаг; реальный SMS адаптер и mobile tokens ещё не реализованы.' }
-    profiles = service 'Гости и проживание' { description 'booking GuestProfile: контакт/история гостевой сессии и scoped view сотрудника. Оплаченная confirmed-бронь: not_arrived → in_house → checked_out. После заселения отмена недоступна.' }
+    description 'Модульный transactional backend для web и будущих native-клиентов; публикация в облаке не выполнена. Операционные ограничения: docs/backend.md и docs/verification.md.'
+    api = service 'Общий /api/v1' { description 'config/urls: versioned /api/v1 и legacy /api вызывают одни DRF handlers. Browser cookie+CSRF либо проверенный guest Bearer; JSON/FormData и серверные permissions.' }
+    auth = service 'Аккаунты и web-сессии' { description 'Staff User и отдельный GuestAccount по телефону. Cookie+CSRF, серверные password/OTP hashes, TTL/лимиты, одноразовые challenge, отзыв сессий при reset. Demo OTP только DEBUG+флаг; реальный SMS и native challenge transport ещё не реализованы.' }
+    mobileAuth = service 'Native guest credentials' { description 'booking/mobile_auth + identity: opaque access 15мин, семейство 30дней, rotating refresh и отзыв при replay, список/отзыв устройств, auth-version. Хранятся HMAC hashes; Bearer не даёт staff-прав и не откатывается к cookie при ошибке.' }
+    adminConsole = service 'Django Admin /django-admin/' { description 'booking.admin platform_admin_site: только active staff superuser, readonly модели, поиск/фильтры/счётчики и переходы в service-backed staff UI. Хеши, OTP и storage keys скрыты; login rate-limit. /admin/ перенаправляет сюда.' }
+    profiles = service 'Гости, аватары и проживание' { description 'GuestProfile: контакт/история владельца и scoped staff view. Avatar FK на MediaAsset; upload/delete только signed-in guest с аудитом. Оплаченная confirmed-бронь: not_arrived → in_house → checked_out; после заселения отмена недоступна.' }
     catalog = service 'Каталог и профили' { description 'booking: санатории, физические номера, классы, категории, медиа-ссылки, обычные/скидочные тарифы, время заезда и IANA timezone.' }
     reservations = service 'Заявки и бронирования' { description 'booking/services.py: pending удерживает номер; управляющий confirmed/rejected; отмена. Серверная цена, фиксированные условия/время заезда, idempotency, версии и транзакции.' }
     reviews = service 'Отзывы и модерация' { description 'booking: один отзыв владельца завершённой подтверждённой брони, текст/оценка/фото, решение и ответ сотрудника. Публичны только approved.' }
-    media = service 'Загрузка файлов' { description 'booking/media.py: scoped staff фото/видео или фото для гостевого отзыва. Изображения перекодируются без EXIF; видео проверяется по заголовку/размеру. Нет облачного медиапайплайна.' }
+    media = service 'Файлы и доступ к медиа' { description 'media.py + media_access: FormData, MediaAsset с владельцем/purpose, валидация ссылок, image decode/EXIF strip и basic MP4/WebM. Квоты 24ч/100файлов, stable /api/media/files/:id и проверка публикации/владельца. Local range либо S3 signed redirect на 60с.' }
+    maintenance = service 'Очистка и обслуживание' { description 'cleanup_media: dry-run по умолчанию, --delete удаляет только непривязанные metadata-backed uploads старше 24ч под owner locks. cleanup_mobile_sessions удаляет expired families. Расписание, storage reconciliation и restore проверка ещё не настроены.' }
     commerce = service 'Оплата и возврат — симулятор' { description 'commerce: DemoPayment/DemoRefund, только после confirmed и до заезда. Kaspi-themed demo без вызовов банка. >=48ч:100%; >=24ч:70%; иначе0%. Защита повторов, возврат в транзакции отмены.' }
     receipts = service 'Демо-квитанции JSON / PDF' { description 'commerce/receipts.py: исходный снимок при оплате, отдельные сведения возврата, no-store и доступ владельцу/сотруднику. ReportLab + OFL Noto Sans. source=demo; настоящий чек от Kaspi не интегрирован.' }
     analytics = service 'Агрегаты аналитики' { description 'booking/analytics.py: PostgreSQL-агрегаты по датам событий в Asia/Almaty, сравнение периодов, нулевые интервалы, top500 по объектам/номерам. Net demo-поступления не являются прибылью.' }
     audit = service 'История изменений' { description 'booking Audit: before/after и актор записываются с мутацией в одной транзакции. Нет endpoint изменения журнала; DB-администратор всё ещё может менять БД.' }
   }
-  database = store 'PostgreSQL' { description 'Каталог, пользователи/сессии, гостевые профили, брони/проживания, отзывы, demo-платежи/возвраты/снимки квитанций и аудит. GiST исключает пересечение pending/confirmed; частичный unique допускает один успешный demo-платёж на бронь.' }
-  files = store 'Локальные медиафайлы' { description 'backend/mediafiles: Django default storage. Отдача через Django только в DEBUG; durable storage/CDN, квоты и очистка остаются будущей работой.' }
+  database = store 'PostgreSQL' { description 'Каталог, web/native identity, guest profile/avatar, MediaAsset, брони/проживания, отзывы, demo-commerce и аудит. GiST запрещает пересечение pending/confirmed; unique защищает оплату. Local проверяется PostgreSQL; Supabase remote не подключён.' }
+  files = store 'Приватные фото и видео' { description 'Local backend/private-media либо подготовленный Supabase S3 private bucket. Прямой object key не публикуется. Авторизованная выдача через API; signed S3 URL доступен обладателю до 60с. Durable cloud, транскодирование и сверка хранилища не проверены.' }
+  supabase = service 'Supabase — выбранный вариант' { description 'config/infrastructure.py готовит PostgreSQL schema/TLS/pooling и private S3 storage. URL проекта предоставлен; подключение, регион, роли, миграции и bucket policy ещё не проверены. Supabase Auth и прямые клиентские записи не используются.' }
   tiles = service 'OpenStreetMap' { description 'Leaflet запрашивает тайлы по HTTPS с attribution. При сбое доступны список и ручной выбор координат.' }
   hosting = service 'Vercel — два сайта' { description 'Public dist/site и staff dist/staff на отдельных проектах. Маршруты выбираются при сборке. LikeC4 не публикуется; облачный Django API пока не подключён.' link https://vercel-site-puce-two.vercel.app 'Сайт' }
   staffHosting = service 'Адрес сотрудников' { description 'tynys-staff.vercel.app; отдельный сайт. Демо-данные не синхронизируются с public origin; для общих данных требуется облачный API.' link https://tynys-staff.vercel.app 'Кабинет' }
@@ -49,6 +56,20 @@ model {
   guest -> frontend.bookingsPage 'Заявка, оплата, отмена, отзыв'
   guest -> frontend.guestProfile 'История, контакт и PDF'
   guest -> frontend.guestAuth 'Телефон и пароль'
+  guest -> native 'Будущее приложение'
+  native -> backend.api 'Подготовлен API; клиент ещё не создан'
+  native -> backend.mobileAuth 'login / refresh / sessions'
+  operator -> backend.adminConsole 'Superuser web session'
+  backend.adminConsole -> database 'Только чтение и агрегаты'
+  backend.adminConsole -> frontend.staffPage 'Действия через сервисный кабинет'
+  backend.api -> backend.auth 'Web cookie / CSRF'
+  backend.api -> backend.mobileAuth 'Native guest Bearer'
+  backend.api -> backend.reservations 'Общие правила бронирования'
+  backend.api -> backend.profiles 'Профиль и проживание'
+  backend.api -> backend.catalog 'Каталог'
+  backend.api -> backend.media 'Загрузка / чтение'
+  backend.mobileAuth -> database 'Device families и token hashes'
+  backend.mobileAuth -> backend.auth 'GuestAccount и auth-version'
   frontend.guestAuth -> frontend.transport 'guest-auth endpoints'
   frontend.guestProfile -> frontend.guestAuth 'Регистрация и восстановление'
   frontend.discovery -> frontend.localization 'Перевод интерфейса'
@@ -74,14 +95,15 @@ model {
   frontend.transport -> frontend.demo 'Режим demo по умолчанию'
   frontend.transport -> frontend.http 'Режим api'
   frontend.demo -> frontend.local 'Состояние и история'
-  frontend.http -> backend 'JSON/FormData, cookies + CSRF'
+  frontend.http -> backend.api 'JSON/FormData, cookies + CSRF'
   frontend.discovery -> tiles 'Карта поиска'
   frontend.profiles -> tiles 'Положение санатория'
   frontend.features -> tiles 'Выбор координат'
-  frontend.gallery -> files 'Загруженные изображения/видео через /media'
+  frontend.gallery -> backend.media 'Stable media reference; проверка доступа'
   backend.auth -> database 'Пользователи и сессии'
   backend.profiles -> database 'Контакт и история в разрешённой области'
   backend.profiles -> backend.reservations 'Отметки заезда и выезда'
+  backend.profiles -> backend.media 'Avatar upload/remove и приватное чтение'
   backend.catalog -> database 'Каталог'
   backend.reservations -> database 'Блокировка санатория и защита пересечений'
   backend.reservations -> backend.commerce 'Отмена и возврат в одной транзакции'
@@ -96,6 +118,11 @@ model {
   backend.media -> backend.auth 'Доступ сотрудника к санаторию'
   backend.media -> backend.reviews 'Право гостя загрузить фото'
   backend.media -> files 'Проверенные файлы с UUID-именами'
+  backend.media -> database 'Метаданные, владелец и квоты'
+  backend.maintenance -> database 'Expired tokens / unreferenced assets'
+  backend.maintenance -> files 'Контролируемая очистка'
+  database -> supabase 'Подготовленный вариант; live не проверен'
+  files -> supabase 'S3 драйвер; bucket пока не подключён'
   backend.catalog -> backend.audit 'Изменение каталога'
   backend.reservations -> backend.audit 'Переходы брони'
   backend.reviews -> backend.audit 'Отзыв и модерация'
@@ -104,9 +131,10 @@ model {
   hosting -> frontend 'Отдаёт статическую сборку'
 }
 views {
-  view index { title 'Тыныс: роли и платформа' include guest, admin, manager, frontend, backend, database, files, tiles, hosting }
+  view index { title 'Тыныс: роли и платформа' include guest, admin, manager, operator, frontend, native, backend, database, files, tiles, hosting }
   view browser of frontend { title 'Vue / FSD / адаптеры данных' include frontend.*, guest, admin, manager, tiles }
-  view api { title 'Локальный backend: каталог, брони, отзывы и commerce' include frontend.http, backend.*, database, files }
+  view api { title 'Общий backend: Web, Native, Django Admin и private media' include frontend.http, native, operator, backend.*, database, files, supabase }
+  view mediaFlow { title 'Загрузка и защищённая выдача фото/видео' include guest, manager, frontend.features, frontend.guestProfile, frontend.gallery, backend.api, backend.auth, backend.mobileAuth, backend.media, backend.profiles, backend.maintenance, database, files, supabase }
   view bookingFlow { title 'Заявка, оплата и отмена' include guest, manager, frontend.bookingsPage, frontend.staffPage, backend.reservations, backend.commerce, backend.audit, database }
   view reporting { title 'История, квитанции и аналитика' include guest, manager, admin, frontend.guestProfile, frontend.analyticsPage, backend.profiles, backend.receipts, backend.analytics, database }
   view publication { title 'Статический сайт и отдельно запускаемый API' include hosting, frontend, backend, files, tiles }

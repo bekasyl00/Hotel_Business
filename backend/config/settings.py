@@ -2,9 +2,11 @@ from pathlib import Path
 
 import environ
 
+from .infrastructure import database_config, media_storage_config
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env(DEBUG=(bool, False))
-environ.Env.read_env(BASE_DIR / ".env")
+environ.Env.read_env(env("DJANGO_ENV_FILE", default=str(BASE_DIR / ".env")))
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
 GUEST_AUTH_DEMO_OTP = env.bool("GUEST_AUTH_DEMO_OTP", default=False)
@@ -21,6 +23,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "booking",
     "commerce",
+    "identity",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -34,8 +37,7 @@ MIDDLEWARE = [
 ]
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
-DATABASES = {"default": env.db("DATABASE_URL")}
-DATABASES["default"]["CONN_MAX_AGE"] = 60
+DATABASES = {"default": database_config(env)}
 AUTH_USER_MODEL = "booking.User"
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
@@ -60,7 +62,10 @@ TEMPLATES = [
     }
 ]
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "booking.authentication.GuestBearerAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "EXCEPTION_HANDLER": "booking.errors.exception_handler",
@@ -71,10 +76,21 @@ USE_TZ = True
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "mediafiles"
+MEDIA_ROOT = BASE_DIR / "private-media"
+LEGACY_MEDIA_ROOT = BASE_DIR / "mediafiles"
+MEDIA_STORAGE = env("MEDIA_STORAGE", default="local")
+MEDIA_GUEST_DAILY_BYTES = env.int("MEDIA_GUEST_DAILY_BYTES", default=50 * 1024 * 1024)
+MEDIA_RESORT_DAILY_BYTES = env.int("MEDIA_RESORT_DAILY_BYTES", default=500 * 1024 * 1024)
+STAFF_WORKSPACE_URL = env("STAFF_WORKSPACE_URL", default="http://127.0.0.1:4173/staff")
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+FILE_UPLOAD_HANDLERS = [
+    "booking.upload_handlers.BoundedUploadHandler",
+    "django.core.files.uploadhandler.MemoryFileUploadHandler",
+    "django.core.files.uploadhandler.TemporaryFileUploadHandler",
+]
 STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "default": media_storage_config(env),
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

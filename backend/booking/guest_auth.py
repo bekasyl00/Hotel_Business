@@ -92,6 +92,11 @@ def clear_guest(request, *, rotate_session=True):
 
 
 def current_account(request):
+    from .authentication import bearer_context
+
+    native = bearer_context(request)
+    if native:
+        return native.account
     identity = request.session.get(AUTH_KEY)
     if identity is None:
         return None

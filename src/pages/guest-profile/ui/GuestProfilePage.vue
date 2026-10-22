@@ -5,7 +5,7 @@ import { PublicHeader } from "@/widgets/public-header";
 import { GuestBookingHistory } from "@/widgets/guest-booking-history";
 import { useGuestAccountStore } from "@/entities/guest-account";
 import { useBookingStore } from "@/entities/booking";
-import { request } from "@/shared/api";
+import { request, ApiError, uploadErrorCode } from "@/shared/api";
 import { isDemo } from "@/shared/config";
 const { t } = useI18n(),
   account = useGuestAccountStore(),
@@ -16,6 +16,10 @@ const data = ref(null),
   error = ref(""),
   formError = ref(""),
   saved = ref(false);
+const avatarBusy = ref(false),
+  avatarError = ref(""),
+  avatarSaved = ref(false),
+  pendingAvatar = ref(null);
 const form = reactive({ name: "", phone: "" });
 async function load() {
   loading.value = true;
@@ -59,6 +63,40 @@ async function logout() {
     error.value = e.message;
   } finally {
     busy.value = false;
+  }
+}
+async function selectAvatar(event) {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  pendingAvatar.value = file;
+  await saveAvatar();
+}
+async function saveAvatar(remove = false) {
+  avatarBusy.value = true;
+  avatarError.value = "";
+  avatarSaved.value = false;
+  try {
+    let body;
+    if (!remove) {
+      const code = uploadErrorCode(pendingAvatar.value);
+      if (code) throw new ApiError(null, 422, {}, code);
+      body = new FormData();
+      body.append("file", pendingAvatar.value);
+    }
+    const result = await request(
+      remove ? "DELETE" : "POST",
+      "/profile/avatar",
+      body,
+    );
+    data.value.profile = result.profile;
+    if (account.session) account.session.profile = result.profile;
+    pendingAvatar.value = null;
+    avatarSaved.value = true;
+  } catch (e) {
+    avatarError.value = e.message;
+  } finally {
+    avatarBusy.value = false;
   }
 }
 onMounted(load);
@@ -115,7 +153,11 @@ onMounted(load);
               ><RouterLink to="/account/reset-password">{{
                 t("auth.titleReset")
               }}</RouterLink
-              ><button class="secondary" :disabled="busy" @click="logout">
+              ><button
+                class="secondary"
+                :disabled="busy || avatarBusy"
+                @click="logout"
+              >
                 {{ t("auth.logout") }}
               </button></template
             >
@@ -130,6 +172,78 @@ onMounted(load);
             >
               {{ t("auth.demoNotice") }}
             </p>
+            <section
+              class="guest-avatar-panel"
+              :aria-label="t('common.media.avatar')"
+              :aria-busy="avatarBusy"
+            >
+              <img
+                v-if="data.profile?.avatarUrl"
+                class="guest-avatar"
+                :src="data.profile.avatarUrl"
+                :alt="t('common.media.avatar')"
+              />
+              <div
+                v-else
+                class="guest-avatar guest-avatar-placeholder"
+                aria-hidden="true"
+              >
+                {{ (form.name || "?").slice(0, 1).toUpperCase() }}
+              </div>
+              <div class="guest-avatar-controls">
+                <template v-if="account.authenticated">
+                  <label
+                    >{{
+                      t(
+                        data.profile?.avatarUrl
+                          ? "common.media.replaceAvatar"
+                          : "common.media.addAvatar",
+                      )
+                    }}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      :disabled="avatarBusy || busy"
+                      @change="selectAvatar"
+                    />
+                  </label>
+                  <p class="field-help">{{ t("common.media.imageHint") }}</p>
+                  <p v-if="isDemo" class="field-help">
+                    {{ t("common.media.demoHint") }}
+                  </p>
+                  <button
+                    v-if="data.profile?.avatarUrl"
+                    type="button"
+                    class="text-button danger"
+                    :disabled="avatarBusy || busy"
+                    @click="saveAvatar(true)"
+                  >
+                    {{ t("common.media.removeAvatar") }}
+                  </button>
+                  <p v-if="avatarBusy" role="status">
+                    {{ t("staff.uploadingFile") }}
+                  </p>
+                  <p v-if="avatarSaved" role="status" class="success-notice">
+                    {{ t("common.media.avatarSaved") }}
+                  </p>
+                  <p v-if="avatarError" role="alert" class="form-error">
+                    {{ avatarError }}
+                  </p>
+                  <button
+                    v-if="avatarError && pendingAvatar"
+                    type="button"
+                    class="secondary"
+                    :disabled="avatarBusy || busy"
+                    @click="saveAvatar()"
+                  >
+                    {{ t("auth.retry") }}
+                  </button>
+                </template>
+                <p v-else class="field-help">
+                  {{ t("common.media.avatarAccount") }}
+                </p>
+              </div>
+            </section>
             <form class="editor-form" @submit.prevent="save">
               <label
                 >{{ t("auth.name")
@@ -157,7 +271,7 @@ onMounted(load);
               <p v-if="saved" class="success-notice" role="status">
                 {{ t("auth.saved") }}
               </p>
-              <button class="primary" :disabled="busy">
+              <button class="primary" :disabled="busy || avatarBusy">
                 {{ t(busy ? "auth.busy" : "auth.save") }}
               </button>
             </form>
@@ -174,6 +288,46 @@ onMounted(load);
   </div>
 </template>
 <style scoped>
+.guest-avatar-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+  margin: 20px 0;
+}
+.guest-avatar {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: 0 0 88px;
+  border: 1px solid #d6e2d2;
+}
+.guest-avatar-placeholder {
+  display: grid;
+  place-items: center;
+  background: #eef4e9;
+  color: #264b36;
+  font-size: 32px;
+  font-weight: 700;
+}
+.guest-avatar-controls {
+  min-width: 0;
+  width: 100%;
+}
+.guest-avatar-controls label {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+.guest-avatar-controls input {
+  width: 100%;
+  min-width: 0;
+  font-size: 13px;
+}
+.guest-avatar-controls button {
+  margin-top: 8px;
+}
 .profile-account-banner {
   display: flex;
   justify-content: space-between;
@@ -202,6 +356,9 @@ onMounted(load);
   white-space: nowrap;
 }
 @media (max-width: 700px) {
+  .guest-avatar-panel {
+    flex-direction: column;
+  }
   .profile-account-banner {
     align-items: flex-start;
     flex-direction: column;

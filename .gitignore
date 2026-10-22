@@ -11,6 +11,7 @@ __pycache__/
 *.pyc
 backend/staticfiles/
 backend/mediafiles/
+backend/private-media/
 .coverage
 htmlcov/
 .ruff_cache/

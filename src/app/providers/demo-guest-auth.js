@@ -98,6 +98,7 @@ function sessionData(db) {
     id: profile.id,
     name: profile.name,
     phone: profile.phone,
+    avatarUrl: profile.avatarUrl || "",
     version: profile.version,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,

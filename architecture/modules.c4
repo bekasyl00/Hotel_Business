@@ -2,7 +2,7 @@
 specification { element module }
 model {
   app = module 'app' {
-    description 'Инициализация Vue, Router, Pinia; выбор HTTP или локального демо-адаптера.. Файлов: 13'
+    description 'Инициализация Vue, Router, Pinia; выбор HTTP или локального демо-адаптера.. Файлов: 14'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/app 'Исходный код'
   }
   entities_booking = module 'entities/booking' {
@@ -98,7 +98,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/workspace 'Исходный код'
   }
   shared_api = module 'shared/api' {
-    description 'Контракт транспорта, ошибки, HTTP fetch с cookies и сохранение форм.. Файлов: 4'
+    description 'Контракт транспорта, ошибки, HTTP fetch с cookies и сохранение форм.. Файлов: 5'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/api 'Исходный код'
   }
   shared_config = module 'shared/config' {

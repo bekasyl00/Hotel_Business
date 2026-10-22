@@ -25,6 +25,7 @@ import {
 import { ApiError } from "../../shared/api/index.js";
 import { demoAnalytics } from "./demo-analytics.js";
 import { upgradeGuests, demoGuestRequest } from "./demo-guests.js";
+import { createDemoMediaStore, demoMediaRequest } from "./demo-media.js";
 export const DATABASE_KEY = "tynys:workspace:v2";
 export const SESSION_KEY = "tynys:session:v2";
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -172,6 +173,7 @@ export function createDemoTransport({
   storage = localStorage,
   session = sessionStorage,
   delay = 120,
+  media = createDemoMediaStore(),
 } = {}) {
   const read = () => {
     let db;
@@ -301,6 +303,17 @@ export function createDemoTransport({
       persist: () => storage.setItem(DATABASE_KEY, serializeDemo(db)),
     });
     if (authResult.handled) return clone(authResult.value);
+    const mediaRequest = await demoMediaRequest({
+      db,
+      user,
+      method,
+      pathname,
+      payload,
+      authorize,
+      commit,
+      media,
+    });
+    if (mediaRequest.handled) return clone(mediaRequest.value);
     const guestRequest = demoGuestRequest({
       db,
       user,
@@ -717,16 +730,27 @@ export function createDemoTransport({
     else collection.push(after);
     return commit(entity, after, before, item ? "update" : "create");
   };
-  return async (method, path, body) => {
+  const transport = async (method, path, body) => {
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    body = media.canonical(body);
     if (
       typeof window !== "undefined" &&
       globalThis.navigator?.locks &&
       (method !== "GET" || /^\/receipts\/[^/?]+(?:\?|$)/.test(path))
     )
-      return navigator.locks.request(DATABASE_KEY, () =>
-        execute(method, path, body),
+      return media.hydrate(
+        await navigator.locks.request(DATABASE_KEY, () =>
+          execute(method, path, body),
+        ),
       );
-    return execute(method, path, body);
+    return media.hydrate(await execute(method, path, body));
   };
+  transport.dispose = () => media.dispose();
+  if (typeof window !== "undefined") {
+    const close = (event) => {
+      if (!event.persisted) transport.dispose();
+    };
+    window.addEventListener("pagehide", close, { once: true });
+  }
+  return transport;
 }

@@ -265,11 +265,6 @@ export function marketplaceRequest({
           },
     );
   }
-  if (pathname === "/media")
-    fail(
-      "Загрузка файлов доступна в серверной версии. В демо используйте ссылки.",
-      422,
-    );
   if (pathname.startsWith("/cancellation-preview/") && method === "GET") {
     const id = pathname.split("/").at(-1);
     const b = db.bookings.find((b) => b.id === id);

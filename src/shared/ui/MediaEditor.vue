@@ -1,7 +1,7 @@
 <script setup>
 import { useI18n } from "vue-i18n";
-import { ref } from "vue";
-import { request } from "../api/index.js";
+import { ref, nextTick } from "vue";
+import { request, ApiError, uploadErrorCode } from "../api/index.js";
 import { isDemo } from "../config/index.js";
 const { t } = useI18n();
 const props = defineProps({
@@ -11,44 +11,41 @@ const props = defineProps({
 const emit = defineEmits(["update:modelValue", "busy"]);
 const error = ref(""),
   uploading = ref(false),
-  url = ref(""),
-  kind = ref("image"),
-  alt = ref("");
+  pendingFiles = ref([]);
 function append(item) {
   emit("update:modelValue", [...props.modelValue, item]);
 }
-function addUrl() {
-  error.value = "";
-  if (!/^(https:\/\/|\/assets\/|\/media\/)/.test(url.value)) {
-    error.value = t("staff.mediaUrlError");
-    return;
-  }
-  if (props.modelValue.length >= 12) {
-    error.value = t("staff.mediaLimit");
-    return;
-  }
-  append({ kind: kind.value, url: url.value.trim(), alt: alt.value.trim() });
-  url.value = "";
-  alt.value = "";
-}
 async function upload(event) {
-  const file = event.target.files?.[0];
-  if (!file) return;
+  const files = [...(event.target.files || [])];
+  event.target.value = "";
+  if (!files.length) return;
+  pendingFiles.value = files;
+  await uploadPending();
+}
+async function uploadPending() {
   error.value = "";
   uploading.value = true;
   emit("busy", true);
   try {
-    if (props.modelValue.length >= 12) throw new Error(t("staff.mediaLimit"));
-    const body = new FormData();
-    body.append("file", file);
-    body.append("resortId", props.resortId);
-    append(await request("POST", "/media", body));
+    if (props.modelValue.length + pendingFiles.value.length > 12)
+      throw new Error(t("staff.mediaLimit"));
+    for (const file of pendingFiles.value) {
+      const code = uploadErrorCode(file, { allowVideo: true });
+      if (code) throw new ApiError(null, 422, {}, code);
+    }
+    while (pendingFiles.value.length) {
+      const body = new FormData();
+      body.append("file", pendingFiles.value[0]);
+      body.append("resortId", props.resortId);
+      append(await request("POST", "/media", body));
+      pendingFiles.value.shift();
+      await nextTick();
+    }
   } catch (e) {
     error.value = e.message;
   } finally {
     uploading.value = false;
     emit("busy", false);
-    event.target.value = "";
   }
 }
 </script>
@@ -69,11 +66,19 @@ async function upload(event) {
         :alt="item.alt || t('staff.photo')"
         loading="lazy"
       />
-      <video v-else :src="item.url" controls preload="metadata"></video>
+      <video
+        v-else
+        :src="item.url"
+        controls
+        playsinline
+        preload="metadata"
+        :aria-label="item.alt || t('staff.video')"
+      ></video>
       <label
         >{{ t("staff.mediaDescription", { number: index + 1 })
         }}<input
           :value="item.alt"
+          :disabled="uploading"
           maxlength="200"
           @input="
             emit(
@@ -98,44 +103,32 @@ async function upload(event) {
         {{ t("staff.deleteMedia", { number: index + 1 }) }}
       </button>
     </div>
-    <label v-if="!isDemo && resortId"
+    <label v-if="resortId"
       >{{ t("staff.uploadMedia")
       }}<input
         type="file"
         accept="image/jpeg,image/png,image/webp,video/mp4,video/webm"
-        :disabled="uploading"
+        multiple
+        :disabled="uploading || modelValue.length >= 12"
         @change="upload"
     /></label>
-    <p v-if="!resortId && !isDemo" class="field-help">
+    <p v-if="!resortId" class="field-help">
       {{ t("staff.saveBeforeUpload") }}
     </p>
-    <div class="form-grid">
-      <label
-        >{{ t("staff.type")
-        }}<select v-model="kind">
-          <option value="image">{{ t("staff.photograph") }}</option>
-          <option value="video">{{ t("staff.video") }}</option>
-        </select></label
-      >
-      <label
-        >{{ t("staff.link") }}<input v-model="url" placeholder="https://…"
-      /></label>
-      <label
-        >{{ t("staff.description") }}<input v-model="alt" maxlength="200"
-      /></label>
-      <button
-        type="button"
-        class="secondary"
-        :disabled="uploading || !url.trim()"
-        @click="addUrl"
-      >
-        {{ t("staff.addByLink") }}
-      </button>
-    </div>
+    <p class="field-help">{{ t("common.media.catalogHint") }}</p>
     <p v-if="uploading" role="status">{{ t("staff.uploadingFile") }}</p>
     <p v-if="error" role="alert" class="form-error">{{ error }}</p>
+    <button
+      v-if="error && pendingFiles.length"
+      type="button"
+      class="secondary"
+      :disabled="uploading"
+      @click="uploadPending"
+    >
+      {{ t("auth.retry") }}
+    </button>
     <p v-if="isDemo" class="field-help">
-      {{ t("staff.demoMediaHint") }}
+      {{ t("common.media.demoHint") }}
     </p>
   </section>
 </template>

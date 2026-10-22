@@ -3,7 +3,6 @@ from django.db import IntegrityError
 from django.db.models.deletion import ProtectedError
 from rest_framework.exceptions import APIException
 from rest_framework.response import Response
-from rest_framework.views import exception_handler as drf_handler
 
 
 class Problem(APIException):
@@ -14,6 +13,8 @@ class Problem(APIException):
 
 
 def exception_handler(exc, context):
+    from rest_framework.views import exception_handler as drf_handler
+
     if isinstance(exc, ProtectedError):
         return Response(
             {
