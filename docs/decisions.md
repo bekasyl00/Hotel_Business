@@ -18,3 +18,13 @@
 Primary task: select a sanatorium on a map, choose dates/guests, a free room and a tariff, inspect the total, create and cancel a clearly identified demo booking. Visual direction: calm forest green, warm white, compact controls, photography and geographic price pins. Target viewports: 1440x900 and 390x844.
 
 States: map loading; empty filtered list; invalid dates; missing map tiles with usable list; successful local confirmation; storage error with no false confirmation. Permission requests are not used: no geolocation, notifications or payment access.
+
+## 2026-10-22 — Vue staff workspace
+
+The user replaced the vanilla-only constraint with Vue 3, Pinia and FSD; i18n is explicitly deferred. Both the public booking site and staff workspace now use Vue SFCs. Vite replaces the development file server and hand-written static build. Leaflet is imported from its package; the duplicate vendor directory and vanilla entry points are retired.
+
+FSD uses app, pages, widgets, features, entities and shared. Slices expose root APIs. `scripts/check-fsd.mjs` checks local import direction and cross-slice public entry points; the architecture generator now walks Vue/JS recursively and draws actual slice dependencies. This is a static import check, not arbitrary semantic verification.
+
+Rooms are normalized as physical inventory, tariffs are scoped to a resort, bookings snapshot their price and descriptive fields. The public site and staff console share the same demo transport/database. Admins create/archive resorts and assign managers; managers operate only their own resort in the adapter. Conflicting updates return 409 using record versions. Referential deletion is refused; bookings are cancelled and resorts archived to retain history.
+
+`shared/api` provides interchangeable demo and HTTP transports. The demo implements API-shaped operations in app/providers; the HTTP contract is documented separately. There is no backend, real authentication, immutable audit or shared multi-device data yet. Role selection is intentionally labelled demo. A future server must independently enforce every permission and integrity constraint.

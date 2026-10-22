@@ -12,7 +12,7 @@ const viewer = spawn(
   { stdio: "inherit" },
 );
 let timer;
-const watcher = watch("src", () => {
+const watcher = watch("src", { recursive: true }, () => {
   clearTimeout(timer);
   timer = setTimeout(() => {
     try {

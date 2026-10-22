@@ -2,155 +2,18 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#245c4a" />
     <meta
       name="description"
-      content="Выберите санаторий на карте, сравните номера и тарифы. Демонстрационный сервис бронирования."
+      content="Тыныс — санатории на карте и кабинет управления. Демонстрационный сервис."
     />
-    <title>Тыныс — отдых начинается здесь</title>
-    <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
-    <link rel="stylesheet" href="styles.css" />
-    <script defer src="vendor/leaflet/leaflet.js"></script>
-    <script type="module" src="src/app.js"></script>
+    <link rel="icon" href="/assets/logo.svg" />
+    <title>Тыныс · санатории и отдых</title>
   </head>
   <body>
-    <a class="skip-link" href="#results">К списку санаториев</a>
-    <header class="header">
-      <a class="brand" href="./" aria-label="Тыныс — главная"
-        ><img src="assets/logo.svg" alt="" width="36" height="36" /><span
-          >тыныс<span class="brand-dot">.</span></span
-        ></a
-      >
-      <nav aria-label="Основная навигация">
-        <span class="nav-current">Санатории</span
-        ><button id="bookings-open" class="text-button">
-          Мои бронирования <span id="booking-count" class="count">0</span>
-        </button>
-      </nav>
-      <span class="header-note">Время позаботиться о себе</span
-      ><span class="demo-badge">Демо</span>
-    </header>
-    <section class="search-bar" aria-label="Поиск отдыха">
-      <form id="search-form">
-        <label class="destination"
-          ><span>Куда отправимся</span
-          ><input
-            id="query"
-            type="search"
-            placeholder="Сарыагаш, санаторий…"
-            autocomplete="off"
-        /></label>
-        <label
-          ><span>Заезд</span><input id="check-in" type="date" required
-        /></label>
-        <label
-          ><span>Выезд</span><input id="check-out" type="date" required
-        /></label>
-        <label
-          ><span>Гости</span
-          ><select id="guests">
-            <option value="1">1 взрослый</option>
-            <option value="2" selected>2 взрослых</option>
-            <option value="3">3 взрослых</option>
-            <option value="4">4 взрослых</option>
-          </select></label
-        >
-        <button class="primary search-submit" type="submit">
-          <span aria-hidden="true">⌕</span> Найти отдых
-        </button>
-      </form>
-      <p id="search-error" class="error" role="alert" hidden></p>
-    </section>
-    <main class="workspace">
-      <aside class="results-panel" id="results" tabindex="-1">
-        <div class="results-heading">
-          <span class="eyebrow">ЮГ КАЗАХСТАНА</span>
-          <h1>Санатории Сарыагаша</h1>
-          <p id="results-summary" aria-live="polite"></p>
-        </div>
-        <div class="filters">
-          <label class="filter-select"
-            ><span class="sr-only">Категория номера</span
-            ><select id="room-class">
-              <option value="all">Все категории</option>
-              <option value="standard">Стандарт</option>
-              <option value="comfort">Комфорт</option>
-              <option value="suite">Люкс</option>
-            </select></label
-          ><label class="filter-select"
-            ><span class="sr-only">Сортировка</span
-            ><select id="sort">
-              <option value="recommended">Рекомендуем</option>
-              <option value="price">Сначала дешевле</option>
-              <option value="rating">По рейтингу</option>
-            </select></label
-          >
-        </div>
-        <label class="available-filter"
-          ><input id="available-only" type="checkbox" checked /> Только со
-          свободными номерами</label
-        >
-        <div id="resort-list" class="resort-list"></div>
-        <p class="data-note">
-          Демонстрационные цены, рейтинги и наличие. Метки приблизительные,
-          фотографии иллюстративные.
-        </p>
-      </aside>
-      <section class="map-panel" aria-label="Карта санаториев">
-        <div id="map"></div>
-        <div class="map-caption">
-          <span class="live-dot"></span> Найдите своё место для отдыха
-        </div>
-        <button
-          id="map-reset"
-          class="map-reset"
-          aria-label="Показать все санатории на карте"
-          title="Показать все санатории"
-        >
-          ◎
-        </button>
-        <div id="map-status" class="map-status" role="status">
-          Загружаем карту…
-        </div>
-        <div class="map-legend">
-          <span class="legend-pin"></span> Санатории
-          <span class="legend-separator">·</span> Цена за номер / ночь
-        </div>
-      </section>
-      <section
-        id="details"
-        class="details-panel"
-        aria-label="Выбранный санаторий"
-        hidden
-      ></section>
-    </main>
-    <dialog id="booking-dialog" aria-labelledby="booking-title">
-      <div id="booking-content"></div>
-    </dialog>
-    <dialog id="bookings-dialog" aria-labelledby="bookings-title">
-      <div class="dialog-top">
-        <h2 id="bookings-title">Мои бронирования</h2>
-        <button
-          class="icon-button"
-          data-close="bookings-dialog"
-          aria-label="Закрыть"
-        >
-          ×
-        </button>
-      </div>
-      <p class="muted">
-        Демо-брони сохраняются только в этом браузере. Номера в санаториях не
-        резервируются.
-      </p>
-      <div id="my-bookings"></div>
-    </dialog>
-    <div id="toast" role="status" hidden></div>
-    <noscript
-      ><p>
-        Для карты и выбора номеров включите JavaScript в браузере.
-      </p></noscript
-    >
+    <div id="app"></div>
+    <script type="module" src="/src/app/main.js"></script>
+    <noscript>Для работы сервиса включите JavaScript.</noscript>
   </body>
 </html>

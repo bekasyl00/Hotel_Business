@@ -28,7 +28,7 @@ jobs:
       - run: npm test
       - run: npm run arch:check
       - run: npm run build
-      - run: git diff --exit-code -- architecture/modules.c4 vendor/
+      - run: git diff --exit-code -- architecture/modules.c4
       - uses: actions/upload-pages-artifact@v4
         with:
           path: dist/site

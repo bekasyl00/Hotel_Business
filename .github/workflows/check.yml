@@ -15,4 +15,4 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run arch:check
-      - run: git diff --exit-code -- architecture/modules.c4 vendor/
+      - run: git diff --exit-code -- architecture/modules.c4

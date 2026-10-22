@@ -8,8 +8,8 @@ import {
   validateSearch,
   dateAfter,
   nightsBetween,
-} from "../src/domain.js";
-import { resorts, tariffs } from "../src/data.js";
+} from "../src/entities/booking/model/rules.js";
+import { resorts, tariffs } from "../src/app/providers/seed-catalog.js";
 const search = { start: dateAfter(7), end: dateAfter(10), guests: 2 };
 const resort = resorts[0],
   room = resort.rooms[0];

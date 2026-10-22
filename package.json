@@ -3,14 +3,15 @@
   "version": "0.1.0",
   "description": "Map-first sanatorium booking prototype",
   "scripts": {
-    "start": "node scripts/serve.mjs",
-    "postinstall": "node scripts/vendor.mjs",
-    "test": "node --test",
-    "build": "npm run arch:sync && node scripts/build.mjs",
+    "start": "vite --host 127.0.0.1 --port 4173",
+    "test": "node --test && node scripts/check-fsd.mjs",
+    "build": "npm run arch:sync && vite build",
     "arch:sync": "node scripts/architecture.mjs",
     "arch:check": "npm run arch:sync && likec4 validate architecture",
     "arch": "node scripts/arch-dev.mjs",
-    "arch:build": "npm run arch:sync && likec4 build architecture -o dist/architecture"
+    "arch:build": "npm run arch:sync && likec4 build architecture -o dist/architecture",
+    "dev": "vite --host 127.0.0.1 --port 4173",
+    "preview": "vite preview --host 127.0.0.1 --port 4174"
   },
   "repository": {
     "type": "git",
@@ -24,10 +25,17 @@
   },
   "homepage": "https://github.com/bekasyl00/Hotel_Business#readme",
   "dependencies": {
-    "leaflet": "1.9.4"
+    "leaflet": "1.9.4",
+    "pinia": "^3.0.4",
+    "vue": "^3.5.44",
+    "vue-router": "^4.6.4"
   },
   "devDependencies": {
-    "likec4": "1.60.0"
+    "@vitejs/plugin-vue": "^6.0.10",
+    "axe-core": "^4.14.0",
+    "likec4": "1.60.0",
+    "prettier": "^3.9.10",
+    "vite": "^7.3.7"
   },
   "private": true
 }

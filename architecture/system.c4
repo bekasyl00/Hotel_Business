@@ -5,60 +5,40 @@ specification {
   element store
 }
 model {
-  guest = actor 'Гость' {
-    description 'Выбирает санаторий на географической карте, даты, номер и тариф.'
+  guest = actor 'Гость' { description 'Ищет санаторий на карте и создаёт демонстрационную бронь.' }
+  admin = actor 'Администратор' { description 'Создаёт санатории, настраивает каталог, назначает управляющих.' }
+  manager = actor 'Управляющий' { description 'Работает с номерами, тарифами, бронями и историей своего санатория.' }
+  frontend = system 'Тыныс — Vue 3' {
+    description 'SPA на Vue 3, Pinia, Vue Router и Vite. FSD, русский интерфейс. i18n отложен.'
+    publicPage = service 'Гостевой сайт' { description 'pages/catalog: географическая карта, фильтры, номера, тарифы и собственные брони.' }
+    staffPage = service 'Кабинет сотрудников' { description 'pages/workspace + pages/login: обзор, CRUD каталога, аккаунты и журнал изменений.' }
+    features = service 'Формы действий' { description 'features: создание и редактирование санатория, комнаты, тарифа, аккаунта и брони.' }
+    stores = store 'Pinia' { description 'entities: session, resort, booking. Состояние интерфейса и загруженные данные, без прямого доступа к localStorage.' }
+    transport = service 'API transport' { description 'shared/api: единый асинхронный контракт. app/main выбирает demo или HTTP по VITE_DATA_MODE.' }
+    demo = service 'Демо-адаптер' { description 'app/providers/demo.js: проверки ролей и связей, доступность, версии записей, история. Это имитация сервера в браузере, не защита данных.' }
+    local = store 'Локальные данные' { description 'localStorage tynys:workspace:v2: общий демо-каталог, брони и история. sessionStorage: выбранный демо-аккаунт. Нет синхронизации между устройствами.' }
+    http = service 'HTTP-адаптер — подготовлен' { description 'fetch + cookies. VITE_DATA_MODE=api. Контракт в docs/api-contract.md; сервер пока не реализован.' }
   }
-  prototype = system 'Тыныс — браузерный прототип' {
-    description 'Реализован на HTML, CSS и JavaScript. Без серверного API и реальных платежей.'
-    page = service 'Интерфейс' {
-      description 'index.html + styles.css + src/app.js. Список, карта, номера, тарифы, диалоги.'
-    }
-    logic = service 'Правила бронирования' {
-      description 'src/domain.js. Проверка дат и вместимости, полуоткрытые интервалы [заезд, выезд), стоимость и свободные номера.'
-    }
-    catalog = store 'Демо-каталог' {
-      description 'src/data.js. Данные приблизительные и иллюстративные. Фотографии не относятся к указанным санаториям.'
-    }
-    browserStore = store 'localStorage' {
-      description 'src/storage.js. Только брони этого браузера; без персональных данных. Нет гарантии защиты от одновременной записи двух вкладок.'
-    }
-  }
-  tiles = service 'OpenStreetMap' {
-    description 'Внешние картографические тайлы по HTTPS. Требуют интернета. Сбой не блокирует каталог.'
-  }
-  pipeline = service 'GitHub Pages workflow — отключён' {
-    description '.github/workflows/pages.yml. При push в main проверяет код и модель, собирает и публикует только сайт.'
-  }
-  hosting = service 'GitHub Pages — отключён' {
-    description 'Публикация отключена. Резервный workflow подготовлен для раздачи только сайта. Сервер приложения не запускается; код бронирования работает в браузере.'
-  }
-  fallback = service 'Vercel' {
-    description 'Публичный статический сайт. vercel.json собирает только сайт в dist/site; LikeC4 остаётся локальным. Репозиторий подключён к Vercel.'
-    link https://vercel-site-puce-two.vercel.app 'Сайт'
-  }
-  fallback -> prototype.page 'Отдаёт статический сайт по HTTPS'
-  pipeline -> hosting 'Публикует dist/site'
-  hosting -> prototype.page 'Отдаёт HTML, CSS, JavaScript и изображения'
-  guest -> prototype.page 'Выбор и демо-бронирование'
-  prototype.page -> prototype.logic 'Даты, гости, номер и тариф'
-  prototype.page -> prototype.catalog 'Читает каталог'
-  prototype.page -> prototype.browserStore 'Сохраняет и отменяет демо-бронь'
-  prototype.page -> tiles 'Загружает карту через Leaflet'
+  tiles = service 'OpenStreetMap' { description 'Leaflet загружает тайлы по HTTPS. При сбое остаются список и ручные координаты.' }
+  hosting = service 'Vercel' { description 'Публикуется только dist/site. Vue Router /staff/* обслуживается через index.html. LikeC4 не публикуется.' link https://vercel-site-puce-two.vercel.app 'Сайт' }
+  guest -> frontend.publicPage 'Поиск и бронирование'
+  admin -> frontend.staffPage 'Вся платформа'
+  manager -> frontend.staffPage 'Свой санаторий'
+  frontend.publicPage -> frontend.features 'Создание брони'
+  frontend.staffPage -> frontend.features 'Управление данными'
+  frontend.publicPage -> frontend.stores 'Каталог и брони'
+  frontend.staffPage -> frontend.stores 'Роль и рабочие данные'
+  frontend.features -> frontend.transport 'Запросы изменений'
+  frontend.stores -> frontend.transport 'Загрузка и действия'
+  frontend.transport -> frontend.demo 'Режим demo — по умолчанию'
+  frontend.transport -> frontend.http 'Режим api — сервер нужен отдельно'
+  frontend.demo -> frontend.local 'Атомарная запись состояния и истории'
+  frontend.publicPage -> tiles 'Карта поиска'
+  frontend.features -> tiles 'Выбор положения санатория'
+  hosting -> frontend 'Отдаёт статическую сборку'
 }
 views {
-  view index {
-    title 'Тыныс: действующая архитектура прототипа'
-    description 'Гость, браузерный сервис и внешний источник карты. Двойной клик по системе открывает детали.'
-    include guest, prototype, tiles
-  }
-  view browser of prototype {
-    title 'Внутри прототипа: сценарий и данные'
-    description 'Ответственность интерфейса, правил бронирования, каталога и локального хранилища.'
-    include guest, prototype.*, tiles
-  }
-  view publication {
-    title 'Публикация прототипа'
-    description 'Изменение main → проверки и сборка → HTTPS-сайт. Брони остаются в браузере каждого посетителя.'
-    include pipeline, hosting, fallback, prototype.page, prototype.browserStore, tiles
-  }
+  view index { title 'Тыныс: роли и приложение' include guest, admin, manager, frontend, tiles, hosting }
+  view browser of frontend { title 'Vue / Pinia / адаптеры данных' include frontend.*, guest, admin, manager, tiles }
+  view publication { title 'Публикация только сайта' include hosting, frontend, tiles }
 }
