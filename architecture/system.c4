@@ -26,6 +26,15 @@ model {
   tiles = service 'OpenStreetMap' {
     description 'Внешние картографические тайлы по HTTPS. Требуют интернета. Сбой не блокирует каталог.'
   }
+  pipeline = service 'GitHub Actions' {
+    description '.github/workflows/pages.yml. При push в main проверяет код, собирает сайт и карту LikeC4, публикует статический артефакт.'
+  }
+  hosting = service 'GitHub Pages' {
+    description 'Публичная HTTPS-раздача сайта и архитектуры. Сервер приложения не запускается; код бронирования работает в браузере.'
+    link https://bekasyl00.github.io/Hotel_Business/ 'Сайт'
+  }
+  pipeline -> hosting 'Публикует dist/site'
+  hosting -> prototype.page 'Отдаёт HTML, CSS, JavaScript и изображения'
   guest -> prototype.page 'Выбор и демо-бронирование'
   prototype.page -> prototype.logic 'Даты, гости, номер и тариф'
   prototype.page -> prototype.catalog 'Читает каталог'
@@ -42,5 +51,10 @@ views {
     title 'Внутри прототипа: сценарий и данные'
     description 'Ответственность интерфейса, правил бронирования, каталога и локального хранилища.'
     include guest, prototype.*, tiles
+  }
+  view publication {
+    title 'Публикация прототипа'
+    description 'Изменение main → проверки и сборка → HTTPS-сайт. Брони остаются в браузере каждого посетителя.'
+    include pipeline, hosting, prototype.page, prototype.browserStore, tiles
   }
 }

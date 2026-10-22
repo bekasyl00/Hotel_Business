@@ -7,8 +7,9 @@
 5. Prices are per room per night. Meal/wellness supplements are per guest per night. The date interval excludes checkout day. Category capacity limits all bookings. Dates are date-only; nights use UTC arithmetic.
 6. Demo holds in app.js illustrate occupied units. User bookings persist locally. Cancellation releases a unit. Storage is re-read before booking and cross-tab events refresh the UI, but localStorage is not transactional: production race protection requires a server/database.
 7. LikeC4 is the architecture viewer. `system.c4` describes responsibilities; `modules.c4` is generated from real local ESM imports. `npm run arch` watches src changes and regenerates the dependency model; build/check also run arch:sync. Model edits trigger viewer updates. Semantic architecture still requires review.
-8. No hosting, backend framework, database provider or payment provider has been selected. Earlier suggestions in chat are not implementation commitments.
+8. Initial decision: no hosting, backend framework, database provider or payment provider was selected. Update: GitHub Pages is selected for the static demo; backend, database and payments remain undecided.
 9. Assets: generic photos from Unsplash (photo-1566073771259-6a8506099945 and photo-1611892440504-42a792e24d32). Font: Manrope via Google Fonts with system fallback. No personal data is requested by the demo.
+10. Publishing: `.github/workflows/pages.yml` builds and publishes the static prototype after pushes to main. The architecture viewer is built into `/Hotel_Business/architecture/` with hash navigation so deep links work on static hosting. Only `dist/site` is uploaded, not the repository or node_modules. Public access does not turn localStorage into shared inventory.
 
 ## Interface contract
 
