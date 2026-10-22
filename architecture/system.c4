@@ -26,12 +26,11 @@ model {
   tiles = service 'OpenStreetMap' {
     description 'Внешние картографические тайлы по HTTPS. Требуют интернета. Сбой не блокирует каталог.'
   }
-  pipeline = service 'GitHub Actions' {
+  pipeline = service 'GitHub Pages workflow — отключён' {
     description '.github/workflows/pages.yml. При push в main проверяет код и модель, собирает и публикует только сайт.'
   }
-  hosting = service 'GitHub Pages' {
-    description 'Настроенная HTTPS-раздача только сайта. Сервер приложения не запускается; код бронирования работает в браузере.'
-    link https://bekasyl00.github.io/Hotel_Business/ 'Сайт'
+  hosting = service 'GitHub Pages — отключён' {
+    description 'Публикация отключена. Резервный workflow подготовлен для раздачи только сайта. Сервер приложения не запускается; код бронирования работает в браузере.'
   }
   fallback = service 'Vercel' {
     description 'Публичный статический сайт. vercel.json собирает только сайт в dist/site; LikeC4 остаётся локальным. Репозиторий подключён к Vercel.'

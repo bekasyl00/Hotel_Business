@@ -10,7 +10,7 @@
 8. Initial decision: no hosting, backend framework, database provider or payment provider was selected. Update: Vercel hosts the static demo, with GitHub Pages also configured; backend, database and payments remain undecided.
 9. Assets: generic photos from Unsplash (photo-1566073771259-6a8506099945 and photo-1611892440504-42a792e24d32). Font: Manrope via Google Fonts with system fallback. No personal data is requested by the demo.
 10. Publishing: both Vercel and `.github/workflows/pages.yml` publish only `dist/site`: HTML, CSS, JavaScript, images and Leaflet. LikeC4 is a local development tool (`npm run arch`) and is not included in public artifacts. Its model is still checked in CI. Public access does not turn localStorage into shared inventory.
-11. Vercel hosts https://vercel-site-puce-two.vercel.app and is connected to the GitHub repository. `vercel.json` runs `npm run build`. GitHub Pages is also configured; the initial Actions run was delayed during a reported service degradation.
+11. Vercel hosts https://vercel-site-puce-two.vercel.app and is connected to the GitHub repository. `vercel.json` runs `npm run build`. GitHub Pages and its publishing workflow are disabled after its delayed initial deployment; the old public architecture was removed. The workflow is retained as an inactive website-only fallback.
 
 
 ## Interface contract
