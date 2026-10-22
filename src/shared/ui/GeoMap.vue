@@ -115,7 +115,7 @@ onMounted(() => {
         lng: Number(e.latlng.lng.toFixed(6)),
       }),
     );
-  observer = new ResizeObserver(() => map?.invalidateSize({ pan: false }));
+  observer = new ResizeObserver(() => map?.invalidateSize({ animate: false }));
   observer.observe(element.value);
 });
 function updateZoom() {
