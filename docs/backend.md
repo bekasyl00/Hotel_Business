@@ -105,7 +105,7 @@ The native application is not implemented. Login currently requires an existing 
 
 `config/infrastructure.py` enforces PostgreSQL, connection health checks and a 10-second connection timeout. `DB_SCHEMA` optionally selects a dedicated non-public application schema; `DB_SSLMODE` and `DB_SSLROOTCERT` configure certificate verification. `DB_TRANSACTION_POOLER=True` disables server-side cursors/prepared statements and persistent Django connections for transaction-pool compatibility; direct or session-pooled connections retain the usual behavior. Database extensions and schema permissions must be provisioned before migrations; connection options do not create them. The app continues to use Django auth/ownership and SQL transactions, not Supabase Auth or direct browser writes.
 
-The owner supplied the project URL `https://uchqzxxqioixhzbnwcak.supabase.co`. It identifies a candidate project only: remote credentials, region/bucket policy, migration execution and live connectivity are **not verified**. Local development and tests still use local PostgreSQL. Follow [supabase.md](supabase.md) to configure the actual database and private file storage without putting secrets in Git or frontend variables.
+The supplied Supabase project `https://uchqzxxqioixhzbnwcak.supabase.co` now has a verified private tynys schema (25 tables, 26 Django migration records), RLS/client access restrictions and the private tynys-private bucket in ap-northeast-2. Application credentials, a least-privileged runtime role and live Django SQL/S3 connectivity are **not verified**. Local development and tests still use local PostgreSQL. Follow [supabase.md](supabase.md) to configure the actual database and private file storage without putting secrets in Git or frontend variables.
 
 ## Security and deployment
 
@@ -120,6 +120,7 @@ For production: use unique strong secrets/passwords, DEBUG=False, a least-privil
 ```sh
 backend/.venv/bin/python backend/manage.py check
 backend/.venv/bin/python backend/manage.py makemigrations --check --dry-run
+backend/.venv/bin/python backend/manage.py collectstatic --noinput
 backend/.venv/bin/python backend/manage.py test booking commerce
 npm test
 npm run build
