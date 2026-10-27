@@ -2,9 +2,9 @@ import AppKit
 
 func render(staff: Bool, splash: Bool) throws {
     let size = splash ? 2732 : 1024
-    let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size, bitsPerSample: 8, samplesPerPixel: 3, hasAlpha: false, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
+    let context = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue)!
     NSGraphicsContext.saveGraphicsState()
-    NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
+    NSGraphicsContext.current = NSGraphicsContext(cgContext: context, flipped: false)
     let color = staff ? NSColor(srgbRed: 0.15, green: 0.22, blue: 0.32, alpha: 1) : NSColor(srgbRed: 0.14, green: 0.36, blue: 0.29, alpha: 1)
     (splash ? NSColor(srgbRed: 0.973, green: 0.977, blue: 0.961, alpha: 1) : color).setFill()
     NSBezierPath(rect: NSRect(x: 0, y: 0, width: size, height: size)).fill()
@@ -26,6 +26,7 @@ func render(staff: Bool, splash: Bool) throws {
     let root = staff ? "ios-staff" : "ios"
     let filename = splash ? "Splash.imageset/splash-2732x2732.png" : "AppIcon.appiconset/AppIcon-512@2x.png"
     let path = "\(root)/App/App/Assets.xcassets/\(filename)"
+    let bitmap = NSBitmapImageRep(cgImage: context.makeImage()!)
     let png = bitmap.representation(using:.png, properties:[:])!
     try png.write(to:URL(fileURLWithPath:path))
     if splash {
