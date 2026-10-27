@@ -273,6 +273,7 @@ class RoomAdmin(ResortRelation, ReadOnlyAdmin):
         "capacity",
         "beds",
         "price",
+        "seasonal_prices",
         "status",
         "amenities",
         "media",
@@ -280,6 +281,16 @@ class RoomAdmin(ResortRelation, ReadOnlyAdmin):
     )
     ordering = ("resort__name", "number")
     workspace_path = "rooms"
+
+    @admin.display(description="Цены по периодам")
+    def seasonal_prices(self, obj):
+        return (
+            "\n".join(
+                f"{p.stay.lower} — {p.stay.upper} (не включая): {p.price} ₸ · {p.label}"
+                for p in obj.price_periods.all()
+            )
+            or "—"
+        )
 
 
 @admin.register(Tariff, site=platform_admin_site)
@@ -294,6 +305,7 @@ class TariffAdmin(ResortRelation, ReadOnlyAdmin):
         "name",
         "description",
         "supplement",
+        "children_under_three_free",
         "features",
         "price_kind",
         "discount_percent",

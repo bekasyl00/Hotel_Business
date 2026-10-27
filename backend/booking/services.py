@@ -27,6 +27,7 @@ from .models import (
     Tariff,
     User,
 )
+from .pricing import quote_stay
 from .serializers import (
     AccountInput,
     BookingInput,
@@ -152,7 +153,10 @@ def create_booking(request, staff=False):
     inp.is_valid(raise_exception=True)
     data = inp.validated_data
     owner = f"user:{request.user.pk}" if staff else guest_owner(request)
-    fingerprint = hashlib.sha256(json.dumps(data, sort_keys=True, default=str).encode()).hexdigest()
+    fingerprint_data = {k: v for k, v in data.items() if k != "childrenAges" or v}
+    fingerprint = hashlib.sha256(
+        json.dumps(fingerprint_data, sort_keys=True, default=str).encode()
+    ).hexdigest()
     room = get_object_or_404(Room, pk=data["roomId"])
     resort = Resort.objects.select_for_update().get(pk=room.resort_id)
     room.refresh_from_db()
@@ -173,10 +177,9 @@ def create_booking(request, staff=False):
     stay = validated_dates(data["start"], data["end"])
     if Booking.objects.filter(room=room, status__in=ACTIVE, stay__overlap=stay).exists():
         raise Problem("Номер уже занят на выбранные даты. Выберите другой.", 409)
-    nights = (data["end"] - data["start"]).days
-    regular_nightly = room.price + tariff.supplement * data["guests"]
-    discount_percent = tariff.discount_percent if tariff.price_kind == "discount" else 0
-    nightly = (regular_nightly * (100 - discount_percent) + 50) // 100
+    price = quote_stay(
+        room, tariff, data["start"], data["end"], data["guests"], data["childrenAges"]
+    )
     profile = (
         upsert_guest_profile(owner, data["guestLabel"], data["guestPhone"]) if not staff else None
     )
@@ -198,12 +201,7 @@ def create_booking(request, staff=False):
             "roomName": room.title,
             "unit": room.number,
             "tariffName": tariff.name,
-            "regularNightly": regular_nightly,
-            "priceKind": tariff.price_kind,
-            "discountPercent": discount_percent,
-            "nightly": nightly,
-            "nights": nights,
-            "total": nightly * nights,
+            **price,
             "cancellationPolicy": freeze_cancellation_terms(resort, data["start"]),
         },
     )

@@ -131,11 +131,23 @@ watch(() => route.params.id, load, { immediate: true });
               <dt>{{ t("public.discountInReceiptPage") }}</dt>
               <dd>{{ receipt.discountPercent }}%</dd>
             </div>
-            <div>
+            <div v-if="receipt.nightly != null">
               <dt>{{ t("public.nightlyPrice") }}</dt>
               <dd>{{ money(receipt.nightly) }}</dd>
             </div>
           </dl>
+          <details
+            v-if="receipt.nightlyBreakdown?.length"
+            class="price-breakdown"
+          >
+            <summary>{{ t("common.pricing.breakdown") }}</summary>
+            <dl>
+              <div v-for="line in receipt.nightlyBreakdown" :key="line.date">
+                <dt>{{ line.date }}</dt>
+                <dd>{{ money(line.nightly) }}</dd>
+              </div>
+            </dl>
+          </details>
           <div class="receipt-total">
             <span>{{ t("public.paidInDemonstration") }}</span
             ><strong>{{ money(receipt.total) }}</strong>

@@ -90,11 +90,32 @@ class Room(Record):
         ]
 
 
+class RoomPricePeriod(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name="price_periods")
+    label = models.CharField(max_length=80)
+    stay = DateRangeField()
+    price = models.PositiveIntegerField()
+
+    class Meta:
+        ordering = ["stay"]
+        constraints = [
+            ExclusionConstraint(
+                name="no_overlapping_room_prices",
+                expressions=[("room", RangeOperators.EQUAL), ("stay", RangeOperators.OVERLAPS)],
+            ),
+            models.CheckConstraint(
+                condition=Q(price__lte=10000000), name="room_period_price_limit"
+            ),
+            models.CheckConstraint(condition=Q(stay__isempty=False), name="room_period_not_empty"),
+        ]
+
+
 class Tariff(Record):
     resort = models.ForeignKey(Resort, on_delete=models.PROTECT, related_name="tariffs")
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
     supplement = models.PositiveIntegerField(default=0)
+    children_under_three_free = models.BooleanField(default=False)
     features = models.JSONField(default=list)
     price_kind = models.CharField(
         max_length=16, default="regular", choices=[("regular", "regular"), ("discount", "discount")]

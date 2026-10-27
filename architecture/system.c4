@@ -9,7 +9,7 @@ model {
   admin = actor 'Администратор' { description 'Создаёт санатории, настраивает каталог, назначает управляющих.' }
   manager = actor 'Управляющий' { description 'Управляет каталогом, заявками, отзывами и историей своего санатория.' }
   operator = actor 'Оператор платформы' { description 'Активный Django staff-superuser; просматривает общую БД в технической консоли. Обычный администратор/управляющий этого доступа не получает.' }
-  native = system 'Тыныс — iOS гостя' { description 'Capacitor 8 + Vue public routes, dist/mobile, kz.tynys.booking. Каталог/карта, брони, профиль; без страниц сотрудников. Native API через HTTPS /api/v1; токены в Keychain, PDF через Share. Default demo; облачный API и физический iPhone не проверены.' }
+  native = system 'Тыныс — iOS гостя' { description 'Capacitor 8 + Vue public routes, dist/mobile, kz.tynys.booking. Каталог/карта, брони, профиль; без страниц сотрудников. Native API через HTTPS /api/v1; токены в Keychain, PDF через Share. Default demo; dev-установка/запуск на iPhone 13 проверены, облачный API не подключён.' }
   nativeStaff = system 'Тыныс Команда — iOS сотрудников' { description 'Отдельный Capacitor bundle kz.tynys.staff, dist/mobile-staff. Обзор, брони, аналитика, управление; карточки на телефоне. Staff native credentials и отдельный sandbox. Default demo, данные не синхронизируются с гостевым demo.' }
   frontend = system 'Тыныс — Vue 3' {
     description 'Vue 3, Pinia, Vue Router, Vite и FSD. Отдельные public/staff сборки и адреса; combined для локальной разработки. vue-i18n RU/KK/EN. Общие FSD-компоненты используются в двух отдельных Capacitor iOS приложениях; Android ещё не добавлен.'
@@ -37,6 +37,8 @@ model {
     adminConsole = service 'Django Admin /django-admin/' { description 'booking.admin platform_admin_site: только active staff superuser, readonly модели, поиск/фильтры/счётчики и переходы в service-backed staff UI. Хеши, OTP и storage keys скрыты; login rate-limit. /admin/ перенаправляет сюда.' }
     profiles = service 'Гости, аватары и проживание' { description 'GuestProfile: контакт/история владельца и scoped staff view. Avatar FK на MediaAsset; upload/delete только signed-in guest с аудитом. Оплаченная confirmed-бронь: not_arrived → in_house → checked_out; после заселения отмена недоступна.' }
     catalog = service 'Каталог и профили' { description 'booking: санатории, физические номера, классы, категории, медиа-ссылки, обычные/скидочные тарифы, время заезда и IANA timezone.' }
+    pricing = service 'Цены и возрастные правила' { description 'booking/pricing.py: RoomPricePeriod с PostgreSQL exclusion constraint; дневной расчёт, базовая цена вне периода, tariff children_under_three_free по решению сотрудника. Возраст на заезд, все гости входят во вместимость; snapshot фиксирует каждую ночь и политику. Это не государственное право на льготу.' }
+    health = service 'Liveness / Readiness' { description 'config/health: процесс без БД и отдельный SELECT 1 с SQL timeout. Только ok/unavailable, no-store; не доказывает доступность S3/платежей и не заменяет SRE.' }
     reservations = service 'Заявки и бронирования' { description 'booking/services.py: pending удерживает номер; управляющий confirmed/rejected; отмена. Серверная цена, фиксированные условия/время заезда, idempotency, версии и транзакции.' }
     reviews = service 'Отзывы и модерация' { description 'booking: один отзыв владельца завершённой подтверждённой брони, текст/оценка/фото, решение и ответ сотрудника. Публичны только approved.' }
     media = service 'Файлы и доступ к медиа' { description 'media.py + media_access: FormData, MediaAsset с владельцем/purpose, валидация ссылок, image decode/EXIF strip и basic MP4/WebM. Квоты 24ч/100файлов, stable /api/media/files/:id и проверка публикации/владельца. Local range либо S3 signed redirect на 60с.' }
@@ -70,6 +72,9 @@ model {
   backend.api -> backend.auth 'Web cookie / CSRF'
   backend.api -> backend.mobileAuth 'Guest / staff credentials без cookie fallback'
   backend.api -> backend.reservations 'Общие правила бронирования'
+  backend.reservations -> backend.pricing 'Снимок цены под транзакционным lock'
+  backend.pricing -> database 'Периоды и тарифы'
+  backend.health -> database 'Readiness SELECT 1'
   backend.api -> backend.profiles 'Профиль и проживание'
   backend.api -> backend.catalog 'Каталог'
   backend.api -> backend.media 'Загрузка / чтение'

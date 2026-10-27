@@ -128,3 +128,10 @@ npm run arch:check
 ```
 
 The test DB is isolated by Django (`test_` prefix). Test role needs CREATEDB; never point tests at production credentials. Concurrent requests are tested with independent database connections.
+
+
+## Seasonal prices, child policies and probes (27 October 2026)
+
+Migrations 0006/0007 add RoomPricePeriod (date range + GiST exclusion, parent Room) and opt-in tariff child policy; additive changes only, no rewriting existing bookings. Apply with `migrate` after backup/rehearsal. The new period serializer is called through the existing transactional service and resort lock. See `booking/pricing.py`, `booking/test_pricing.py` and the API contract for nullable nightly prices. Local migration is not deployment to Supabase. To roll back in production, first disable new writes and deploy a compatible forward migration; do not drop booked price snapshots. Rehearse migrations with production-sized data before real deployment (not done here).
+
+`/health/live` and `/health/ready` are separate process/DB checks; see [sre.md](sre.md). Readiness SQL timeout is one second, connect_timeout is ten seconds. Cloud monitoring and alerts are not configured by these endpoints.

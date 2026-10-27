@@ -6,7 +6,12 @@ import { useRoute } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { MediaGallery } from "@/widgets/media-gallery";
 import { BookingEditor } from "@/features/create-booking";
-import { dateAfter, validateSearch, nightsBetween } from "@/entities/booking";
+import {
+  dateAfter,
+  validateSearch,
+  nightsBetween,
+  quoteStay,
+} from "@/entities/booking";
 import { request } from "@/shared/api";
 import { money, categoryNames } from "@/shared/lib";
 const route = useRoute();
@@ -30,16 +35,13 @@ const room = computed(() => data.value?.room),
     (data.value?.tariffs || []).filter((t) => t.status === "active"),
   ),
   tariff = computed(() => tariffs.value.find((t) => t.id === tariffId.value));
-const originalNight = computed(() =>
+const price = computed(() =>
   room.value && tariff.value
-    ? room.value.price + tariff.value.supplement * dates.guests
-    : 0,
+    ? quoteStay(room.value, tariff.value, dates)
+    : null,
 );
-const nightly = computed(() =>
-  Math.round(
-    (originalNight.value * (100 - (tariff.value?.discountPercent || 0))) / 100,
-  ),
-);
+const nightly = computed(() => price.value?.nightly);
+const originalNight = computed(() => price.value?.regularNightly);
 const nights = computed(
   () => Math.max(0, nightsBetween(dates.start, dates.end)) || 0,
 );
@@ -299,12 +301,18 @@ watch(() => route.params.id, load, { immediate: true });
             <form class="stay-summary" @submit.prevent="checkDates">
               <span class="eyebrow">{{ t("public.yourStay") }}</span>
               <h2>
-                {{ money(nightly || room.price)
+                {{
+                  nightly == null ? t("common.pricing.varies") : money(nightly)
                 }}<small> {{ t("public.night") }}</small>
               </h2>
-              <del v-if="tariff?.discountPercent" class="muted">{{
-                money(originalNight)
-              }}</del>
+              <del
+                v-if="tariff?.discountPercent && originalNight != null"
+                class="muted"
+                >{{ money(originalNight) }}</del
+              >
+              <p class="field-help">
+                {{ t("common.pricing.childrenAtCheckout") }}
+              </p>
               <div class="stay-date-form compact">
                 <label
                   >{{ t("public.checkin")
@@ -368,8 +376,12 @@ watch(() => route.params.id, load, { immediate: true });
                 ><div class="stay-total">
                   <span
                     >{{ nights }} {{ t("public.nights") }}
-                    {{ money(nightly) }}</span
-                  ><strong>{{ money(nightly * nights) }}</strong>
+                    {{
+                      nightly == null
+                        ? t("common.pricing.varies")
+                        : money(nightly)
+                    }}</span
+                  ><strong>{{ price ? money(price.total) : "—" }}</strong>
                 </div>
                 <button
                   type="button"

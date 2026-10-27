@@ -36,9 +36,105 @@ export function availableUnits(room, search, reservations) {
   );
 }
 export function quote(room, tariff, search) {
-  const nights = nightsBetween(search.start, search.end);
-  const nightly = room.price + tariff.supplement * search.guests;
-  return { nights, nightly, total: nightly * nights };
+  const { nights, nightly, total } = quoteStay(room, tariff, search);
+  return { nights, nightly, total };
+}
+export function validatePricePeriods(periods) {
+  if (!Array.isArray(periods) || periods.length > 60)
+    return t("common.pricing.invalidPeriods");
+  const validDate = (value) =>
+    typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+    Number.isFinite(Date.parse(value)) &&
+    new Date(value).toISOString().slice(0, 10) === value;
+  const sorted = [...periods].sort((a, b) =>
+    String(a?.start).localeCompare(String(b?.start)),
+  );
+  for (let i = 0; i < sorted.length; i++) {
+    const p = sorted[i];
+    if (
+      !p ||
+      typeof p.label !== "string" ||
+      !p.label.trim() ||
+      p.label.length > 80 ||
+      !validDate(p.start) ||
+      !validDate(p.end) ||
+      p.end <= p.start ||
+      !Number.isInteger(p.price) ||
+      p.price < 0 ||
+      p.price > 10000000
+    )
+      return t("common.pricing.invalidPeriods");
+    if (i && sorted[i - 1].end > p.start) return t("common.pricing.overlap");
+  }
+  return "";
+}
+export function validateChildren(guests, childrenAges = []) {
+  return !Array.isArray(childrenAges) ||
+    childrenAges.length >= guests ||
+    childrenAges.length > 3 ||
+    childrenAges.some((age) => !Number.isInteger(age) || age < 0 || age > 17)
+    ? t("common.pricing.invalidChildren")
+    : "";
+}
+export function quoteStay(room, tariff, search) {
+  const count = nightsBetween(search.start, search.end);
+  if (
+    !Number.isInteger(count) ||
+    count < 1 ||
+    count > 30 ||
+    !Number.isInteger(search.guests) ||
+    search.guests < 1 ||
+    search.guests > 4 ||
+    validateChildren(search.guests, search.childrenAges)
+  )
+    return null;
+  const childrenAges = search.childrenAges || [];
+  const freeChildren = tariff.childrenUnderThreeFree
+    ? childrenAges.filter((age) => age < 3).length
+    : 0;
+  const chargeableGuests = search.guests - freeChildren;
+  const discountPercent =
+    tariff.priceKind === "discount" ? tariff.discountPercent : 0;
+  const nightlyBreakdown = Array.from({ length: count }, (_, i) => {
+    const date = new Date(Date.parse(search.start) + i * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    const period = (room.pricePeriods || []).find(
+      (p) => p.start <= date && date < p.end,
+    );
+    const roomPrice = period ? period.price : room.price;
+    const supplementTotal = tariff.supplement * chargeableGuests;
+    const regularNightly = roomPrice + supplementTotal;
+    return {
+      date,
+      roomPrice,
+      periodLabel: period?.label || "",
+      supplementTotal,
+      regularNightly,
+      nightly: Math.floor(
+        (regularNightly * (100 - discountPercent) + 50) / 100,
+      ),
+    };
+  });
+  const uniform = (key) =>
+    nightlyBreakdown.every((line) => line[key] === nightlyBreakdown[0][key])
+      ? nightlyBreakdown[0][key]
+      : null;
+  return {
+    pricingVersion: 2,
+    childrenAges: [...childrenAges],
+    childrenUnderThreeFree: !!tariff.childrenUnderThreeFree,
+    freeChildren,
+    chargeableGuests,
+    priceKind: tariff.priceKind || "regular",
+    discountPercent,
+    nightlyBreakdown,
+    nightly: uniform("nightly"),
+    regularNightly: uniform("regularNightly"),
+    nights: count,
+    total: nightlyBreakdown.reduce((sum, line) => sum + line.nightly, 0),
+  };
 }
 export function reserve({ resort, room, tariff, search, reservations }) {
   const error = validateSearch(search);

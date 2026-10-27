@@ -39,6 +39,19 @@ const newResort = {
   lng: 69.061,
   status: "draft",
 };
+test("invalid child ages cannot create a demo booking or change the audit", async () => {
+  const { api } = await setup();
+  const before = await api("GET", "/workspace");
+  for (const childrenAges of [[null], [18], [0, 1], "2", false]) {
+    await assert.rejects(
+      api("POST", "/bookings", { ...booking(), childrenAges }),
+      (error) => error.status === 422,
+    );
+  }
+  const after = await api("GET", "/workspace");
+  assert.deepEqual(after.bookings, before.bookings);
+  assert.deepEqual(after.audit, before.audit);
+});
 test("manager sees only assigned tenant and cannot mutate foreign records or accounts", async () => {
   const { api } = await setup();
   await api("POST", "/auth/login", { accountId: "manager-altun" });

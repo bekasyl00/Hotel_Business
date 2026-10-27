@@ -300,7 +300,7 @@ watch(() => route.params.id, load, { immediate: true });
                     <span
                       ><strong>{{ money(room.price) }}</strong
                       ><small>
-                        {{ t("public.nightBeforeSupplements") }}</small
+                        {{ t("common.pricing.baseRoomPrice") }}</small
                       ></span
                     ><RouterLink
                       class="secondary button-link"

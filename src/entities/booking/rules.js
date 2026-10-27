@@ -3,4 +3,7 @@ export {
   validateSearch,
   overlaps,
   nightsBetween,
+  quoteStay,
+  validatePricePeriods,
+  validateChildren,
 } from "./model/rules.js";

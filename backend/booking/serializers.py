@@ -3,9 +3,10 @@ from urllib.parse import unquote, urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.db.models import Avg, Count, Q
+from psycopg.types.range import Range
 from rest_framework import serializers
 
-from .models import Resort, Room, Tariff, User
+from .models import Resort, Room, RoomPricePeriod, Tariff, User
 
 
 def resorts_with_reviews(queryset):
@@ -138,7 +139,41 @@ class ResortSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "version", "rating"]
 
 
+class PricePeriodInput(serializers.Serializer):
+    label = serializers.CharField(max_length=80)
+    start = serializers.DateField()
+    end = serializers.DateField()
+    price = serializers.IntegerField(min_value=0, max_value=10000000)
+
+    def validate(self, data):
+        if data["end"] <= data["start"]:
+            raise serializers.ValidationError("Конец периода должен быть позже начала.")
+        return data
+
+
+class PricePeriodsField(serializers.Field):
+    def to_representation(self, value):
+        return [
+            {
+                "label": p.label,
+                "start": p.stay.lower.isoformat(),
+                "end": p.stay.upper.isoformat(),
+                "price": p.price,
+            }
+            for p in value.all()
+        ]
+
+    def to_internal_value(self, value):
+        serializer = PricePeriodInput(data=value, many=True, max_length=60)
+        serializer.is_valid(raise_exception=True)
+        periods = sorted(serializer.validated_data, key=lambda p: p["start"])
+        if any(a["end"] > b["start"] for a, b in zip(periods, periods[1:], strict=False)):
+            raise serializers.ValidationError("Периоды цен одного номера не должны пересекаться.")
+        return periods
+
+
 class RoomSerializer(serializers.ModelSerializer):
+    pricePeriods = PricePeriodsField(source="price_periods", required=False)
     resortId = serializers.PrimaryKeyRelatedField(source="resort", queryset=Resort.objects.all())
     capacity = serializers.IntegerField(min_value=1, max_value=4)
     area = serializers.IntegerField(min_value=1, max_value=1000)
@@ -146,6 +181,31 @@ class RoomSerializer(serializers.ModelSerializer):
     description = serializers.CharField(max_length=5000, allow_blank=True, required=False)
     amenities = FeatureList(required=False)
     media = MediaItem(many=True, max_length=20, required=False)
+
+    def save_periods(self, room, periods):
+        if periods is not None:
+            room.price_periods.all().delete()
+            RoomPricePeriod.objects.bulk_create(
+                [
+                    RoomPricePeriod(
+                        room=room,
+                        label=p["label"],
+                        price=p["price"],
+                        stay=Range(p["start"], p["end"], bounds="[)"),
+                    )
+                    for p in periods
+                ]
+            )
+            getattr(room, "_prefetched_objects_cache", {}).pop("price_periods", None)
+        return room
+
+    def create(self, validated_data):
+        periods = validated_data.pop("price_periods", None)
+        return self.save_periods(super().create(validated_data), periods)
+
+    def update(self, instance, validated_data):
+        periods = validated_data.pop("price_periods", None)
+        return self.save_periods(super().update(instance, validated_data), periods)
 
     class Meta:
         model = Room
@@ -160,6 +220,7 @@ class RoomSerializer(serializers.ModelSerializer):
             "capacity",
             "beds",
             "price",
+            "pricePeriods",
             "status",
             "description",
             "amenities",
@@ -170,6 +231,9 @@ class RoomSerializer(serializers.ModelSerializer):
 
 
 class TariffSerializer(serializers.ModelSerializer):
+    childrenUnderThreeFree = serializers.BooleanField(
+        source="children_under_three_free", required=False
+    )
     resortId = serializers.PrimaryKeyRelatedField(source="resort", queryset=Resort.objects.all())
     features = FeatureList()
     supplement = serializers.IntegerField(min_value=0, max_value=10000000)
@@ -202,6 +266,7 @@ class TariffSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "supplement",
+            "childrenUnderThreeFree",
             "features",
             "status",
             "priceKind",
@@ -234,9 +299,19 @@ class BookingInput(serializers.Serializer):
     start = serializers.DateField()
     end = serializers.DateField()
     guests = serializers.IntegerField(min_value=1, max_value=4)
+    childrenAges = serializers.ListField(
+        child=serializers.IntegerField(min_value=0, max_value=17), max_length=3, default=list
+    )
     guestLabel = serializers.CharField(max_length=80)
     guestPhone = serializers.RegexField(r"^\+?[0-9 ()-]{7,30}$", required=False, allow_blank=True)
     requestId = serializers.UUIDField()
+
+    def validate(self, data):
+        if len(data["childrenAges"]) >= data["guests"]:
+            raise serializers.ValidationError(
+                {"childrenAges": "Нужен хотя бы один взрослый; дети входят в общее число гостей."}
+            )
+        return data
 
 
 class GuestProfileInput(serializers.Serializer):

@@ -41,6 +41,9 @@ def freeze_receipt(payment, *, legacy=False):
         "tariffName": snapshot.get("tariffName", b.tariff.name),
         "regularNightly": snapshot.get("regularNightly", snapshot.get("nightly")),
         "nightly": snapshot.get("nightly"),
+        "nightlyBreakdown": snapshot.get("nightlyBreakdown", []),
+        "freeChildren": snapshot.get("freeChildren", 0),
+        "chargeableGuests": snapshot.get("chargeableGuests", b.guests),
         "nights": snapshot.get("nights", (b.stay.upper - b.stay.lower).days),
         "discountPercent": snapshot.get("discountPercent", 0),
         "total": payment.amount,
@@ -154,6 +157,11 @@ def receipt_pdf(payload):
         ("Цена / ночь", money(r["nightly"])),
         ("Демо-оплата", money(r["total"])),
     ]
+    rows.extend(
+        (f"Ночь {line['date']}", money(line["nightly"])) for line in r.get("nightlyBreakdown", [])
+    )
+    if r.get("freeChildren"):
+        rows.append(("Детей с бесплатным тарифом", r["freeChildren"]))
     table = Table(
         [[para(label, muted), para(value)] for label, value in rows], colWidths=[55 * mm, 115 * mm]
     )

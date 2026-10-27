@@ -78,5 +78,28 @@
     "staffDemoLocal": "Password-free demo. Changes stay in this app only. Real staff accounts connect through the server.",
     "demoWorkspace": "Demo · data stays in this app",
     "logout": "Sign out"
+  },
+  "pricing": {
+    "periods": "Seasonal room prices",
+    "periodHint": "Set the room-only price per night. Start is inclusive; end is exclusive. The base price applies outside these periods. Periods cannot overlap; existing bookings stay unchanged.",
+    "label": "Period name",
+    "start": "First night",
+    "end": "Until (exclusive)",
+    "add": "Add period",
+    "remove": "Remove period",
+    "invalidPeriods": "Check the name, dates and whole-number price for each period. Up to 60 periods are allowed.",
+    "overlap": "Price periods for a room cannot overlap.",
+    "children": "Children among the guests",
+    "childCount": "Number of children (included in guest count)",
+    "childAge": "Child {n} age at check-in",
+    "ageHint": "Enter completed years at check-in: 0 for an infant. At least one adult is required. All children count towards room capacity.",
+    "invalidChildren": "Enter each child’s age from 0 to 17. At least one guest must be an adult.",
+    "freeUnderThree": "Free tariff for children under 3",
+    "childPolicyHint": "This removes only this tariff’s supplement for children aged 0–2. The room price remains payable. Extra beds and separate services are not included.",
+    "breakdown": "Night-by-night price",
+    "varies": "Price varies by night",
+    "preview": "Estimated price. The server checks current rates on submission and freezes them in the booking.",
+    "baseRoomPrice": "base price / night, excluding tariff; dated prices apply after choosing dates",
+    "childrenAtCheckout": "Children’s ages and free child tariffs are applied in the booking form."
   }
 }

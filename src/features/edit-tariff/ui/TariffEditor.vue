@@ -11,6 +11,7 @@ const form = reactive({
   name: "",
   description: "",
   supplement: 0,
+  childrenUnderThreeFree: false,
   priceKind: "regular",
   discountPercent: 0,
   status: "active",
@@ -92,6 +93,12 @@ const { busy, error, save } = useEditor("tariffs", props.item, emit);
           :placeholder="t('staff.featuresPlaceholder')"
         ></textarea>
       </label>
+      <label class="consent"
+        ><input v-model="form.childrenUnderThreeFree" type="checkbox" />{{
+          t("common.pricing.freeUnderThree")
+        }}</label
+      >
+      <p class="field-help">{{ t("common.pricing.childPolicyHint") }}</p>
       <p class="field-help">
         {{ t("staff.discountHint") }}
       </p>

@@ -195,6 +195,7 @@ model {
   features_edit_resort -> shared_api 'import'
   features_edit_room -> shared_ui 'import'
   features_edit_room -> shared_api 'import'
+  features_edit_room -> entities_booking 'import'
   features_edit_room -> shared_lib 'import'
   features_edit_tariff -> shared_ui 'import'
   features_edit_tariff -> shared_api 'import'

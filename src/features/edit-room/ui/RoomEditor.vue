@@ -3,6 +3,7 @@ import { useI18n } from "vue-i18n";
 import { reactive, ref } from "vue";
 import { Modal, MediaEditor } from "@/shared/ui";
 import { useEditor } from "@/shared/api/use-editor.js";
+import { validatePricePeriods } from "@/entities/booking";
 import { categoryNames } from "@/shared/lib";
 const { t } = useI18n();
 const props = defineProps({ item: Object, resortId: String });
@@ -23,28 +24,28 @@ const form = reactive({
   status: "active",
   ...props.item,
   media: JSON.parse(JSON.stringify(props.item?.media || [])),
+  pricePeriods: JSON.parse(JSON.stringify(props.item?.pricePeriods || [])),
   amenities: (props.item?.amenities || []).join("\n"),
 });
 const { busy, error, save } = useEditor("rooms", props.item, emit);
+async function saveRoom() {
+  error.value = validatePricePeriods(form.pricePeriods);
+  if (error.value || mediaBusy.value) return;
+  await save({
+    ...form,
+    amenities: form.amenities
+      .split("\n")
+      .map((v) => v.trim())
+      .filter(Boolean),
+  });
+}
 </script>
 <template>
   <Modal
     :title="item ? t('staff.editRoom') : t('staff.addRoom')"
     :busy="busy || mediaBusy"
     @close="emit('close')"
-    ><form
-      class="editor-form"
-      @submit.prevent="
-        !mediaBusy &&
-        save({
-          ...form,
-          amenities: form.amenities
-            .split('\n')
-            .map((v) => v.trim())
-            .filter(Boolean),
-        })
-      "
-    >
+    ><form class="editor-form" @submit.prevent="saveRoom">
       <p class="field-help">
         {{ t("staff.physicalRoomHint") }}
       </p>
@@ -110,6 +111,65 @@ const { busy, error, save } = useEditor("rooms", props.item, emit);
           </select></label
         >
       </div>
+      <fieldset class="pricing-fields">
+        <legend>{{ t("common.pricing.periods") }}</legend>
+        <p class="field-help">{{ t("common.pricing.periodHint") }}</p>
+        <div
+          v-for="(period, index) in form.pricePeriods"
+          :key="index"
+          class="price-period-row"
+        >
+          <label
+            >{{ t("common.pricing.label")
+            }}<input v-model="period.label" maxlength="80" required
+          /></label>
+          <label
+            >{{ t("common.pricing.start")
+            }}<input v-model="period.start" type="date" required
+          /></label>
+          <label
+            >{{ t("common.pricing.end")
+            }}<input
+              v-model="period.end"
+              type="date"
+              :min="period.start"
+              required
+          /></label>
+          <label
+            >{{ t("staff.nightlyPriceKzt")
+            }}<input
+              v-model.number="period.price"
+              type="number"
+              min="0"
+              max="10000000"
+              step="1"
+              required
+          /></label>
+          <button
+            type="button"
+            class="secondary"
+            :disabled="busy"
+            @click="form.pricePeriods.splice(index, 1)"
+          >
+            {{ t("common.pricing.remove") }}
+          </button>
+        </div>
+        <button
+          type="button"
+          class="secondary"
+          :disabled="busy || form.pricePeriods.length >= 60"
+          @click="
+            form.pricePeriods.push({
+              label: '',
+              start: '',
+              end: '',
+              price: form.price,
+            })
+          "
+        >
+          {{ t("common.pricing.add") }}
+        </button>
+      </fieldset>
       <label
         >{{ t("staff.amenitiesLines")
         }}<textarea

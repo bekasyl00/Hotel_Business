@@ -21,6 +21,9 @@ import {
   validateSearch,
   overlaps,
   nightsBetween,
+  quoteStay,
+  validatePricePeriods,
+  validateChildren,
 } from "../../entities/booking/rules.js";
 import { ApiError } from "../../shared/api/index.js";
 import { demoAnalytics } from "./demo-analytics.js";
@@ -380,7 +383,9 @@ export function createDemoTransport({
         end: params.get("end"),
         guests: Number(params.get("guests")),
       };
-      const error = validateSearch(search);
+      const error =
+        validateSearch(search) ||
+        validateChildren(search.guests, search.childrenAges);
       if (error) fail(error);
       return {
         roomIds: db.rooms
@@ -447,8 +452,11 @@ export function createDemoTransport({
           start: payload.start,
           end: payload.end,
           guests: Number(payload.guests),
+          childrenAges: payload.childrenAges ?? [],
         };
-        const error = validateSearch(search);
+        const error =
+          validateSearch(search) ||
+          validateChildren(search.guests, search.childrenAges);
         if (error) fail(error);
         if (search.guests > room.capacity)
           fail("Вместимость номера меньше числа гостей.");
@@ -464,13 +472,7 @@ export function createDemoTransport({
             "Номер занят на выбранные даты. Выберите другой номер или даты.",
             409,
           );
-        const originalNightly = room.price + tariff.supplement * search.guests;
-        const nightly = Math.round(
-          (originalNightly *
-            (100 -
-              (tariff.priceKind === "discount" ? tariff.discountPercent : 0))) /
-            100,
-        );
+        const price = quoteStay(room, tariff, search);
         const booking = {
           id: crypto.randomUUID(),
           resortId: room.resortId,
@@ -481,8 +483,8 @@ export function createDemoTransport({
           unit: room.number,
           tariffName: tariff.name,
           ...search,
-          nightly,
-          originalNightly,
+          ...price,
+          originalNightly: price.regularNightly,
           priceKind: tariff.priceKind,
           discountPercent: tariff.discountPercent,
           cancellationPolicy: freezePolicy(resort, search.start),
@@ -495,7 +497,7 @@ export function createDemoTransport({
           checkedInAt: null,
           checkedOutAt: null,
           nights: nightsBetween(search.start, search.end),
-          total: nightly * nightsBetween(search.start, search.end),
+          total: price.total,
           guestLabel:
             kind === "bookings"
               ? text(payload.guestLabel, "Обозначение гостя", 80)
@@ -637,6 +639,10 @@ export function createDemoTransport({
         );
     }
     if (entity === "rooms") {
+      const priceError = validatePricePeriods(
+        payload.pricePeriods ?? item?.pricePeriods ?? [],
+      );
+      if (priceError) fail(priceError);
       fields = {
         resortId,
         number: text(payload.number, "Номер комнаты", 20),
@@ -654,6 +660,9 @@ export function createDemoTransport({
         capacity: number(payload.capacity, "Вместимость", 1, 4, true),
         beds: text(payload.beds, "Кровати", 120),
         price: number(payload.price, "Цена", 0, 10000000, true),
+        pricePeriods: structuredClone(
+          payload.pricePeriods ?? item?.pricePeriods ?? [],
+        ),
         status: choice(payload.status, ["active", "maintenance"]),
       };
       if (
@@ -685,6 +694,10 @@ export function createDemoTransport({
         name: text(payload.name, "Название", 80),
         description: text(payload.description, "Описание", 400, false),
         supplement: number(payload.supplement, "Доплата", 0, 10000000, true),
+        childrenUnderThreeFree:
+          payload.childrenUnderThreeFree ??
+          item?.childrenUnderThreeFree ??
+          false,
         priceKind: choice(payload.priceKind || item?.priceKind || "regular", [
           "regular",
           "discount",

@@ -147,3 +147,16 @@ Response: `{period:{start,end,granularity,timeZone},previousPeriod:{start,end},p
 Booking count/value uses booking.createdAt, including cancelled/rejected requests. Gross uses successful payment.createdAt and original amount, even after refund; failed attempts are excluded. Refunds use refund.createdAt, not booking/payment dates. Net = grossReceived − refunds, may be negative and is not profit. Reviews count all creation events, while averageRating only includes currently approved reviews created within the period (rounded half-up to 2 decimals).
 
 byResort rows add resortId/name; byRoom adds roomId/resortId/name/number. They include all authorized catalogue records, even archived/maintenance/zero-activity, rank netReceived descending then id ascending and cap 500 each with truncated flags. Totals/series remain full-scope. resorts contains all authorized filter options even when resortId selects one. Backend uses scoped database aggregates. Demo additionally returns refundDataIncomplete when legacy positive refunds lack event timestamps; those unknown-date events are omitted, never assigned an invented date.
+
+
+## Seasonal pricing and child tariffs — 2026-10-27
+
+`Room.pricePeriods`: up to 60 `{label, start, end, price}` periods. Start inclusive/end exclusive; price = room-only integer KZT/night (0..10,000,000), no overlaps. Missing field on PATCH preserves periods; `[]` clears them. Room version/tenant/audit checks still apply; PostgreSQL exclusion constraint is the final overlap guard.
+
+`Tariff.childrenUnderThreeFree`: boolean, default false. When enabled, only tariff supplement is waived for children aged 0–2. Room charge remains, all guests count towards capacity. POST booking accepts optional `childrenAges` (integer ages 0..17 **at check-in**, max 3, length < guests). `guests` includes children and at least one adult. Missing ages retains all-paid legacy behavior; idempotency fingerprint omits empty ages for existing clients. Document validation/identity proof is not supplied by a declared age.
+
+New snapshots (`pricingVersion:2`) include `childrenAges`, `freeChildren`, `chargeableGuests`, `childrenUnderThreeFree`, and `nightlyBreakdown` with date/roomPrice/periodLabel/supplementTotal/regularNightly/nightly. `nightly` and `regularNightly` are **null** when nonuniform; consumers must use `total` and daily lines, not assume nightly × nights. Update API consumers before enabling seasonal rates for them. Existing receipt/booking snapshots stay as written; new demo receipts copy daily lines. This is not fiscal or bank documentation.
+
+## Infrastructure probes
+
+`GET /health/live`: process 200 without DB. `GET /health/ready`: PostgreSQL SELECT 1; 200 or 503, JSON status only, no-store. Outside /api auth; restrict/rate-limit probes at ingress. No S3/SMS/payment/migration check.

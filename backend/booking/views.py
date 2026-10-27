@@ -46,7 +46,10 @@ class Endpoint(APIView):
             return Response(
                 {
                     "resort": ResortSerializer(resort).data,
-                    "rooms": RoomSerializer(resort.rooms.filter(status="active"), many=True).data,
+                    "rooms": RoomSerializer(
+                        resort.rooms.filter(status="active").prefetch_related("price_periods"),
+                        many=True,
+                    ).data,
                     "tariffs": TariffSerializer(
                         resort.tariffs.filter(status="active"), many=True
                     ).data,
@@ -113,7 +116,10 @@ class Endpoint(APIView):
                 {
                     "resorts": ResortSerializer(resorts_with_reviews(resorts), many=True).data,
                     "rooms": RoomSerializer(
-                        Room.objects.filter(resort__in=resorts, status="active"), many=True
+                        Room.objects.filter(resort__in=resorts, status="active").prefetch_related(
+                            "price_periods"
+                        ),
+                        many=True,
                     ).data,
                     "tariffs": TariffSerializer(
                         Tariff.objects.filter(resort__in=resorts, status="active"), many=True
@@ -166,7 +172,8 @@ class Endpoint(APIView):
                 {
                     "resorts": ResortSerializer(resorts_with_reviews(resorts), many=True).data,
                     "rooms": RoomSerializer(
-                        Room.objects.filter(resort__in=resorts), many=True
+                        Room.objects.filter(resort__in=resorts).prefetch_related("price_periods"),
+                        many=True,
                     ).data,
                     "tariffs": TariffSerializer(
                         Tariff.objects.filter(resort__in=resorts), many=True

@@ -11,6 +11,8 @@ from booking.staff_mobile_auth import StaffMobileAuthView, StaffMobileSessionVie
 from booking.views import Endpoint
 from commerce.views import CancellationPreviewView, DemoPaymentView, ReceiptView
 
+from .health import live, ready
+
 api_patterns = [
     path("staff-mobile-auth/sessions", StaffMobileSessionView.as_view()),
     path("staff-mobile-auth/sessions/<uuid:pk>", StaffMobileSessionView.as_view()),
@@ -35,6 +37,8 @@ api_patterns = [
     path("<str:resource>/<str:pk>", Endpoint.as_view()),
 ]
 urlpatterns = [
+    path("health/live", live),
+    path("health/ready", ready),
     path("django-admin/", platform_admin_site.urls),
     path("admin/", RedirectView.as_view(url="/django-admin/", permanent=False)),
     path("api/v1/", include(api_patterns)),

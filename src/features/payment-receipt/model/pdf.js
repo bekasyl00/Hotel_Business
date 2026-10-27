@@ -91,7 +91,9 @@ export async function generateDemoReceiptPdf(bundle, locale = getLocale()) {
   row("rate", receipt.tariffName);
   if (receipt.discountPercent)
     row("discountInReceiptPage", `${receipt.discountPercent}%`);
-  row("nightlyPrice", amount(receipt.nightly));
+  if (receipt.nightly != null) row("nightlyPrice", amount(receipt.nightly));
+  for (const line of receipt.nightlyBreakdown || [])
+    row("nightlyPrice", `${line.date}: ${amount(line.nightly)}`);
   paragraph(`${t("paidInDemo")}: ${amount(receipt.total)}`, 16);
   row("bookingReference", receipt.bookingId);
   row("payment", receipt.paymentId);

@@ -104,3 +104,16 @@ This entry supersedes earlier current-state statements that native tokens, media
 - Implement native staff credentials in a separate namespace/models; retain guest isolation and service-layer tenant scoping. 15-minute access, 12-hour absolute staff family, rotating refresh/replay revocation, password/role/resort version validation. Web/native failed-login budget is shared.
 - Keychain per bundle ID, no shared access group, no credentials in JS browser storage/logs. One-use rotation is serialized and marked pending before transmission. Offline logout clears local credentials and reports unconfirmed server revocation.
 - Common Swift Keychain bridge, native file sharing, privacy manifest, safe areas and native file pickers. App Store readiness is not claimed: native SMS/OTP transport, account deletion, deployed integrations and device/release checks remain. See ios.md and verification.md.
+
+
+## 2026-10-27 — Mutable product scope, pricing and launch register
+
+The user clarified the product can change substantially: commercial stays, official social-benefit funding and documents must not be modeled as one hotel booking/payment state. Keep the current transactional Django module structure, establish domain boundaries for future benefits/funding/ledger/documents, and use docs/production-readiness.md R01–R34 as the canonical work register. docs/sre.md owns proposed capacity/SLO/load/DR decisions; no claim of Kaspi-scale throughput is supported by current tests. Per-resort locking, unpaginated workspace and large native video downloads are explicit scaling limitations. Android is deferred to the end; do not rebuild/reinstall iPhone apps in this stage.
+
+Implement now: per-room nonoverlapping price periods (exclusive end), per-night integer half-up discounted price and frozen breakdown. Catalogue changes retain resort transaction locking and version/audit; DB exclusion rejects overlaps. `nightly=null` on nonuniform stays is explicitly documented; client rollout must precede enabling seasonal pricing for older API consumers. No catalogue-edit repricing of existing bookings.
+
+User clarified free under-three tariff is an employee choice, not unconditional entitlement. The opt-in switch on each tariff waives only that tariff supplement; room price and all-person capacity remain. Children use declared completed years at check-in, with an adult required. Other age groups, separate places/services and document checks remain R14/R21; do not infer DOB from IIN.
+
+Research identifies national IPAR-based and regional social programmes with differing conditions. Proposed manual/external verification and funding workflows are documented, not active government integrations. Current Supabase region (historical ap-northeast-2) and the Kazakhstan residency requirement require an operator/legal/infrastructure decision before real personal data; subscription upgrade is not a solution to data residency. No new real IIN, medical information, payment or government credentials were used. Official documents require approved issuer/requisites/signature/registration; a stamp image is not proof.
+
+Add minimal live/ready probes with no secrets or DB dependence for liveness. Queues, caches, autoscaling, metrics, error budgets and DR are future implementation and operations, not claims of this patch.

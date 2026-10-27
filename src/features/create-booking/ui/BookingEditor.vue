@@ -4,7 +4,13 @@ const { t } = useI18n();
 import { isDemo, isMobile, isStaffApp } from "@/shared/config";
 import { reactive, computed, watch } from "vue";
 import { Modal } from "@/shared/ui";
-import { useBookingStore, dateAfter, nightsBetween } from "@/entities/booking";
+import {
+  useBookingStore,
+  dateAfter,
+  nightsBetween,
+  quoteStay,
+  validateChildren,
+} from "@/entities/booking";
 import { ref } from "vue";
 import { useGuestAccountStore } from "@/entities/guest-account";
 const guestAccount = useGuestAccountStore();
@@ -23,6 +29,7 @@ const form = reactive({
   start: dateAfter(7),
   end: dateAfter(10),
   guests: 2,
+  childrenAges: [],
   guestLabel: "",
   guestPhone: "",
   ...props.preset,
@@ -31,18 +38,24 @@ const room = computed(() => props.rooms.find((r) => r.id === form.roomId));
 const tariff = computed(() =>
   props.tariffs.find((t) => t.id === form.tariffId),
 );
-const total = computed(() =>
-  room.value && tariff.value
-    ? Math.max(0, nightsBetween(form.start, form.end)) *
-      Math.round(
-        ((room.value.price + tariff.value.supplement * form.guests) *
-          (100 -
-            (tariff.value.priceKind === "discount"
-              ? tariff.value.discountPercent
-              : 0))) /
-          100,
-      )
-    : 0,
+const price = computed(() =>
+  room.value && tariff.value ? quoteStay(room.value, tariff.value, form) : null,
+);
+const total = computed(() => price.value?.total || 0);
+const childCount = computed({
+  get: () => form.childrenAges.length,
+  set: (value) => {
+    form.childrenAges = Array.from(
+      { length: Math.max(0, Math.min(Number(value) || 0, form.guests - 1)) },
+      (_, i) => form.childrenAges[i] ?? null,
+    );
+  },
+});
+watch(
+  () => form.guests,
+  (value) => {
+    form.childrenAges = form.childrenAges.slice(0, Math.max(0, value - 1));
+  },
 );
 const store = useBookingStore(),
   busy = ref(false),
@@ -50,6 +63,8 @@ const store = useBookingStore(),
   consent = ref(false);
 let attempt = null;
 async function save() {
+  error.value = validateChildren(form.guests, form.childrenAges);
+  if (error.value) return;
   busy.value = true;
   error.value = "";
   try {
@@ -164,6 +179,28 @@ watch(
             required
         /></label>
       </div>
+      <fieldset class="pricing-fields">
+        <legend>{{ t("common.pricing.children") }}</legend>
+        <label
+          >{{ t("common.pricing.childCount")
+          }}<input
+            v-model.number="childCount"
+            type="number"
+            min="0"
+            :max="Math.max(0, form.guests - 1)"
+            required
+        /></label>
+        <label v-for="(_, index) in form.childrenAges" :key="index"
+          >{{ t("common.pricing.childAge", { n: index + 1 })
+          }}<input
+            v-model.number="form.childrenAges[index]"
+            type="number"
+            min="0"
+            max="17"
+            required
+        /></label>
+        <p class="field-help">{{ t("common.pricing.ageHint") }}</p>
+      </fieldset>
       <label
         >{{ t("public.rate")
         }}<select v-model="form.tariffId" required>
@@ -196,8 +233,23 @@ watch(
             {{ t("public.guestsInBookingEditor") }}</small
           >
         </div>
-        <strong>{{ money(total) }}</strong>
+        <strong>{{ price ? money(total) : "—" }}</strong>
       </div>
+      <p v-if="tariff?.childrenUnderThreeFree" class="field-help">
+        {{ t("common.pricing.freeUnderThree") }}
+      </p>
+      <details v-if="price" class="price-breakdown">
+        <summary>{{ t("common.pricing.breakdown") }}</summary>
+        <dl>
+          <div v-for="line in price.nightlyBreakdown" :key="line.date">
+            <dt>
+              {{ line.date }} <small>{{ line.periodLabel }}</small>
+            </dt>
+            <dd>{{ money(line.nightly) }}</dd>
+          </div>
+        </dl>
+        <p class="field-help">{{ t("common.pricing.preview") }}</p>
+      </details>
       <p class="field-help">
         {{ t("public.checkinFrom") }} {{ resort.checkInTime || "14:00" }} ·
         {{ resort.timeZone || "Asia/Almaty"
@@ -222,7 +274,7 @@ watch(
           @click="emit('close')"
         >
           {{ t("public.cancel") }}</button
-        ><button class="primary" :disabled="busy || !room || !tariff">
+        ><button class="primary" :disabled="busy || !price">
           {{
             busy
               ? t("public.saving")
