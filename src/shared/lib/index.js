@@ -42,6 +42,7 @@ export const statusNames = labels("status", [
   "active",
   "maintenance",
   "pending",
+  "expired",
   "rejected",
   "confirmed",
   "cancelled",

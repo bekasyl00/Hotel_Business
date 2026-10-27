@@ -17,10 +17,10 @@ model {
     guestAuth = service 'Вход гостя по телефону' { description 'pages/guest-auth + entities/guest-account: регистрация, пароль, demo OTP, сброс, выход. Аккаунты сотрудников имеют отдельную модель и вход.' }
     localization = service 'RU / KK / EN' { description 'shared/i18n: vue-i18n, JSON namespaces, сохранённый выбор языка, формат дат/денег. Контент объектов остаётся языком автора; тесты ключей, placeholders и компиляции.' }
     profiles = service 'Профили санатория и номера' { description 'pages/resort-profile, pages/room-profile: даты после выбора санатория, класс, описание, фото/видео, тарифы и отзывы.' }
-    bookingsPage = service 'Мои бронирования' { description 'pages/my-bookings: заявки гостевой сессии, решение управляющего, симуляция оплаты, расчёт возврата, отмена и отзыв.' }
+    bookingsPage = service 'Мои бронирования' { description 'pages/my-bookings: заявки гостевой сессии, временное удержание, автоматическое оформление по demo-оплате, расчёт возврата, отмена и отзыв.' }
     guestProfile = service 'Профиль, аватар и квитанции' { description 'pages/guest-profile, receipt, staff-guest: история и загрузка аватара зарегистрированного гостя; подтверждённый телефон нельзя редактировать без новой проверки. Сотрудник видит гостя своего объекта. PDF по действию пользователя.' }
     analyticsPage = service 'Аналитика сотрудников' { description 'pages/analytics: периоды и сравнение, дни/недели/месяцы, заявки, demo-поступления/возвраты, отзывы и разрезы.' }
-    staffPage = service 'Кабинет сотрудников' { description 'pages/workspace + pages/login: обзор, каталог, аккаунты, решения по заявкам, модерация/ответы и история.' }
+    staffPage = service 'Кабинет сотрудников' { description 'pages/workspace + pages/login: обзор, каталог, аккаунты, оплаченные брони и истёкшие удержания, модерация/ответы и история.' }
     features = service 'Действия и формы' { description 'Создание брони; редактирование объектов/номеров/тарифов/аккаунтов; demo-payment и review-form. shared/ui выбирает фото/видео с устройства и отправляет FormData.' }
     gallery = service 'Галерея медиа' { description 'widgets/media-gallery: фотографии, alt-тексты и видео без автозапуска со звуком.' }
     stores = store 'Pinia' { description 'entities/session, guest-account, resort, booking: состояние интерфейса и загруженные записи; без прямого доступа представлений к localStorage.' }
@@ -39,11 +39,13 @@ model {
     catalog = service 'Каталог и профили' { description 'booking: санатории, физические номера, классы, категории, медиа-ссылки, обычные/скидочные тарифы, время заезда и IANA timezone.' }
     pricing = service 'Цены и возрастные правила' { description 'booking/pricing.py: RoomPricePeriod с PostgreSQL exclusion constraint; дневной расчёт, базовая цена вне периода, tariff children_under_three_free по решению сотрудника. Возраст на заезд, все гости входят во вместимость; snapshot фиксирует каждую ночь и политику. Это не государственное право на льготу.' }
     health = service 'Liveness / Readiness' { description 'config/health: процесс без БД и отдельный SELECT 1 с SQL timeout. Только ok/unavailable, no-store; не доказывает доступность S3/платежей и не заменяет SRE.' }
-    reservations = service 'Заявки и бронирования' { description 'booking/services.py: pending удерживает номер; управляющий confirmed/rejected; отмена. Серверная цена, фиксированные условия/время заезда, idempotency, версии и транзакции.' }
+    holds = service 'Удержание до оплаты' { description 'booking/holds.py + expire_payment_holds: expiry по серверному времени, под блокировкой санатория; активный фонд защищён PostgreSQL. Планировщик в облаке ещё не подключён.' }
+    commission = service 'Комиссия платформы' { description 'commerce/commission.py: admin-only процент по санаторию, frozen estimate в заказе. Не является ledger, банковским split или выплатой.' }
+    reservations = service 'Заявки и бронирования' { description 'booking/services.py: pending временно удерживает номер до оплаты; оплата автоматически confirmed; истечение expired; отмена. Серверная цена, фиксированные условия/время заезда, idempotency, версии и транзакции.' }
     reviews = service 'Отзывы и модерация' { description 'booking: один отзыв владельца завершённой подтверждённой брони, текст/оценка/фото, решение и ответ сотрудника. Публичны только approved.' }
     media = service 'Файлы и доступ к медиа' { description 'media.py + media_access: FormData, MediaAsset с владельцем/purpose, валидация ссылок, image decode/EXIF strip и basic MP4/WebM. Квоты 24ч/100файлов, stable /api/media/files/:id и проверка публикации/владельца. Local range либо S3 signed redirect на 60с.' }
     maintenance = service 'Очистка и обслуживание' { description 'cleanup_media: dry-run по умолчанию, --delete удаляет только непривязанные metadata-backed uploads старше 24ч под owner locks. cleanup_mobile_sessions удаляет expired families. Расписание, storage reconciliation и restore проверка ещё не настроены.' }
-    commerce = service 'Оплата и возврат — симулятор' { description 'commerce: DemoPayment/DemoRefund, только после confirmed и до заезда. Kaspi-themed demo без вызовов банка. >=48ч:100%; >=24ч:70%; иначе0%. Защита повторов, возврат в транзакции отмены.' }
+    commerce = service 'Оплата и возврат — симулятор' { description 'commerce: DemoPayment/DemoRefund: оплата pending/legacy confirmed до заезда и expiry, атомарное оформление брони. Kaspi-themed demo без вызовов банка. >=48ч:100%; >=24ч:70%; иначе0%. Защита повторов, возврат в транзакции отмены.' }
     receipts = service 'Демо-квитанции JSON / PDF' { description 'commerce/receipts.py: исходный снимок при оплате, отдельные сведения возврата, no-store и доступ владельцу/сотруднику. ReportLab + OFL Noto Sans. source=demo; настоящий чек от Kaspi не интегрирован.' }
     analytics = service 'Агрегаты аналитики' { description 'booking/analytics.py: PostgreSQL-агрегаты по датам событий в Asia/Almaty, сравнение периодов, нулевые интервалы, top500 по объектам/номерам. Net demo-поступления не являются прибылью.' }
     audit = service 'История изменений' { description 'booking Audit: before/after и актор записываются с мутацией в одной транзакции. Нет endpoint изменения журнала; DB-администратор всё ещё может менять БД.' }
@@ -115,6 +117,9 @@ model {
   backend.profiles -> backend.reservations 'Отметки заезда и выезда'
   backend.profiles -> backend.media 'Avatar upload/remove и приватное чтение'
   backend.catalog -> database 'Каталог'
+  backend.reservations -> backend.holds 'Истечение до повторной продажи'
+  backend.reservations -> backend.commission 'Снимок комиссии нового заказа'
+  backend.commerce -> backend.reservations 'Успешная demo-оплата оформляет бронь атомарно'
   backend.reservations -> database 'Блокировка санатория и защита пересечений'
   backend.reservations -> backend.commerce 'Отмена и возврат в одной транзакции'
   backend.commerce -> database 'Попытки платежа и возврат'

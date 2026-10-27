@@ -105,7 +105,7 @@ class ApiTests(TestCase):
         )
         self.assertEqual(Booking.objects.count(), 0)
 
-    def test_pending_price_idempotency_and_confirmation(self):
+    def test_pending_price_idempotency_and_manual_confirmation_denied(self):
         booking = self.create()
         self.assertEqual(booking["status"], "pending")
         self.assertEqual(booking["total"], 81000)
@@ -116,12 +116,12 @@ class ApiTests(TestCase):
         response = self.write(
             "patch", "/api/bookings/" + booking["id"], {"status": "confirmed", "version": 1}
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["status"], "confirmed")
-        self.assertEqual(Audit.objects.count(), 2)
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(Booking.objects.get(pk=booking["id"]).status, "pending")
+        self.assertEqual(Audit.objects.count(), 1)
         self.assertNotIn("guestPhone", Audit.objects.last().after)
 
-    def test_pending_blocks_and_rejection_releases(self):
+    def test_pending_blocks_and_cancellation_releases(self):
         b = self.create()
         self.data["requestId"] = str(uuid.uuid4())
         self.assertEqual(self.write("post", "/api/my-bookings", self.data).status_code, 409)
@@ -132,7 +132,7 @@ class ApiTests(TestCase):
         self.staff()
         self.assertEqual(
             self.write(
-                "patch", "/api/bookings/" + b["id"], {"status": "rejected", "version": 1}
+                "patch", "/api/bookings/" + b["id"], {"status": "cancelled", "version": 1}
             ).status_code,
             200,
         )
@@ -198,13 +198,13 @@ class ApiTests(TestCase):
             self.write("patch", url, {"status": "confirmed", "version": 0}).status_code, 409
         )
         self.assertEqual(
-            self.write("patch", url, {"status": "confirmed", "version": 1}).status_code, 200
+            self.write("patch", url, {"status": "confirmed", "version": 1}).status_code, 409
         )
         self.assertEqual(
             self.write("patch", url, {"status": "rejected", "version": 2}).status_code, 409
         )
         self.assertEqual(
-            self.write("patch", url, {"status": "cancelled", "version": 2}).status_code, 200
+            self.write("patch", url, {"status": "cancelled", "version": 1}).status_code, 200
         )
         self.assertEqual(
             self.write("patch", url, {"status": "confirmed", "version": 3}).status_code, 409

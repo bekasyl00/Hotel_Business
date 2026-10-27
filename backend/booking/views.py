@@ -11,10 +11,12 @@ from rest_framework.views import APIView
 from . import services as svc
 from .authentication import bearer_or_csrf_protect
 from .errors import Problem
+from .holds import active_inventory
 from .models import Audit, Booking, Resort, Review, Room, Tariff, User
 from .serializers import (
     ResortSerializer,
     RoomSerializer,
+    StaffResortSerializer,
     TariffSerializer,
     account_data,
     audit_data,
@@ -133,7 +135,7 @@ class Endpoint(APIView):
                 request.query_params.get("guests", 1)
             )
             stay = svc.validated_dates(start, end)
-            occupied = Booking.objects.filter(status__in=svc.ACTIVE, stay__overlap=stay).values(
+            occupied = Booking.objects.filter(active_inventory(), stay__overlap=stay).values(
                 "room_id"
             )
             ids = (
@@ -170,7 +172,7 @@ class Endpoint(APIView):
             )
             return Response(
                 {
-                    "resorts": ResortSerializer(resorts_with_reviews(resorts), many=True).data,
+                    "resorts": StaffResortSerializer(resorts_with_reviews(resorts), many=True).data,
                     "rooms": RoomSerializer(
                         Room.objects.filter(resort__in=resorts).prefetch_related("price_periods"),
                         many=True,
@@ -179,7 +181,7 @@ class Endpoint(APIView):
                         Tariff.objects.filter(resort__in=resorts), many=True
                     ).data,
                     "bookings": [
-                        booking_data(b)
+                        booking_data(b, staff=True)
                         for b in Booking.objects.filter(resort__in=resorts)
                         .select_related("review")
                         .prefetch_related("demo_payments")
@@ -214,7 +216,11 @@ class Endpoint(APIView):
             return Response(status=204)
         if resource in ["my-bookings", "bookings"]:
             return Response(
-                booking_data(svc.create_booking(request, resource == "bookings")), status=201
+                booking_data(
+                    svc.create_booking(request, resource == "bookings"),
+                    staff=resource == "bookings",
+                ),
+                status=201,
             )
         if resource == "accounts":
             return Response(svc.save_account(request), status=201)

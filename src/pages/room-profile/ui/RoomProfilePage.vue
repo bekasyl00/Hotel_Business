@@ -2,7 +2,7 @@
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 import { computed, reactive, ref, watch } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { MediaGallery } from "@/widgets/media-gallery";
 import { BookingEditor } from "@/features/create-booking";
@@ -15,6 +15,7 @@ import {
 import { request } from "@/shared/api";
 import { money, categoryNames } from "@/shared/lib";
 const route = useRoute();
+const router = useRouter();
 const data = ref(null),
   loading = ref(true),
   error = ref(""),
@@ -99,6 +100,7 @@ async function saved(booking) {
   checkout.value = false;
   success.value = booking;
   available.value = false;
+  await router.push({ path: "/bookings", query: { pay: booking.id } });
 }
 watch(dates, () => {
   searchGeneration++;

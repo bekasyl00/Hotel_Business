@@ -3,6 +3,8 @@ import { useI18n } from "vue-i18n";
 import { reactive, ref } from "vue";
 import { Modal, GeoMap, MediaEditor } from "@/shared/ui";
 import { useEditor } from "@/shared/api/use-editor.js";
+import { useSessionStore } from "@/entities/session";
+const session = useSessionStore();
 const { t } = useI18n();
 const props = defineProps({ item: Object });
 const emit = defineEmits(["close", "saved"]);
@@ -15,6 +17,7 @@ const form = reactive({
   resortClass: "standard",
   checkInTime: "14:00",
   timeZone: "Asia/Almaty",
+  commissionPercent: null,
   city: t("staff.saryagash"),
   address: "",
   subtitle: "",
@@ -28,6 +31,19 @@ const form = reactive({
   amenities: (props.item?.amenities || []).join("\n"),
 });
 const { busy, error, save } = useEditor("resorts", props.item, emit);
+function submit() {
+  if (mediaBusy.value) return;
+  const payload = {
+    ...form,
+    amenities: form.amenities
+      .split("\n")
+      .map((v) => v.trim())
+      .filter(Boolean),
+  };
+  if (!session.isAdmin) delete payload.commissionPercent;
+  else if (payload.commissionPercent === "") payload.commissionPercent = null;
+  return save(payload);
+}
 </script>
 <template>
   <Modal
@@ -35,24 +51,23 @@ const { busy, error, save } = useEditor("resorts", props.item, emit);
     wide
     :busy="busy || mediaBusy"
     @close="emit('close')"
-    ><form
-      class="editor-form"
-      @submit.prevent="
-        !mediaBusy &&
-        save({
-          ...form,
-          amenities: form.amenities
-            .split('\n')
-            .map((v) => v.trim())
-            .filter(Boolean),
-        })
-      "
-    >
+    ><form class="editor-form" @submit.prevent="submit">
       <div class="form-section">
         <span class="section-number">01</span>
         <h3>{{ t("staff.basicInformation") }}</h3>
       </div>
       <div class="form-grid">
+        <label v-if="session.isAdmin">
+          {{ t("common.checkout.commissionPercent") }}
+          <input
+            v-model="form.commissionPercent"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+          />
+          <small>{{ t("common.checkout.commissionHelp") }}</small>
+        </label>
         <label
           >{{ t("staff.category")
           }}<select v-model="form.category">

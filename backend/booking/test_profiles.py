@@ -1,9 +1,11 @@
 import importlib
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from threading import Barrier
 from types import SimpleNamespace
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
 
 from django.apps import apps
 from django.db import close_old_connections, connections
@@ -26,6 +28,12 @@ class ProfileTests(TestCase):
         self.client = APIClient(enforce_csrf_checks=True)
         self.token = self.client.get("/api/auth/csrf").json()["token"]
         self.today = timezone.localdate()
+        clock = patch(
+            "django.utils.timezone.now",
+            return_value=datetime.combine(self.today, time(8), tzinfo=ZoneInfo("Asia/Almaty")),
+        )
+        clock.start()
+        self.addCleanup(clock.stop)
         self.payload = {
             "roomId": self.room.id,
             "tariffId": self.tariff.id,
@@ -159,7 +167,7 @@ class ProfileTests(TestCase):
             len(self.client.get(f"/api/guests/{own.guest_profile_id}").json()["bookings"]), 2
         )
 
-    def test_checkin_requires_staff_confirmation_payment_dates_and_version(self):
+    def test_checkin_requires_paid_booking_dates_and_version(self):
         booking = self.create()
         url = f"/api/bookings/{booking.id}/check-in"
         self.assertEqual(self.write("post", url, {"version": 1}).status_code, 401)

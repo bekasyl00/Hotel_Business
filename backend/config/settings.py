@@ -10,6 +10,9 @@ environ.Env.read_env(env("DJANGO_ENV_FILE", default=str(BASE_DIR / ".env")))
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
 GUEST_AUTH_DEMO_OTP = env.bool("GUEST_AUTH_DEMO_OTP", default=False)
+BOOKING_HOLD_MINUTES = env.int("BOOKING_HOLD_MINUTES", default=30)
+if not 1 <= BOOKING_HOLD_MINUTES <= 120:
+    raise ValueError("BOOKING_HOLD_MINUTES must be between 1 and 120")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
 INSTALLED_APPS = [

@@ -122,7 +122,7 @@ class CommerceTests(TestCase):
         self.booking.save()
         self.assertEqual(self.pay().status_code, 404)
         self.booking.owner = "owner-a"
-        for status in ["pending", "rejected", "cancelled"]:
+        for status in ["expired", "rejected", "cancelled"]:
             self.booking.status = status
             self.booking.save()
             self.assertEqual(self.pay().status_code, 409)
@@ -328,6 +328,9 @@ class CommerceTests(TestCase):
 class ConcurrentPaymentTests(TransactionTestCase):
     def test_double_payment_from_concurrent_requests(self):
         _, booking, _ = fixture()
+        booking.status = "pending"
+        booking.hold_expires_at = timezone.now() + timedelta(minutes=30)
+        booking.save(update_fields=["status", "hold_expires_at"])
         barrier = Barrier(2)
 
         def pay():
@@ -356,3 +359,6 @@ class ConcurrentPaymentTests(TransactionTestCase):
             results = [future.result(timeout=20) for future in futures]
         self.assertEqual(sorted(results), [200, 409])
         self.assertEqual(DemoPayment.objects.filter(outcome="success").count(), 1)
+        booking.refresh_from_db()
+        self.assertEqual((booking.status, booking.version), ("confirmed", 2))
+        self.assertEqual(Audit.objects.filter(action="payment_confirmed").count(), 1)

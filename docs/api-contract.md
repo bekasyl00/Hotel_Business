@@ -37,7 +37,7 @@ Domain records have string id and integer version. Catalogue/account/booking/rev
 | DELETE /tariffs/:id                                        | Scoped `{version}`; historical booking references prevent deletion                                            |
 | POST /accounts, PATCH /accounts/:id                        | Admin manages manager; creation requires password, edit optionally replaces it                                |
 | POST /bookings                                             | Staff request; same price/collision rules, starts pending                                                     |
-| PATCH /bookings/:id                                        | Scoped `{status:"confirmed"\|"rejected"\|"cancelled",version}`                                              |
+| PATCH /bookings/:id                                        | Scoped `{status:"cancelled",version}`; manual approval/rejection returns 409                                              |
 | GET /reviews?resortId=:id                                  | Approved public reviews, newest 100                                                                           |
 | POST /reviews                                              | `{bookingId,rating,text,photos}`; own completed confirmed website stay, guest only                            |
 | PATCH /reviews/:id                                         | Scoped `{version,status:"approved"\|"rejected",reply?}`                                                      |
@@ -101,20 +101,22 @@ Successful payments additionally return `receiptUrl: "/receipts/:id"`; failed at
 Booking contains id/version, resortId, roomId, tariffId, start/end, guests, guestLabel/guestPhone, status, source (`website/staff`), createdAt; frozen resortName/roomName/unit/tariffName, regularNightly, priceKind, discountPercent, nightly, nights, total, cancellationPolicy. It also returns payment (object/null), reviewId and reviewStatus (null or pending/approved/rejected). Legacy bookings without recorded cancellation terms use a stable 14:00 Asia/Almaty default.
 
 ```text
-regularNightly = room.price + tariff.supplement × guests
-nightly = floor((regularNightly × (100 − discountPercent) + 50) / 100)
-total = nightly × nights
+for each night:
+  roomPrice = matching seasonal period price, otherwise room.price
+  regularNightly = roomPrice + tariff.supplement × chargeableGuests
+  nightly = floor((regularNightly × (100 − discountPercent) + 50) / 100)
+total = sum(nightlyBreakdown[].nightly)
 ```
 
-The server ignores client total/discount overrides. Dates are `[start,end)`, 1–30 nights. Pending and confirmed block inventory. Pending transitions to confirmed/rejected/cancelled; confirmed only to cancelled. Guests cancel only their website bookings. Completed stays cannot change status.
+The server ignores client total/discount overrides. Dates are `[start,end)`, 1–30 nights, before advertised check-in. Unexpired pending and confirmed reserve inventory. Successful payment atomically transitions pending → confirmed; manual confirmed/rejected requests return 409. Guest/scoped staff may cancel an eligible pending/confirmed booking. Expired pending → expired is a system action. Existing legacy confirmed/unpaid records can still pay; old pending records with null holdExpiresAt remain held until paid/cancelled (migration policy must be decided before production).
 
-POST requires UUID requestId. Identical validated payload/owner/key returns the original booking and its original price/time terms. Changed payload/owner with a used key returns 409. Confirmation does not mark a booking paid. Pending requests and unpaid confirmations have no automatic expiry.
+POST requires UUID requestId. Identical validated payload/owner/key returns the original booking with its current state and frozen price; changed payload/owner returns 409. A failed payment leaves the hold pending. Retrying the same payment key never repeats confirmation or receipt creation. New requests after payment, cancellation or expiry fail. Hold duration is BOOKING_HOLD_MINUTES (default 30, 1–120), capped at advertised check-in. holdExpiresAt is server time; client timers are informational.
 
 ## Demo payments and cancellation
 
 This is an internal Kaspi-themed simulator, **not an official Kaspi API/sandbox integration**. No bank calls, card details, bank QR codes or real money movements. It remains a simulator in both data modes.
 
-Payment: `{id,bookingId,status,paymentMode:"demo",provider:"kaspi-demo",currency:"KZT",amount,refundedAmount,createdAt}`. Status: paid/failed/partially_refunded/refunded. Only the website owner can pay a confirmed booking before its frozen check-in timestamp. Amount is the server total. Same requestId/outcome returns the original result; conflicting reuse returns 409. Failed attempts may retry with new keys. A booking cannot be paid successfully twice, including concurrent requests.
+Payment: `{id,bookingId,status,paymentMode:"demo",provider:"kaspi-demo",currency:"KZT",amount,refundedAmount,createdAt}`. Status: paid/failed/partially_refunded/refunded. Website owner uses POST /payments/demo; scoped staff uses POST /payments/demo/staff only for source=staff orders (guest orders cannot be marked paid by this staff endpoint). Both accept `{bookingId,requestId,outcome:"success"|"failed"}`; the simulated outcome is NOT a trusted production-bank interface. One successful payment per booking, original amount frozen, payment/confirmation/receipt/audit atomic. Browser writes require CSRF; guest Bearer never grants staff payment permission.
 
 Cancellation policy freezes `{mode:"demo",checkinAt,checkInTime,timeZone,partialRefundPercent:70,policyText}` when booking is created. Preview adds `{paidAmount,refundAmount,refundPercent,hoursBeforeCheckin,actorKind}`. At least 48h gives 100%; at least 24h but less than 48h gives 70%; under 24h gives 0%. Refund = floor(paidAmount × percent / 100). No successful payment means zero paid/refund amounts. Staff and guest use the same schedule; actorKind records initiation, not a policy override.
 
@@ -160,3 +162,9 @@ New snapshots (`pricingVersion:2`) include `childrenAges`, `freeChildren`, `char
 ## Infrastructure probes
 
 `GET /health/live`: process 200 without DB. `GET /health/ready`: PostgreSQL SELECT 1; 200 or 503, JSON status only, no-store. Outside /api auth; restrict/rate-limit probes at ingress. No S3/SMS/payment/migration check.
+
+## Platform commission and hold expiry
+
+Staff workspace resorts include `commissionPercent` (decimal string or null). Only admin may submit this field through resort create/update; a manager submitting it gets 403. Public catalogue/profile serializers omit it. New booking snapshots store `commissionTerms:{percent,amount,resortAmount,currency,basis:"booking_total",mode:"estimate",refundHandling:"requires_reconciliation"}` with per-order half-up integer-KZT calculation. Only scoped staff booking output contains the terms. Null rate/amount is explicitly unconfigured, 0 is explicitly zero. Bank fees, actual split settlement and refund commission treatment are not implemented.
+
+Run `manage.py expire_payment_holds` every minute in deployment. The command is idempotent, orders resort locks and audits expiry. New bookings also expire stale holds under the resort lock before the exclusion check; availability ignores elapsed holds. A payment attempt commits overdue expiry before refusing payment. Paid bookings never expire. Late real bank events after expiry require a separate reconciliation/refund workflow, never blindly recreate inventory. This simulator does not implement provider callbacks.

@@ -117,3 +117,13 @@ User clarified free under-three tariff is an employee choice, not unconditional 
 Research identifies national IPAR-based and regional social programmes with differing conditions. Proposed manual/external verification and funding workflows are documented, not active government integrations. Current Supabase region (historical ap-northeast-2) and the Kazakhstan residency requirement require an operator/legal/infrastructure decision before real personal data; subscription upgrade is not a solution to data residency. No new real IIN, medical information, payment or government credentials were used. Official documents require approved issuer/requisites/signature/registration; a stamp image is not proof.
 
 Add minimal live/ready probes with no secrets or DB dependence for liveness. Queues, caches, autoscaling, metrics, error budgets and DR are future implementation and operations, not claims of this patch.
+
+## 2026-10-27 — Payment-first commercial orders and configurable commission (supersedes manager approval)
+
+User removed manager confirmation: new commercial orders hold inventory pending payment, then successful server payment automatically confirms the booking. Manual confirmed/rejected transitions are forbidden. This supersedes earlier approval instructions. Paid/cancelled/expired, funding entitlement and actual bank settlement remain separate concerns. Real Kaspi first, Halyk later: no provider credentials/contracts or real callback endpoints have been invented.
+
+Admin enters commission per resort in staff web/mobile source UI; null means unconfigured, zero explicitly no commission. Freeze rate and half-up KZT amount from the booking total at creation. Manager cannot edit, public/guest output hides terms. Estimates are not payouts/profit; bank fees, split settlement and refund commission allocation require the operator/bank/accountant decision.
+
+New holds default to 30 minutes (server configurable 1–120), capped at advertised check-in. Expiry is audited and idempotent, serializes with payment and inventory under the resort lock; command must be scheduled in deployed environment. Legacy null-expiry holds are preserved pending an explicit migration policy. Old confirmed/unpaid records can still pay. Late bank success after expiry needs reconciliation/refund and cannot blindly confirm a re-sold room.
+
+Only simulator implementation is active: unique successful payment, receipt/status/audit in one transaction; repeat requests cannot confirm twice. Scoped staff simulator is limited to staff-created bookings; no manual payment approval for guest-created orders. Browser CSRF and native audience isolation remain. iPhone rebuild/install remains deferred.

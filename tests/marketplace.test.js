@@ -99,7 +99,7 @@ test("discount and checkin survive later catalogue changes", async () => {
   );
 });
 
-test("pending cannot pay; retry is idempotent and cancellation settles once", async () => {
+test("payment confirms pending automatically; retry is idempotent and cancellation settles once", async () => {
   const { api } = setup();
   let b = await api("POST", "/my-bookings", booking());
   const pay = {
@@ -107,17 +107,19 @@ test("pending cannot pay; retry is idempotent and cancellation settles once", as
     requestId: crypto.randomUUID(),
     outcome: "success",
   };
-  await assert.rejects(
-    api("POST", "/payments/demo", pay),
-    (e) => e.status === 409,
-  );
+  assert.equal(b.status, "pending");
+  assert.ok(b.holdExpiresAt);
   await api("POST", "/auth/login", { accountId: "manager-altun" });
-  b = await api("PATCH", `/bookings/${b.id}`, {
-    version: b.version,
-    status: "confirmed",
-  });
+  await assert.rejects(
+    api("PATCH", `/bookings/${b.id}`, {
+      version: b.version,
+      status: "confirmed",
+    }),
+  );
   const payment = await api("POST", "/payments/demo", pay);
   assert.equal(payment.status, "paid");
+  b = (await api("GET", "/my-bookings")).find((x) => x.id === b.id);
+  assert.equal(b.status, "confirmed");
   assert.equal((await api("POST", "/payments/demo", pay)).id, payment.id);
   await assert.rejects(
     api("POST", "/payments/demo", { ...pay, requestId: crypto.randomUUID() }),
@@ -265,15 +267,18 @@ test("demo receipt remains original after profile/catalogue edits and refunds", 
   const { api } = setup();
   let b = await api("POST", "/my-bookings", booking());
   await api("POST", "/auth/login", { accountId: "manager-altun" });
-  b = await api("PATCH", `/bookings/${b.id}`, {
-    version: b.version,
-    status: "confirmed",
-  });
+  await assert.rejects(
+    api("PATCH", `/bookings/${b.id}`, {
+      version: b.version,
+      status: "confirmed",
+    }),
+  );
   const p = await api("POST", "/payments/demo", {
     bookingId: b.id,
     requestId: crypto.randomUUID(),
     outcome: "success",
   });
+  b = (await api("GET", "/my-bookings")).find((x) => x.id === b.id);
   const original = (await api("GET", `/receipts/${p.id}`)).receipt;
   await api("PATCH", "/profile", {
     name: "Другое демо-имя",
@@ -281,7 +286,9 @@ test("demo receipt remains original after profile/catalogue edits and refunds", 
   });
   const resort = (await api("GET", "/workspace")).resorts[0];
   await api("PATCH", `/resorts/${resort.id}`, {
-    ...resort,
+    ...Object.fromEntries(
+      Object.entries(resort).filter(([key]) => key !== "commissionPercent"),
+    ),
     address: "Новый адрес",
   });
   await api("PATCH", `/my-bookings/${b.id}`, {
@@ -299,10 +306,12 @@ test("legacy demo receipts are restored once and remain frozen after catalogue e
   const { api, mutate } = setup();
   let b = await api("POST", "/my-bookings", booking());
   await api("POST", "/auth/login", { accountId: "manager-altun" });
-  b = await api("PATCH", `/bookings/${b.id}`, {
-    version: b.version,
-    status: "confirmed",
-  });
+  await assert.rejects(
+    api("PATCH", `/bookings/${b.id}`, {
+      version: b.version,
+      status: "confirmed",
+    }),
+  );
   const p = await api("POST", "/payments/demo", {
     bookingId: b.id,
     requestId: crypto.randomUUID(),
@@ -317,7 +326,9 @@ test("legacy demo receipts are restored once and remain frozen after catalogue e
   assert.match(restored.notice, /Восстановлена при первом открытии/);
   const resort = (await api("GET", "/workspace")).resorts[0];
   await api("PATCH", `/resorts/${resort.id}`, {
-    ...resort,
+    ...Object.fromEntries(
+      Object.entries(resort).filter(([key]) => key !== "commissionPercent"),
+    ),
     address: "Изменённый после восстановления адрес",
   });
   assert.deepEqual((await api("GET", `/receipts/${p.id}`)).receipt, restored);
@@ -341,10 +352,12 @@ test("arrival needs payment/date/scope/version; checked-in bookings cannot cance
   const { api, mutate } = setup();
   let b = await api("POST", "/my-bookings", booking());
   await api("POST", "/auth/login", { accountId: "manager-altun" });
-  b = await api("PATCH", `/bookings/${b.id}`, {
-    version: b.version,
-    status: "confirmed",
-  });
+  await assert.rejects(
+    api("PATCH", `/bookings/${b.id}`, {
+      version: b.version,
+      status: "confirmed",
+    }),
+  );
   await assert.rejects(
     api("POST", `/bookings/${b.id}/check-in`, { version: b.version }),
     (e) => e.status === 409,
@@ -358,6 +371,7 @@ test("arrival needs payment/date/scope/version; checked-in bookings cannot cance
     api("POST", `/bookings/${b.id}/check-in`, { version: b.version }),
     (e) => e.status === 409,
   );
+  b = (await api("GET", "/my-bookings")).find((x) => x.id === b.id);
   mutate((db) => {
     const stay = db.bookings.find((item) => item.id === b.id);
     stay.start = "2000-01-01";
@@ -391,5 +405,86 @@ test("arrival needs payment/date/scope/version; checked-in bookings cannot cance
       })
     ).stayStatus,
     "checked_out",
+  );
+});
+
+test("expired demo holds release inventory and cannot be paid", async () => {
+  const { api, mutate } = setup();
+  const first = await api("POST", "/my-bookings", booking());
+  mutate((db) => {
+    db.bookings.find((b) => b.id === first.id).holdExpiresAt = new Date(
+      Date.now() - 1000,
+    ).toISOString();
+  });
+  await assert.rejects(
+    api("POST", "/payments/demo", {
+      bookingId: first.id,
+      requestId: crypto.randomUUID(),
+      outcome: "success",
+    }),
+    (e) => e.status === 409,
+  );
+  assert.equal((await api("GET", "/my-bookings"))[0].status, "expired");
+  const second = await api("POST", "/my-bookings", booking());
+  assert.equal(second.status, "pending");
+});
+
+test("admin commission setting is frozen for each order and protected from managers", async () => {
+  const { api } = setup();
+  await api("POST", "/auth/login", { accountId: "admin" });
+  let resort = (await api("GET", "/workspace")).resorts.find(
+    (r) => r.id === "altun",
+  );
+  resort = await api("PATCH", `/resorts/${resort.id}`, {
+    ...resort,
+    commissionPercent: "7.25",
+  });
+  const b = await api("POST", "/my-bookings", booking());
+  await api("PATCH", `/resorts/${resort.id}`, {
+    ...resort,
+    commissionPercent: "10",
+  });
+  const stored = (await api("GET", "/workspace")).bookings.find(
+    (x) => x.id === b.id,
+  );
+  assert.equal(stored.commissionTerms.amount, 7178);
+  assert.equal(stored.commissionTerms.resortAmount, 91822);
+  assert.equal(stored.commissionTerms.percent, "7.25");
+  assert.equal(
+    "commissionPercent" in (await api("GET", "/catalog")).resorts[0],
+    false,
+  );
+  await api("POST", "/auth/login", { accountId: "manager-altun" });
+  resort = (await api("GET", "/workspace")).resorts[0];
+  await assert.rejects(
+    api("PATCH", `/resorts/${resort.id}`, {
+      ...resort,
+      commissionPercent: "0",
+    }),
+    (e) => e.status === 403,
+  );
+});
+
+test("staff-created demo orders are booked by payment, not approval", async () => {
+  const { api } = setup();
+  await api("POST", "/auth/login", { accountId: "manager-altun" });
+  const b = await api("POST", "/bookings", {
+    ...booking(),
+    guestLabel: "Демо-гость",
+  });
+  await assert.rejects(
+    api("PATCH", `/bookings/${b.id}`, {
+      status: "confirmed",
+      version: b.version,
+    }),
+  );
+  await api("POST", "/payments/demo/staff", {
+    bookingId: b.id,
+    requestId: crypto.randomUUID(),
+    outcome: "success",
+  });
+  assert.equal(
+    (await api("GET", "/workspace")).bookings.find((x) => x.id === b.id).status,
+    "confirmed",
   );
 });

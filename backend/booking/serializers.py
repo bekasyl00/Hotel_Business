@@ -139,6 +139,21 @@ class ResortSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "version", "rating"]
 
 
+class StaffResortSerializer(ResortSerializer):
+    commissionPercent = serializers.DecimalField(
+        source="commission_percent",
+        max_digits=5,
+        decimal_places=2,
+        min_value=0,
+        max_value=100,
+        allow_null=True,
+        required=False,
+    )
+
+    class Meta(ResortSerializer.Meta):
+        fields = [*ResortSerializer.Meta.fields, "commissionPercent"]
+
+
 class PricePeriodInput(serializers.Serializer):
     label = serializers.CharField(max_length=80)
     start = serializers.DateField()
@@ -382,10 +397,13 @@ def account_data(user):
     }
 
 
-def booking_data(b):
+def booking_data(b, staff=False):
     from commerce.services import booking_payment_data, cancellation_terms
 
     review = getattr(b, "review", None)
+    snapshot = dict(b.snapshot)
+    if not staff:
+        snapshot.pop("commissionTerms", None)
     return {
         "id": b.id,
         "version": b.version,
@@ -406,7 +424,8 @@ def booking_data(b):
         else ("in_house" if b.checked_in_at else "not_arrived"),
         "checkedInAt": b.checked_in_at.isoformat() if b.checked_in_at else None,
         "checkedOutAt": b.checked_out_at.isoformat() if b.checked_out_at else None,
-        **b.snapshot,
+        **snapshot,
+        "holdExpiresAt": b.hold_expires_at.isoformat() if b.hold_expires_at else None,
         "cancellationPolicy": cancellation_terms(b),
         "payment": booking_payment_data(b),
         "reviewId": review.pk if review else None,

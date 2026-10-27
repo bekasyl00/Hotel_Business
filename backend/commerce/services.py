@@ -87,14 +87,20 @@ class PaymentInput(serializers.Serializer):
 
 
 @transaction.atomic
-def create_demo_payment(request):
-    from booking.services import log_change
+def _create_demo_payment(request, staff=False):
+    from booking.serializers import booking_data
+    from booking.services import log_change, require_staff
 
     inp = PaymentInput(data=request.data)
     inp.is_valid(raise_exception=True)
     data = inp.validated_data
     booking = get_object_or_404(Booking, pk=data["bookingId"])
-    _require_owner(request, booking)
+    if staff:
+        require_staff(request.user, booking.resort_id)
+        if booking.source != "staff":
+            raise Problem("Оплату гостевой брони выполняет сам гость.", 403)
+    else:
+        _require_owner(request, booking)
     Resort.objects.select_for_update().get(pk=booking.resort_id)
     booking.refresh_from_db()
     previous = DemoPayment.objects.filter(request_key=data["requestId"]).first()
@@ -102,8 +108,14 @@ def create_demo_payment(request):
         if previous.booking_id != booking.id or previous.outcome != data["outcome"]:
             raise Problem("Ключ запроса уже использован для другой оплаты.", 409)
         return previous
-    if booking.status != "confirmed":
-        raise Problem("Оплата доступна после подтверждения брони управляющим.", 409)
+    if booking.status not in ["pending", "confirmed"]:
+        raise Problem("Эта бронь больше не доступна для оплаты.", 409)
+    if (
+        booking.hold_expires_at
+        and booking.status == "pending"
+        and timezone.now() >= booking.hold_expires_at
+    ):
+        raise Problem("Время оплаты истекло. Создайте новую бронь.", 409)
     if timezone.now() >= datetime.fromisoformat(cancellation_terms(booking)["checkinAt"]):
         raise Problem("Время заезда уже наступило. Обратитесь к управляющему.", 409)
     if booking.demo_payments.filter(outcome="success").exists():
@@ -116,8 +128,23 @@ def create_demo_payment(request):
         amount=booking.snapshot["total"],
     )
     if payment.outcome == "success":
+        before = booking_data(booking)
+        if booking.status == "pending":
+            booking.status = "confirmed"
+            booking.version += 1
+            booking.save(update_fields=["status", "version"])
         payment.receipt = freeze_receipt(payment)
         payment.save(update_fields=["receipt"])
+        log_change(
+            request.user,
+            "bookings",
+            booking,
+            "payment_confirmed",
+            before,
+            booking_data(booking),
+            booking.resort_id,
+            website=not staff,
+        )
     log_change(
         request.user,
         "payments",
@@ -126,9 +153,27 @@ def create_demo_payment(request):
         None,
         payment_data(payment),
         booking.resort_id,
-        website=True,
+        website=not staff,
     )
     return payment
+
+
+def create_demo_payment(request, staff=False):
+    from booking.holds import expire_resort_holds
+    from booking.services import require_staff
+
+    inp = PaymentInput(data=request.data)
+    inp.is_valid(raise_exception=True)
+    booking = get_object_or_404(Booking, pk=inp.validated_data["bookingId"])
+    if staff:
+        require_staff(request.user, booking.resort_id)
+        if booking.source != "staff":
+            raise Problem("Оплату гостевой брони выполняет сам гость.", 403)
+    else:
+        _require_owner(request, booking)
+    # Expiry commits even when the subsequent payment is refused.
+    expire_resort_holds(booking.resort_id)
+    return _create_demo_payment(request, staff=staff)
 
 
 def cancellation_preview(booking, *, staff=False, now=None):

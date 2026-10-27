@@ -4,6 +4,7 @@ import secrets
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
+from django.conf import settings
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
@@ -12,9 +13,11 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from psycopg.types.range import Range
 
+from commerce.commission import freeze_commission
 from commerce.services import apply_cancellation, freeze_cancellation_terms
 
 from .errors import Problem
+from .holds import expire_locked_holds
 from .models import (
     Audit,
     Booking,
@@ -32,10 +35,10 @@ from .serializers import (
     AccountInput,
     BookingInput,
     GuestProfileInput,
-    ResortSerializer,
     ReviewInput,
     ReviewModeration,
     RoomSerializer,
+    StaffResortSerializer,
     TariffSerializer,
     account_data,
     booking_data,
@@ -44,7 +47,11 @@ from .serializers import (
 )
 
 ACTIVE = ["pending", "confirmed"]
-SERIALIZERS = {"resorts": ResortSerializer, "rooms": RoomSerializer, "tariffs": TariffSerializer}
+SERIALIZERS = {
+    "resorts": StaffResortSerializer,
+    "rooms": RoomSerializer,
+    "tariffs": TariffSerializer,
+}
 MODELS = {
     "resorts": Resort,
     "rooms": Room,
@@ -162,6 +169,7 @@ def create_booking(request, staff=False):
     room.refresh_from_db()
     if staff:
         require_staff(request.user, resort.pk)
+    expire_locked_holds(resort.pk)
     previous = Booking.objects.filter(request_key=data["requestId"]).first()
     if previous:
         if previous.owner != owner or previous.request_hash != fingerprint:
@@ -180,6 +188,12 @@ def create_booking(request, staff=False):
     price = quote_stay(
         room, tariff, data["start"], data["end"], data["guests"], data["childrenAges"]
     )
+    cancellation_policy = freeze_cancellation_terms(resort, data["start"])
+    from datetime import datetime
+
+    checkin_at = datetime.fromisoformat(cancellation_policy["checkinAt"])
+    if checkin_at <= timezone.now():
+        raise Problem("Время заезда уже наступило. Выберите другую дату.", 409)
     profile = (
         upsert_guest_profile(owner, data["guestLabel"], data["guestPhone"]) if not staff else None
     )
@@ -194,6 +208,9 @@ def create_booking(request, staff=False):
         owner=owner,
         guest_profile=profile,
         source="staff" if staff else "website",
+        hold_expires_at=min(
+            timezone.now() + timedelta(minutes=settings.BOOKING_HOLD_MINUTES), checkin_at
+        ),
         request_key=data["requestId"],
         request_hash=fingerprint,
         snapshot={
@@ -202,7 +219,8 @@ def create_booking(request, staff=False):
             "unit": room.number,
             "tariffName": tariff.name,
             **price,
-            "cancellationPolicy": freeze_cancellation_terms(resort, data["start"]),
+            "cancellationPolicy": cancellation_policy,
+            "commissionTerms": freeze_commission(resort, price["total"]),
         },
     )
     log_change(
@@ -229,7 +247,7 @@ def transition_booking(request, pk, staff=False):
         raise Problem("Бронирование не найдено.", 404)
     version_check(item, request.data)
     target = request.data.get("status")
-    allowed = {"pending": ["confirmed", "rejected", "cancelled"], "confirmed": ["cancelled"]}
+    allowed = {"pending": ["cancelled"], "confirmed": ["cancelled"]}
     if target not in allowed.get(item.status, []) or (not staff and target != "cancelled"):
         raise Problem("Этот переход статуса недоступен.", 409)
     if item.checked_in_at:
@@ -263,6 +281,8 @@ def save_catalog(request, kind, pk=None):
     from .media_access import validate_asset_references
 
     require_staff(request.user)
+    if kind == "resorts" and "commissionPercent" in request.data:
+        require_admin(request.user)
     model, serializer_cls = MODELS[kind], SERIALIZERS[kind]
     item = get_object_or_404(model, pk=pk) if pk else None
     resort_id = (

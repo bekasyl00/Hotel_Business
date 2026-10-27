@@ -74,7 +74,7 @@ class StaffMobileTests(TestCase):
         administrator = bearer(self.session(self.admin)["accessToken"])
         self.assertEqual(len(administrator.get("/api/v1/workspace").json()["resorts"]), 2)
 
-    def test_native_staff_can_create_pending_and_confirm_with_existing_service(self):
+    def test_native_staff_order_requires_payment_instead_of_manual_confirmation(self):
         api = bearer(self.session()["accessToken"])
         start = timezone.localdate() + timedelta(days=8)
         response = api.post(
@@ -99,8 +99,14 @@ class StaffMobileTests(TestCase):
             {"status": "confirmed", "version": booking["version"]},
             format="json",
         )
-        self.assertEqual(response.status_code, 200, response.content)
-        self.assertEqual(response.json()["status"], "confirmed")
+        self.assertEqual(response.status_code, 409, response.content)
+        paid = api.post(
+            "/api/v1/payments/demo/staff",
+            {"bookingId": booking["id"], "requestId": str(uuid.uuid4()), "outcome": "success"},
+            format="json",
+        )
+        self.assertEqual(paid.status_code, 200, paid.content)
+        self.assertEqual(api.get("/api/v1/workspace").json()["bookings"][0]["status"], "confirmed")
 
     def test_guest_staff_and_django_admin_credentials_do_not_mix(self):
         account = GuestAccount.objects.create(

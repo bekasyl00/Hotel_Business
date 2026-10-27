@@ -42,11 +42,21 @@ class Resort(Record):
     )
     check_in_time = models.TimeField(default=time(14, 0))
     time_zone = models.CharField(max_length=64, default="Asia/Almaty")
+    commission_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     amenities = models.JSONField(default=list)
     media = models.JSONField(default=list)
     status = models.CharField(
         max_length=16, default="draft", choices=[(v, v) for v in ["draft", "published", "archived"]]
     )
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(commission_percent__isnull=True)
+                | Q(commission_percent__gte=0, commission_percent__lte=100),
+                name="resort_commission_percent_range",
+            )
+        ]
 
 
 class User(AbstractUser):
@@ -194,8 +204,9 @@ class Booking(Record):
     status = models.CharField(
         max_length=16,
         default="pending",
-        choices=[(v, v) for v in ["pending", "confirmed", "rejected", "cancelled"]],
+        choices=[(v, v) for v in ["pending", "confirmed", "rejected", "cancelled", "expired"]],
     )
+    hold_expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
     source = models.CharField(max_length=16, choices=[("website", "website"), ("staff", "staff")])
     created_at = models.DateTimeField(auto_now_add=True)
     snapshot = models.JSONField(default=dict)

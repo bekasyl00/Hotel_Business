@@ -5,7 +5,10 @@ import { ref } from "vue";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
 import { money } from "@/shared/lib";
-const props = defineProps({ booking: { type: Object, required: true } });
+const props = defineProps({
+  booking: { type: Object, required: true },
+  staff: Boolean,
+});
 const emit = defineEmits(["close", "saved"]);
 const busy = ref(false),
   error = ref(""),
@@ -18,11 +21,15 @@ async function pay(outcome) {
   if (attempt?.outcome !== outcome)
     attempt = { outcome, requestId: crypto.randomUUID() };
   try {
-    const result = await request("POST", "/payments/demo", {
-      bookingId: props.booking.id,
-      outcome,
-      requestId: attempt.requestId,
-    });
+    const result = await request(
+      "POST",
+      props.staff ? "/payments/demo/staff" : "/payments/demo",
+      {
+        bookingId: props.booking.id,
+        outcome,
+        requestId: attempt.requestId,
+      },
+    );
     if (outcome === "failed") {
       failed.value = true;
       attempt = null;

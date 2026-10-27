@@ -29,6 +29,7 @@ api_patterns = [
         Endpoint.as_view(),
     ),
     path("payments/demo", DemoPaymentView.as_view()),
+    path("payments/demo/staff", DemoPaymentView.as_view(), {"staff": True}),
     path("receipts/<str:pk>/pdf", ReceiptView.as_view(), {"pdf": True}),
     path("receipts/<str:pk>", ReceiptView.as_view()),
     path("cancellation-preview/<str:pk>", CancellationPreviewView.as_view()),

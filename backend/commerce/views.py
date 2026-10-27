@@ -16,8 +16,8 @@ from .receipts import receipt_for_request, receipt_pdf
 class DemoPaymentView(APIView):
     permission_classes = [AllowAny]
 
-    def post(self, request):
-        return Response(services.payment_data(services.create_demo_payment(request)))
+    def post(self, request, staff=False):
+        return Response(services.payment_data(services.create_demo_payment(request, staff=staff)))
 
 
 @method_decorator(never_cache, name="dispatch")

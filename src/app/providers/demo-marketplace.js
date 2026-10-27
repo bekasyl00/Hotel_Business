@@ -167,8 +167,14 @@ export function marketplaceRequest({
   version,
 }) {
   const done = (value) => ({ handled: true, value });
-  const publicResort = (id) =>
-    db.resorts.find((r) => r.id === id && r.status === "published");
+  const publicResort = (id) => {
+    const resort = db.resorts.find(
+      (r) => r.id === id && r.status === "published",
+    );
+    if (!resort) return null;
+    const { commissionPercent, ...publicData } = resort;
+    return publicData;
+  };
   const publicReview = ({
     id,
     resortId,
@@ -274,8 +280,20 @@ export function marketplaceRequest({
     else ownBooking(id);
     return done(refundPreview(b, staff));
   }
-  if (pathname === "/payments/demo" && method === "POST") {
-    const b = ownBooking(payload.bookingId);
+  if (
+    ["/payments/demo", "/payments/demo/staff"].includes(pathname) &&
+    method === "POST"
+  ) {
+    const staff = pathname.endsWith("/staff");
+    const b = staff
+      ? db.bookings.find((booking) => booking.id === payload.bookingId)
+      : ownBooking(payload.bookingId);
+    if (!b) fail("Бронирование не найдено.", 404);
+    if (staff) {
+      authorize(b.resortId);
+      if (b.source !== "staff")
+        fail("Оплату гостевой брони выполняет сам гость.", 403);
+    }
     if (
       !/^[0-9a-f-]{36}$/i.test(payload.requestId || "") ||
       !["success", "failed"].includes(payload.outcome)
@@ -287,8 +305,14 @@ export function marketplaceRequest({
         fail("Ключ оплаты уже использован.", 409);
       return done(previous);
     }
-    if (b.status !== "confirmed")
-      fail("Дождитесь подтверждения управляющего.", 409);
+    if (!["pending", "confirmed"].includes(b.status))
+      fail("Эта бронь больше не доступна для оплаты.", 409);
+    if (
+      b.status === "pending" &&
+      b.holdExpiresAt &&
+      Date.now() >= Date.parse(b.holdExpiresAt)
+    )
+      fail("Время оплаты истекло. Создайте новую бронь.", 409);
     if (
       Date.now() >=
       Date.parse((b.cancellationPolicy || freezePolicy({}, b.start)).checkinAt)
@@ -312,6 +336,8 @@ export function marketplaceRequest({
     };
     const before = JSON.parse(JSON.stringify(b));
     if (payload.outcome === "success") {
+      b.status = "confirmed";
+      b.version++;
       payment.receiptUrl = `/receipts/${payment.id}`;
       payment.receipt = freezeDemoReceipt(db, b, payment);
     }

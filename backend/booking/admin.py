@@ -229,6 +229,7 @@ class ResortAdmin(ReadOnlyAdmin):
         "resort_class",
         "check_in_time",
         "time_zone",
+        "commission_percent",
     )
     list_filter = ("status", "category", "resort_class", "city")
     search_fields = ("name", "city", "address")

@@ -253,9 +253,12 @@ export function createDemoTransport({
       db.audit.unshift({
         id: crypto.randomUUID(),
         at: new Date().toISOString(),
-        actor: pathname.startsWith("/my-bookings")
-          ? "Гость сайта"
-          : user?.name || "Демо-система",
+        actor:
+          action === "payment_expired"
+            ? "Система"
+            : pathname.startsWith("/my-bookings")
+              ? "Гость сайта"
+              : user?.name || "Демо-система",
         resortId,
         entity,
         entityId: (after || before).id,
@@ -297,6 +300,18 @@ export function createDemoTransport({
       }
       return clone(after);
     };
+    for (const booking of db.bookings) {
+      if (
+        booking.status === "pending" &&
+        booking.holdExpiresAt &&
+        Date.parse(booking.holdExpiresAt) <= Date.now()
+      ) {
+        const before = clone(booking);
+        booking.status = "expired";
+        booking.version++;
+        commit("bookings", booking, before, "payment_expired");
+      }
+    }
     const authResult = await demoAuthRequest({
       db,
       session,
@@ -369,7 +384,9 @@ export function createDemoTransport({
     }
     if (pathname === "/catalog" && method === "GET")
       return clone({
-        resorts: publicResorts,
+        resorts: publicResorts.map(
+          ({ commissionPercent, ...resort }) => resort,
+        ),
         rooms: db.rooms.filter(
           (r) => isPublic(r.resortId) && r.status === "active",
         ),
@@ -473,6 +490,17 @@ export function createDemoTransport({
             409,
           );
         const price = quoteStay(room, tariff, search);
+        const cancellationPolicy = freezePolicy(resort, search.start);
+        if (Date.parse(cancellationPolicy.checkinAt) <= Date.now())
+          fail("Время заезда уже наступило. Выберите другую дату.", 409);
+        const percent = resort.commissionPercent ?? null;
+        const commission =
+          percent == null
+            ? null
+            : Math.floor(
+                (price.total * Math.round(Number(percent) * 100) + 5000) /
+                  10000,
+              );
         const booking = {
           id: crypto.randomUUID(),
           resortId: room.resortId,
@@ -487,7 +515,22 @@ export function createDemoTransport({
           originalNightly: price.regularNightly,
           priceKind: tariff.priceKind,
           discountPercent: tariff.discountPercent,
-          cancellationPolicy: freezePolicy(resort, search.start),
+          cancellationPolicy,
+          holdExpiresAt: new Date(
+            Math.min(
+              Date.now() + 30 * 60000,
+              Date.parse(cancellationPolicy.checkinAt),
+            ),
+          ).toISOString(),
+          commissionTerms: {
+            percent,
+            amount: commission,
+            resortAmount: commission == null ? null : price.total - commission,
+            currency: "KZT",
+            basis: "booking_total",
+            mode: "estimate",
+            refundHandling: "requires_reconciliation",
+          },
           payment: null,
           guestProfileId:
             kind === "my-bookings"
@@ -519,7 +562,7 @@ export function createDemoTransport({
         } else authorize(item.resortId);
         version(item);
         const allowed = {
-          pending: ["confirmed", "rejected", "cancelled"],
+          pending: ["cancelled"],
           confirmed: ["cancelled"],
         };
         if (
@@ -601,7 +644,21 @@ export function createDemoTransport({
     }
     let fields;
     if (entity === "resorts") {
+      if ("commissionPercent" in payload) admin();
+      const commissionPercent =
+        payload.commissionPercent === undefined
+          ? (item?.commissionPercent ?? null)
+          : payload.commissionPercent;
+      if (
+        commissionPercent !== null &&
+        (!/^\d{1,3}(\.\d{1,2})?$/.test(String(commissionPercent)) ||
+          Number(commissionPercent) > 100)
+      )
+        fail(
+          "Комиссия: укажите процент от 0 до 100, не более двух знаков после запятой.",
+        );
       fields = {
+        commissionPercent,
         category: choice(payload.category || item?.category || "wellness", [
           "wellness",
           "family",
@@ -746,17 +803,25 @@ export function createDemoTransport({
   const transport = async (method, path, body) => {
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
     body = media.canonical(body);
-    if (
-      typeof window !== "undefined" &&
-      globalThis.navigator?.locks &&
-      (method !== "GET" || /^\/receipts\/[^/?]+(?:\?|$)/.test(path))
-    )
-      return media.hydrate(
-        await navigator.locks.request(DATABASE_KEY, () =>
-          execute(method, path, body),
-        ),
-      );
-    return media.hydrate(await execute(method, path, body));
+    const result =
+      typeof window !== "undefined" && globalThis.navigator?.locks
+        ? await navigator.locks.request(DATABASE_KEY, () =>
+            execute(method, path, body),
+          )
+        : await execute(method, path, body);
+    const privateTerms = new Set(["commissionTerms", "commissionPercent"]);
+    const publicData = (value) =>
+      Array.isArray(value)
+        ? value.map(publicData)
+        : value && typeof value === "object"
+          ? Object.fromEntries(
+              Object.entries(value)
+                .filter(([key]) => !privateTerms.has(key))
+                .map(([key, child]) => [key, publicData(child)]),
+            )
+          : value;
+    const guestOutput = /^\/(my-bookings|profile)(\/|\?|$)/.test(path);
+    return media.hydrate(guestOutput ? publicData(result) : result);
   };
   transport.dispose = () => media.dispose();
   if (typeof window !== "undefined") {

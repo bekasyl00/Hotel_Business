@@ -2,13 +2,16 @@
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 import { onMounted, ref, computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+const route = useRoute(),
+  router = useRouter();
 import { PublicHeader } from "@/widgets/public-header";
 import { DemoPayment } from "@/features/demo-payment";
 import { ReviewForm } from "@/features/review-form";
 import { useBookingStore, dateAfter } from "@/entities/booking";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
-import { money, dateLabel, statusNames } from "@/shared/lib";
+import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
 const store = useBookingStore();
 const loading = ref(true),
   error = ref(""),
@@ -37,7 +40,10 @@ const canReview = (booking) =>
   !booking.reviewId &&
   !reviewed.value.has(booking.id);
 const canPay = (booking) =>
-  booking.status === "confirmed" &&
+  ["pending", "confirmed"].includes(booking.status) &&
+  (booking.status !== "pending" ||
+    !booking.holdExpiresAt ||
+    Date.parse(booking.holdExpiresAt) > Date.now()) &&
   Date.parse(booking.cancellationPolicy?.checkinAt || "") > Date.now() &&
   (!booking.payment || booking.payment.status === "failed");
 function checkinLabel(booking) {
@@ -56,6 +62,14 @@ async function load() {
   error.value = "";
   try {
     await store.loadMine();
+    if (typeof route.query.pay === "string") {
+      const target = store.items.find(
+        (booking) => booking.id === route.query.pay && canPay(booking),
+      );
+      if (target) paymentTarget.value = target;
+      const { pay, ...query } = route.query;
+      await router.replace({ query });
+    }
   } catch (e) {
     error.value = e.message;
   } finally {
@@ -190,6 +204,16 @@ onMounted(load);
             t(
               "public.waitingForManagerConfirmationYourRoomIsHeldWhileTheRequestIs",
             )
+          }}
+        </p>
+        <p
+          v-if="booking.status === 'pending' && booking.holdExpiresAt"
+          class="booking-status-note"
+        >
+          {{
+            t("common.checkout.payBefore", {
+              date: timeLabel(booking.holdExpiresAt),
+            })
           }}
         </p>
         <p

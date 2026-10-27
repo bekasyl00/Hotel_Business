@@ -11,12 +11,26 @@ import { ResortEditor } from "@/features/edit-resort";
 import { RoomEditor } from "@/features/edit-room";
 import { TariffEditor } from "@/features/edit-tariff";
 import { AccountEditor } from "@/features/edit-account";
+import { DemoPayment } from "@/features/demo-payment";
 import { BookingEditor } from "@/features/create-booking";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
 import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
 import { isDemo, isStaffApp } from "@/shared/config";
 const { t } = useI18n();
+const paymentDialog = ref(null);
+const canPayStaff = (b) =>
+  b.source === "staff" &&
+  ["pending", "confirmed"].includes(b.status) &&
+  (!b.payment || b.payment.status === "failed") &&
+  (!b.holdExpiresAt ||
+    b.status === "confirmed" ||
+    Date.parse(b.holdExpiresAt) > Date.now()) &&
+  Date.parse(b.cancellationPolicy?.checkinAt || "") > Date.now();
+async function paymentSaved(result) {
+  if (!result.failed) paymentDialog.value = null;
+  await load();
+}
 const session = useSessionStore(),
   catalog = useResortStore(),
   bookings = useBookingStore();
@@ -498,6 +512,9 @@ onBeforeUnmount(() => {
                     <option value="rejected">
                       {{ t("staff.bookingRejected") }}
                     </option>
+                    <option value="expired">
+                      {{ t("common.status.expired") }}
+                    </option>
                     <option value="confirmed">
                       {{ t("staff.confirmed") }}
                     </option>
@@ -832,6 +849,27 @@ onBeforeUnmount(() => {
                       <small v-if="b.status === 'confirmed'">{{
                         stayNames[b.stayStatus || "not_arrived"]
                       }}</small>
+                      <small v-if="b.status === 'pending' && b.holdExpiresAt">{{
+                        t("common.checkout.payBefore", {
+                          date: timeLabel(b.holdExpiresAt),
+                        })
+                      }}</small>
+                      <small v-if="b.commissionTerms"
+                        >{{ t("common.checkout.commissionEstimate") }}:
+                        {{
+                          b.commissionTerms.amount == null
+                            ? t("common.checkout.notConfigured")
+                            : money(b.commissionTerms.amount)
+                        }}</small
+                      >
+                      <small v-if="b.commissionTerms?.resortAmount != null"
+                        >{{ t("common.checkout.resortEstimate") }}:
+                        {{ money(b.commissionTerms.resortAmount) }}</small
+                      >
+                      <small
+                        v-if="b.commissionTerms && b.payment?.refundedAmount"
+                        >{{ t("common.checkout.refundReconciliation") }}</small
+                      >
                       <small v-if="b.checkedInAt">{{
                         t("staff.arrivalAt", { date: timeLabel(b.checkedInAt) })
                       }}</small>
@@ -844,38 +882,31 @@ onBeforeUnmount(() => {
                     <td :data-label="t('staff.action')">
                       <div v-if="b.status === 'pending'" class="row-actions">
                         <button
+                          v-if="canPayStaff(b)"
                           class="text-button"
-                          @click="
-                            confirm = {
-                              kind: 'bookings',
-                              item: b,
-                              target: 'confirmed',
-                              title: t('staff.approveBookingTitle'),
-                              text: t('staff.approveBookingText'),
-                            }
-                          "
+                          @click="paymentDialog = b"
                         >
-                          {{ t("staff.confirm") }}
+                          {{ t("common.checkout.demoPay") }}
                         </button>
                         <button
                           class="text-button danger"
-                          @click="
-                            confirm = {
-                              kind: 'bookings',
-                              item: b,
-                              target: 'rejected',
-                              title: t('staff.rejectBookingTitle'),
-                              text: t('staff.rejectBookingText'),
-                            }
-                          "
+                          :disabled="busy"
+                          @click="prepareCancellation(b)"
                         >
-                          {{ t("staff.reject") }}
+                          {{ t("staff.cancelBooking") }}
                         </button>
                       </div>
                       <div
                         v-else-if="b.status === 'confirmed'"
                         class="row-actions"
                       >
+                        <button
+                          v-if="canPayStaff(b)"
+                          class="text-button"
+                          @click="paymentDialog = b"
+                        >
+                          {{ t("common.checkout.demoPay") }}
+                        </button>
                         <button
                           v-if="canCheckIn(b)"
                           class="text-button"
@@ -1043,6 +1074,8 @@ onBeforeUnmount(() => {
                           cancel: t("staff.cancel"),
                           cancelled: t("staff.cancel"),
                           demo_payment: t("staff.demoPayment"),
+                          payment_confirmed: t("common.checkout.paymentBooked"),
+                          payment_expired: t("common.status.expired"),
                           demo_refund: t("staff.demoRefund"),
                           "check-in": t("staff.checkedIn"),
                           "check-out": t("staff.departure"),
@@ -1165,6 +1198,13 @@ onBeforeUnmount(() => {
     :tariffs="scopedTariffs"
     @close="editor = null"
     @saved="saved"
+  />
+  <DemoPayment
+    v-if="paymentDialog"
+    :booking="paymentDialog"
+    staff
+    @close="paymentDialog = null"
+    @saved="paymentSaved"
   />
   <Modal
     v-if="confirm"

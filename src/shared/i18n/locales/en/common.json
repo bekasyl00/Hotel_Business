@@ -16,11 +16,12 @@
     "archived": "Archived",
     "active": "Active",
     "maintenance": "Maintenance",
-    "pending": "Awaiting confirmation",
+    "pending": "Awaiting payment",
     "rejected": "Rejected",
-    "confirmed": "Confirmed",
+    "confirmed": "Booked",
     "cancelled": "Cancelled",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "expired": "Payment window expired"
   },
   "error": {
     "network": "Cannot reach the server. Check your connection and try again.",
@@ -101,5 +102,16 @@
     "preview": "Estimated price. The server checks current rates on submission and freezes them in the booking.",
     "baseRoomPrice": "base price / night, excluding tariff; dated prices apply after choosing dates",
     "childrenAtCheckout": "Children’s ages and free child tariffs are applied in the booking form."
+  },
+  "checkout": {
+    "commissionPercent": "Platform commission, %",
+    "commissionHelp": "Administrator only. Empty means not configured; 0 means no commission. Applies to new orders.",
+    "commissionEstimate": "Platform commission (estimate)",
+    "notConfigured": "Not configured",
+    "refundReconciliation": "Refunds require reconciliation of commission and the resort amount.",
+    "payBefore": "Pay by {date}",
+    "demoPay": "Demo payment",
+    "resortEstimate": "Resort share before bank fees (estimate)",
+    "paymentBooked": "Booked after payment"
   }
 }
