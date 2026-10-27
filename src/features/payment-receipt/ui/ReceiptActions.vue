@@ -4,6 +4,7 @@ const { t, locale } = useI18n();
 import { ref, onMounted, watch } from "vue";
 import { requestFile } from "@/shared/api";
 import { isDemo, apiBase } from "@/shared/config";
+import { isNative, shareNativeFile } from "@/shared/native";
 import {
   generateDemoReceiptPdf,
   receiptFilename,
@@ -42,6 +43,11 @@ async function save(share = false) {
   notice.value = "";
   try {
     const file = await prepare();
+    if (isNative()) {
+      await shareNativeFile(file, t("public.tynysDemoReceipt"));
+      notice.value = t("common.mobile.saveFile");
+      return;
+    }
     if (share && navigator.share && navigator.canShare?.({ files: [file] })) {
       try {
         await navigator.share({

@@ -1,6 +1,17 @@
 # Проверки проекта
 
-## Файлы, мобильные сессии, Django Admin и Supabase — 23 октября 2026
+## Два приложения iOS — 27 октября 2026
+
+- `Тыныс` (kz.tynys.booking) и `Тыныс Команда` (kz.tynys.staff) имеют отдельные Xcode projects, bundles, routes и sandbox. Оба собраны Xcode 26.6 для arm64/x86_64 Simulator (`BUILD SUCCEEDED`) и установлены/запущены в iPhone 17 / iOS 26.5. Это не подпись или установка на физический телефон.
+- В симуляторе проверены гостевой каталог/профиль, открытие карты и выбор санатория, вход рабочего demo, обзор, меню управления и карточки номеров. Исправлены сдвиг плавающей кнопки при нажатии, safe-area карты/статусной строки; native scrolling включён. Native Share PDF, фото/видео picker, Keychain API-login и реальные HTTP-запросы к облаку ещё требуют end-to-end проверки с подключённым backend/устройством; успешная компиляция не заменяет её.
+- `npm test`: **69** тестов + FSD; `npm run build`, `build:surfaces`, `build:apps`, `arch:check` проходят. Guest/staff page exclusion проверяется для обеих мобильных сборок. API-варианты также компилируются с примером HTTPS endpoint; запросы к этому примеру не выполнялись. `npm audit`: 0 vulnerabilities (включая dev). Transitive xcode/uuid закреплён на 11.1.1; обе pbxproj разбираются и Capacitor sync проходит.
+- `backend/.venv/bin/python backend/manage.py test booking commerce --noinput`: **114** тестов на PostgreSQL, включая 7 новых staff-native сценариев: tenant scope, pending/confirmation, guest/staff/cookie isolation, replay и concurrent refresh, password/role/resort/deactivation invalidation, per-device logout/expiry. Ruff и migration drift проходят. Identity 0002 применена только к локальной БД; облачная Supabase-схема ею ещё не обновлялась.
+- Browser UI: 1365×900 и 390×844, карта, RU/KK/EN. У guest artifact в DOM **0** ссылок `/staff`; на профиле нет категорий, нет горизонтального overflow. Сайт сохраняет свою навигацию, отдельные mobile tabs присутствуют только в приложениях.
+- Локальные снимки: `output/ios-guest-catalogue.png`, `output/ios-guest-map.png`. Последующие native snapshots сохраняются в output; не публикуются вместе с сайтами.
+
+По умолчанию обе iOS сборки — **demo**. Их данные и аккаунты не синхронизируются между приложениями/сайтами. Облачный Django/PostgreSQL/S3 runtime, реальные SMS/Kaspi, native guest registration/reset, удаление аккаунта, push/deep links и физическое устройство не проверены/не завершены. Android не создан. Подпись Apple ID и установка на личный iPhone — следующий отдельный шаг. Инструкции: [ios.md](ios.md). В этой итерации Vercel/App Store/TestFlight не публиковались.
+
+## Историческая проверка файлов, мобильных сессий, Django Admin и Supabase — 23 октября 2026
 
 Текущая реализация проверена локально с настоящим PostgreSQL 17. Отдельно через официальный коннектор Supabase создана и проверена облачная структура; это не подтверждение соединения запущенного Django с облаком.
 

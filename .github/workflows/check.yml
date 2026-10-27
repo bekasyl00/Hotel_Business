@@ -15,6 +15,7 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: npm run build:surfaces
+      - run: npm run build:apps
       - run: npm run arch:check
       - run: git diff --exit-code -- architecture/modules.c4
   backend:

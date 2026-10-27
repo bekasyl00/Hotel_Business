@@ -7,10 +7,14 @@ from booking.admin import platform_admin_site
 from booking.guest_auth import GuestAuthView
 from booking.media import MediaFile, MediaUpload, ProfileAvatar
 from booking.mobile_auth import MobileAuthView, MobileSessionView
+from booking.staff_mobile_auth import StaffMobileAuthView, StaffMobileSessionView
 from booking.views import Endpoint
 from commerce.views import CancellationPreviewView, DemoPaymentView, ReceiptView
 
 api_patterns = [
+    path("staff-mobile-auth/sessions", StaffMobileSessionView.as_view()),
+    path("staff-mobile-auth/sessions/<uuid:pk>", StaffMobileSessionView.as_view()),
+    path("staff-mobile-auth/<str:action>", StaffMobileAuthView.as_view()),
     path("media", MediaUpload.as_view()),
     path("media/files/<uuid:pk>", MediaFile.as_view()),
     path("profile/avatar", ProfileAvatar.as_view()),

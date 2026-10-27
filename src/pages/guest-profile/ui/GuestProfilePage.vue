@@ -6,7 +6,7 @@ import { GuestBookingHistory } from "@/widgets/guest-booking-history";
 import { useGuestAccountStore } from "@/entities/guest-account";
 import { useBookingStore } from "@/entities/booking";
 import { request, ApiError, uploadErrorCode } from "@/shared/api";
-import { isDemo } from "@/shared/config";
+import { isDemo, isMobile } from "@/shared/config";
 const { t } = useI18n(),
   account = useGuestAccountStore(),
   bookings = useBookingStore();
@@ -134,7 +134,11 @@ onMounted(load);
                   ? isDemo
                     ? t("auth.demoLocal")
                     : t("auth.crossDevice")
-                  : t("auth.guestNotice")
+                  : t(
+                      isMobile
+                        ? "common.mobile.localHistory"
+                        : "auth.guestNotice",
+                    )
               }}
             </p>
             <p v-if="account.authenticated">

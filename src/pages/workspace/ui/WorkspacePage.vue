@@ -15,7 +15,7 @@ import { BookingEditor } from "@/features/create-booking";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
 import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
-import { isDemo } from "@/shared/config";
+import { isDemo, isStaffApp } from "@/shared/config";
 const { t } = useI18n();
 const session = useSessionStore(),
   catalog = useResortStore(),
@@ -377,7 +377,10 @@ onBeforeUnmount(() => {
   <StaffShell :section="section" @logout="logout"
     ><main class="work-main">
       <div v-if="isDemo" class="demo-strip">
-        <span class="demo-dot"></span>{{ t("staff.demoWorkspace") }}
+        <span class="demo-dot"></span
+        >{{
+          t(isStaffApp ? "common.mobile.demoWorkspace" : "staff.demoWorkspace")
+        }}
       </div>
       <div
         v-if="!titles[section] || (section === 'accounts' && !session.isAdmin)"
@@ -546,7 +549,7 @@ onBeforeUnmount(() => {
               role="region"
               :aria-label="t('staff.dataTable')"
             >
-              <table>
+              <table class="workspace-table">
                 <thead>
                   <tr>
                     <th>{{ t("staff.resort") }}</th>
@@ -558,7 +561,7 @@ onBeforeUnmount(() => {
                 </thead>
                 <tbody>
                   <tr v-for="r in filteredResorts" :key="r.id">
-                    <td>
+                    <td :data-label="t('staff.resort')">
                       <div class="property-cell">
                         <img
                           src="/assets/resort.jpg"
@@ -572,10 +575,10 @@ onBeforeUnmount(() => {
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td :data-label="t('staff.location')">
                       {{ r.city }}<small>{{ r.address }}</small>
                     </td>
-                    <td>
+                    <td :data-label="t('staff.rooms')">
                       <button class="text-button" @click="switchResort(r.id)">
                         {{
                           t("staff.roomsLink", {
@@ -586,12 +589,12 @@ onBeforeUnmount(() => {
                         }}
                       </button>
                     </td>
-                    <td>
+                    <td :data-label="t('staff.status')">
                       <span :class="['status-pill', r.status]">{{
                         statusNames[r.status]
                       }}</span>
                     </td>
-                    <td>
+                    <td :data-label="t('staff.actions')">
                       <div class="row-actions">
                         <button
                           v-if="r.status !== 'archived'"
@@ -626,7 +629,7 @@ onBeforeUnmount(() => {
               role="region"
               :aria-label="t('staff.dataTable')"
             >
-              <table>
+              <table class="workspace-table">
                 <thead>
                   <tr>
                     <th>{{ t("staff.physicalRoom") }}</th>
@@ -639,21 +642,25 @@ onBeforeUnmount(() => {
                 </thead>
                 <tbody>
                   <tr v-for="r in filteredRooms" :key="r.id">
-                    <td>
+                    <td :data-label="t('staff.physicalRoom')">
                       <strong>№ {{ r.number }}</strong
                       ><small>{{ r.area }} {{ t("staff.squareMetres") }}</small>
                     </td>
-                    <td>
+                    <td :data-label="t('staff.category')">
                       {{ r.title }}<small>{{ r.beds }}</small>
                     </td>
-                    <td>{{ t("staff.guestCount", { count: r.capacity }) }}</td>
-                    <td class="numeric">{{ money(r.price) }}</td>
-                    <td>
+                    <td :data-label="t('staff.capacity')">
+                      {{ t("staff.guestCount", { count: r.capacity }) }}
+                    </td>
+                    <td :data-label="t('staff.perNight')" class="numeric">
+                      {{ money(r.price) }}
+                    </td>
+                    <td :data-label="t('staff.status')">
                       <span :class="['status-pill', r.status]">{{
                         statusNames[r.status]
                       }}</span>
                     </td>
-                    <td>
+                    <td :data-label="t('staff.actions')">
                       <div class="row-actions">
                         <button class="text-button" @click="open('rooms', r)">
                           {{ t("staff.edit") }}</button
@@ -685,7 +692,7 @@ onBeforeUnmount(() => {
               role="region"
               :aria-label="t('staff.dataTable')"
             >
-              <table>
+              <table class="workspace-table">
                 <thead>
                   <tr>
                     <th>{{ t("staff.tariff") }}</th>
@@ -697,7 +704,7 @@ onBeforeUnmount(() => {
                 </thead>
                 <tbody>
                   <tr v-for="tariff in filteredTariffs" :key="tariff.id">
-                    <td>
+                    <td :data-label="t('staff.tariff')">
                       <strong>{{ tariff.name }}</strong
                       ><small v-if="tariff.priceKind === 'discount'">{{
                         t("staff.discountBadge", {
@@ -706,14 +713,21 @@ onBeforeUnmount(() => {
                       }}</small
                       ><small>{{ tariff.description }}</small>
                     </td>
-                    <td>{{ tariff.features.join(" · ") || "—" }}</td>
-                    <td class="numeric">{{ money(tariff.supplement) }}</td>
-                    <td>
+                    <td :data-label="t('staff.included')">
+                      {{ tariff.features.join(" · ") || "—" }}
+                    </td>
+                    <td
+                      :data-label="t('staff.supplementPerGuestNight')"
+                      class="numeric"
+                    >
+                      {{ money(tariff.supplement) }}
+                    </td>
+                    <td :data-label="t('staff.status')">
                       <span :class="['status-pill', tariff.status]">{{
                         statusNames[tariff.status]
                       }}</span>
                     </td>
-                    <td>
+                    <td :data-label="t('staff.actions')">
                       <div class="row-actions">
                         <button
                           class="text-button"
@@ -748,7 +762,7 @@ onBeforeUnmount(() => {
               role="region"
               :aria-label="t('staff.dataTable')"
             >
-              <table>
+              <table class="workspace-table">
                 <thead>
                   <tr>
                     <th>{{ t("staff.bookingGuest") }}</th>
@@ -761,7 +775,7 @@ onBeforeUnmount(() => {
                 </thead>
                 <tbody>
                   <tr v-for="b in filteredBookings" :key="b.id">
-                    <td>
+                    <td :data-label="t('staff.bookingGuest')">
                       <RouterLink
                         v-if="b.guestProfileId"
                         :to="`/staff/guests/${b.guestProfileId}`"
@@ -778,20 +792,20 @@ onBeforeUnmount(() => {
                         }}</small
                       >
                     </td>
-                    <td>
+                    <td :data-label="t('staff.roomTariff')">
                       № {{ b.unit }} · {{ b.roomName
                       }}<small
                         >{{ b.tariffName }} ·
                         {{ t("staff.guestCount", { count: b.guests }) }}</small
                       >
                     </td>
-                    <td>
+                    <td :data-label="t('staff.dates')">
                       {{ dateLabel(b.start)
                       }}<small>{{
                         t("staff.untilDate", { date: dateLabel(b.end) })
                       }}</small>
                     </td>
-                    <td class="numeric">
+                    <td :data-label="t('staff.amount')" class="numeric">
                       {{ money(b.total)
                       }}<small v-if="b.payment"
                         >{{
@@ -811,7 +825,7 @@ onBeforeUnmount(() => {
                         >{{ t("staff.openReceipt") }}</RouterLink
                       >
                     </td>
-                    <td>
+                    <td :data-label="t('staff.status')">
                       <span :class="['status-pill', b.status]">{{
                         statusNames[b.status]
                       }}</span>
@@ -827,7 +841,7 @@ onBeforeUnmount(() => {
                         })
                       }}</small>
                     </td>
-                    <td>
+                    <td :data-label="t('staff.action')">
                       <div v-if="b.status === 'pending'" class="row-actions">
                         <button
                           class="text-button"
@@ -900,7 +914,7 @@ onBeforeUnmount(() => {
               role="region"
               :aria-label="t('staff.dataTable')"
             >
-              <table>
+              <table class="workspace-table">
                 <thead>
                   <tr>
                     <th>{{ t("staff.manager") }}</th>
@@ -911,22 +925,22 @@ onBeforeUnmount(() => {
                 </thead>
                 <tbody>
                   <tr v-for="a in filteredAccounts" :key="a.id">
-                    <td>
+                    <td :data-label="t('staff.manager')">
                       <strong>{{ a.name }}</strong
                       ><small>{{ a.login }}</small>
                     </td>
-                    <td>
+                    <td :data-label="t('staff.resort')">
                       {{
                         catalog.resorts.find((r) => r.id === a.resortId)
                           ?.name || "—"
                       }}
                     </td>
-                    <td>
+                    <td :data-label="t('staff.access')">
                       <span :class="['status-pill', a.status]">{{
                         statusNames[a.status]
                       }}</span>
                     </td>
-                    <td>
+                    <td :data-label="t('staff.action')">
                       <button class="text-button" @click="open('accounts', a)">
                         {{ t("staff.configureAccess") }}
                       </button>
@@ -1046,7 +1060,7 @@ onBeforeUnmount(() => {
                   ><span class="audit-expand">{{ t("staff.details") }}</span>
                 </summary>
                 <div class="audit-detail">
-                  <table>
+                  <table class="workspace-table">
                     <thead>
                       <tr>
                         <th>{{ t("staff.field") }}</th>
@@ -1056,9 +1070,15 @@ onBeforeUnmount(() => {
                     </thead>
                     <tbody>
                       <tr v-for="change in changes(entry)" :key="change.key">
-                        <td>{{ fieldNames[change.key] || change.key }}</td>
-                        <td>{{ display(change.before) }}</td>
-                        <td>{{ display(change.after) }}</td>
+                        <td :data-label="t('staff.field')">
+                          {{ fieldNames[change.key] || change.key }}
+                        </td>
+                        <td :data-label="t('staff.before')">
+                          {{ display(change.before) }}
+                        </td>
+                        <td :data-label="t('staff.after')">
+                          {{ display(change.after) }}
+                        </td>
                       </tr>
                     </tbody>
                   </table>

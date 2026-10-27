@@ -6,7 +6,7 @@ import { useRoute } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { ReceiptActions } from "@/features/payment-receipt";
 import { request } from "@/shared/api";
-import { appSurface } from "@/shared/config";
+import { isStaffSurface, isStaffApp } from "@/shared/config";
 import { money, dateLabel, timestampLabel } from "@/shared/lib";
 const route = useRoute(),
   data = ref(null),
@@ -39,14 +39,14 @@ watch(() => route.params.id, load, { immediate: true });
 </script>
 <template>
   <div class="public-site">
-    <PublicHeader />
+    <PublicHeader v-if="!isStaffApp" />
     <main id="public-main" class="profile-main receipt-main">
       <RouterLink
         class="profile-back"
-        :to="appSurface === 'staff' ? '/staff/bookings' : '/profile'"
+        :to="isStaffSurface ? '/staff/bookings' : '/profile'"
         >{{
           t(
-            appSurface === "staff"
+            isStaffSurface
               ? "public.goToStaffBookings"
               : "public.myProfileAndHistory",
           )
@@ -59,16 +59,9 @@ watch(() => route.params.id, load, { immediate: true });
         <h1>{{ t("public.receiptUnavailable") }}</h1>
         <p>{{ error }}</p>
         <button class="secondary" @click="load">{{ t("public.retry") }}</button
-        ><RouterLink
-          :to="appSurface === 'staff' ? '/staff/bookings' : '/bookings'"
-          >{{
-            t(
-              appSurface === "staff"
-                ? "public.goToStaffBookings"
-                : "public.myBookings",
-            )
-          }}</RouterLink
-        >
+        ><RouterLink :to="isStaffSurface ? '/staff/bookings' : '/bookings'">{{
+          t(isStaffSurface ? "public.goToStaffBookings" : "public.myBookings")
+        }}</RouterLink>
       </div>
       <template v-else-if="receipt"
         ><header class="profile-heading">

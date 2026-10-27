@@ -6,7 +6,7 @@ import { PublicHeader } from "@/widgets/public-header";
 import { useGuestAccountStore } from "@/entities/guest-account";
 import { useBookingStore } from "@/entities/booking";
 import { request } from "@/shared/api";
-import { isDemo } from "@/shared/config";
+import { isDemo, isMobile } from "@/shared/config";
 const { t } = useI18n(),
   route = useRoute(),
   router = useRouter(),
@@ -22,6 +22,7 @@ const action = computed(() => route.meta.authAction || "login"),
           : "auth.titleLogin",
     ),
   );
+const webOnly = computed(() => isMobile && !isDemo && action.value !== "login");
 const form = reactive({
   phone: "",
   name: "",
@@ -143,9 +144,12 @@ async function submit() {
         <span class="eyebrow">ТЫНЫС</span>
         <h1>{{ title }}</h1>
         <p class="muted">{{ t("auth.subtitle") }}</p>
-        <p class="demo-note">{{ t("auth.demoNotice") }}</p>
+        <p v-if="isDemo" class="demo-note">{{ t("auth.demoNotice") }}</p>
         <p v-if="isDemo" class="field-help">{{ t("auth.demoLocal") }}</p>
-        <form class="editor-form" @submit.prevent="submit">
+        <p v-if="webOnly" class="profile-feedback" role="status">
+          {{ t("common.mobile.webAuth") }}
+        </p>
+        <form v-else class="editor-form" @submit.prevent="submit">
           <label
             >{{ t("auth.phone")
             }}<input

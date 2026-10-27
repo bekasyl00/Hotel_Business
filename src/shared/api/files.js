@@ -1,10 +1,15 @@
 import { t, getLocale } from "../i18n/index.js";
 import { errorMessage } from "./errors.js";
+let fileTransport;
+export function configureFileTransport(value) {
+  fileTransport = value;
+}
 export async function requestFile(
   path,
   base = "/api",
   expectedType = "application/pdf",
 ) {
+  if (fileTransport) return fileTransport(path, expectedType);
   let response;
   try {
     response = await fetch(`${base.replace(/\/$/, "")}${path}`, {

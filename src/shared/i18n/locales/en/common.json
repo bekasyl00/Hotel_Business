@@ -63,5 +63,20 @@
     "guests": "Choose between 1 and 4 guests.",
     "missingRoom": "Room not found. Please choose again.",
     "occupied": "This room is already booked for those dates. Choose another room."
+  },
+  "mobile": {
+    "offline": "No connection. Maps and current availability need internet.",
+    "saveFile": "Choose Save to Files or a recipient in the iPhone share menu.",
+    "webAuth": "Registration and password recovery are not connected in the app API mode yet. Sign in with an existing account; registration uses the web client on the same server.",
+    "bookingLogin": "Sign in to request a booking in the app",
+    "manage": "Manage",
+    "localLogout": "You signed out on this device. Server session revocation could not be confirmed.",
+    "bookings": "Bookings",
+    "profile": "Profile",
+    "localHistory": "Your history is currently stored only in this app. Create an account to keep it linked to you.",
+    "teamTitle": "Tynys Team",
+    "staffDemoLocal": "Password-free demo. Changes stay in this app only. Real staff accounts connect through the server.",
+    "demoWorkspace": "Demo · data stays in this app",
+    "logout": "Sign out"
   }
 }

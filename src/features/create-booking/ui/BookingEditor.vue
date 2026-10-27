@@ -1,11 +1,13 @@
 <script setup>
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
-import { isDemo } from "@/shared/config";
+import { isDemo, isMobile, isStaffApp } from "@/shared/config";
 import { reactive, computed, watch } from "vue";
 import { Modal } from "@/shared/ui";
 import { useBookingStore, dateAfter, nightsBetween } from "@/entities/booking";
 import { ref } from "vue";
+import { useGuestAccountStore } from "@/entities/guest-account";
+const guestAccount = useGuestAccountStore();
 import { money } from "@/shared/lib";
 const props = defineProps({
   resort: Object,
@@ -119,6 +121,12 @@ watch(
       <p v-if="staff && isDemo" class="field-help">
         {{ t("public.useFictionalDetailsForTesting") }}
       </p>
+      <RouterLink
+        v-if="isMobile && !isStaffApp && !isDemo && !guestAccount.authenticated"
+        to="/account/login"
+        class="field-help"
+        >{{ t("common.mobile.bookingLogin") }}</RouterLink
+      >
       <div class="form-grid">
         <label
           >{{ t("public.checkin")

@@ -4,7 +4,7 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useSessionStore } from "@/entities/session";
 import { request } from "@/shared/api";
-import { isDemo, publicUrl } from "@/shared/config";
+import { isDemo, publicUrl, isStaffApp } from "@/shared/config";
 import { LanguageSwitcher } from "@/shared/ui";
 const { t } = useI18n();
 const accounts = ref([]),
@@ -52,7 +52,7 @@ onMounted(load);
 <template>
   <main class="login-page">
     <section class="login-story">
-      <a class="staff-brand" :href="publicUrl"
+      <a class="staff-brand" :href="isStaffApp ? '/staff/login' : publicUrl"
         ><img src="/assets/logo.svg" alt="" width="38" />тыныс.</a
       >
       <div>
@@ -64,8 +64,15 @@ onMounted(load);
     </section>
     <section class="login-panel">
       <div class="login-box">
+        <div v-if="isStaffApp" class="staff-app-brand">
+          <img src="/assets/logo.svg" alt="" width="44" height="44" /><strong>{{
+            t("common.mobile.teamTitle")
+          }}</strong>
+        </div>
         <div class="login-language"><LanguageSwitcher /></div>
-        <a class="back-link" :href="publicUrl">{{ t("staff.backToResorts") }}</a
+        <a v-if="!isStaffApp" class="back-link" :href="publicUrl">{{
+          t("staff.backToResorts")
+        }}</a
         ><span class="eyebrow">{{ t("staff.staffEyebrow") }}</span>
         <h2>{{ t("staff.welcome") }}</h2>
         <p class="muted">
@@ -129,7 +136,13 @@ onMounted(load);
           </button>
         </form>
         <p v-if="isDemo" class="demo-note">
-          {{ t("staff.demoLoginNote") }}
+          {{
+            t(
+              isStaffApp
+                ? "common.mobile.staffDemoLocal"
+                : "staff.demoLoginNote",
+            )
+          }}
         </p>
       </div>
     </section>

@@ -106,7 +106,7 @@ def log_change(user, entity, item, action, before, after, resort_id=None, websit
     )
 
 
-def login_account(request):
+def authenticate_staff_credentials(request):
     email = str(request.data.get("email", "")).strip().lower()[:254]
     password = request.data.get("password", "")
     if not isinstance(password, str) or len(password) > 128:
@@ -131,6 +131,11 @@ def login_account(request):
     if not user:
         raise Problem("Неверный email или пароль.", 401)
     require_staff(user)
+    return user
+
+
+def login_account(request):
+    user = authenticate_staff_credentials(request)
     login(request, user)
     return account_data(user)
 

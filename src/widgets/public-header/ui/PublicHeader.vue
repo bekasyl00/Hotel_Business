@@ -5,11 +5,17 @@ import { onMounted, ref } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { request } from "@/shared/api";
 import { LanguageSwitcher } from "@/shared/ui";
-import { appSurface, isDemo, publicUrl, staffUrl } from "@/shared/config";
+import {
+  isStaffSurface,
+  isMobile,
+  isDemo,
+  publicUrl,
+  staffUrl,
+} from "@/shared/config";
 const route = useRoute();
-const publicLink = appSurface === "staff" ? "a" : RouterLink;
+const publicLink = isStaffSurface ? "a" : RouterLink;
 function destination(path, query) {
-  if (appSurface !== "staff") return { to: query ? { path, query } : path };
+  if (!isStaffSurface) return { to: query ? { path, query } : path };
   const suffix = query ? `?${new URLSearchParams(query)}` : "";
   return { href: `${publicUrl.replace(/\/$/, "")}${path}${suffix}` };
 }
@@ -62,7 +68,7 @@ onMounted(load);
           >тыныс<span class="brand-dot">.</span></span
         ></component
       ><span class="public-brand-note">{{ t("public.timeForYourself") }}</span>
-      <nav :aria-label="t('public.mainNavigation')">
+      <nav v-if="!isMobile" :aria-label="t('public.mainNavigation')">
         <component
           :is="publicLink"
           v-bind="destination('/')"
@@ -86,7 +92,11 @@ onMounted(load);
         t("public.demo")
       }}</span>
     </div>
-    <nav class="category-navigation" :aria-label="t('public.resortCategories')">
+    <nav
+      v-if="!isMobile || route.path === '/'"
+      class="category-navigation"
+      :aria-label="t('public.resortCategories')"
+    >
       <component
         :is="publicLink"
         v-bind="destination('/')"

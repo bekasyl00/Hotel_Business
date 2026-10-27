@@ -32,3 +32,25 @@ class GuestRefreshToken(models.Model):
     device = models.ForeignKey(GuestDevice, on_delete=models.CASCADE, related_name="refresh_tokens")
     created_at = models.DateTimeField(auto_now_add=True)
     consumed_at = models.DateTimeField(null=True, blank=True)
+
+
+class StaffDevice(models.Model):
+    """Staff token families are deliberately disjoint from guest credentials."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey("booking.User", on_delete=models.CASCADE, related_name="staff_devices")
+    name = models.CharField(max_length=80)
+    credential_version = models.CharField(max_length=64, editable=False)
+    access_hash = models.CharField(max_length=64, unique=True, editable=False)
+    access_expires_at = models.DateTimeField()
+    expires_at = models.DateTimeField()
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField()
+
+
+class StaffRefreshToken(models.Model):
+    token_hash = models.CharField(primary_key=True, max_length=64, editable=False)
+    device = models.ForeignKey(StaffDevice, on_delete=models.CASCADE, related_name="refresh_tokens")
+    created_at = models.DateTimeField(auto_now_add=True)
+    consumed_at = models.DateTimeField(null=True, blank=True)

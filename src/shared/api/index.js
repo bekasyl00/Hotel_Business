@@ -85,5 +85,5 @@ export function createHttpTransport(base = "/api") {
   };
 }
 
-export { requestFile, requestAsset } from "./files.js";
+export { requestFile, requestAsset, configureFileTransport } from "./files.js";
 export { uploadErrorCode, IMAGE_TYPES, VIDEO_TYPES } from "./uploads.js";

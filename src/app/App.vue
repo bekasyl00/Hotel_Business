@@ -2,14 +2,34 @@
 import { RouterView } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { routeLoadFailed, reloadApplication } from "./route-errors.js";
+import { defineAsyncComponent } from "vue";
+import { isMobile, isStaffApp } from "@/shared/config";
+const MobileNavigation = isMobile
+  ? defineAsyncComponent(() =>
+      (isStaffApp
+        ? import("@/widgets/staff-mobile-navigation")
+        : import("@/widgets/mobile-navigation")
+      ).then((m) => m.MobileNavigation),
+    )
+  : null;
+import { nativeSessionNotice } from "@/shared/native/status.js";
 const { t } = useI18n();
 </script>
 <template>
+  <div
+    v-if="isMobile && nativeSessionNotice"
+    class="route-recovery"
+    role="status"
+  >
+    <p>{{ t(nativeSessionNotice) }}</p>
+    <button @click="nativeSessionNotice = ''">OK</button>
+  </div>
   <div v-if="routeLoadFailed" class="route-recovery" role="alert">
     <p>{{ t("common.loadError") }}</p>
     <button @click="reloadApplication">{{ t("common.reload") }}</button>
   </div>
   <RouterView />
+  <MobileNavigation v-if="isMobile" />
 </template>
 <style>
 .route-recovery {

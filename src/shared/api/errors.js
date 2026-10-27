@@ -1,5 +1,7 @@
 import { getLocale, t } from "../i18n/index.js";
 const codes = {
+  invalid_token: "auth.sessionExpired",
+  native_web_auth_required: "common.mobile.webAuth",
   invalid_credentials: "auth.invalidCredentials",
   phone_invalid: "auth.phoneInvalid",
   invalid_code: "auth.invalidCode",

@@ -1,7 +1,15 @@
 import { h } from "vue";
 import { createRouter, createWebHistory } from "vue-router";
 import { useSessionStore } from "@/entities/session";
-import { appSurface, staffUrl, publicUrl } from "@/shared/config";
+import {
+  appSurface,
+  staffUrl,
+  publicUrl,
+  isMobile,
+  isStaffApp,
+  isDemo,
+} from "@/shared/config";
+import { useGuestAccountStore } from "@/entities/guest-account";
 import { t } from "@/shared/i18n";
 import { routes } from "#surface-routes";
 import { routeLoadFailed } from "./route-errors.js";
@@ -18,13 +26,37 @@ const router = createRouter({
         render: () =>
           h("main", { class: "work-empty" }, [
             h("h1", t("common.notFound")),
-            h("a", { href: publicUrl }, t("common.home")),
+            h(
+              "a",
+              {
+                href: isStaffApp
+                  ? "/staff/overview"
+                  : isMobile
+                    ? "/"
+                    : publicUrl,
+              },
+              t("common.home"),
+            ),
           ]),
       },
     },
   ],
 });
 router.beforeEach(async (to) => {
+  if (
+    isMobile &&
+    !isStaffApp &&
+    !isDemo &&
+    /^\/(profile|bookings|receipts)(\/|$)/.test(to.path)
+  ) {
+    const guest = useGuestAccountStore();
+    try {
+      await guest.restore();
+    } catch {
+      guest.clear();
+    }
+    if (!guest.authenticated) return { path: "/account/login" };
+  }
   if (
     appSurface === "public" &&
     to.path.startsWith("/staff") &&

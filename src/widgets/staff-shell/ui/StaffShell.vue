@@ -3,7 +3,7 @@ import { useI18n } from "vue-i18n";
 import { computed } from "vue";
 import { useSessionStore } from "@/entities/session";
 import { LanguageSwitcher } from "@/shared/ui";
-import { publicUrl } from "@/shared/config";
+import { publicUrl, isStaffApp, isDemo } from "@/shared/config";
 const { t } = useI18n();
 const props = defineProps({ section: String });
 const emit = defineEmits(["logout"]);
@@ -22,7 +22,7 @@ const nav = computed(() => [
 </script>
 <template>
   <div class="staff-layout">
-    <aside class="staff-sidebar">
+    <aside v-if="!isStaffApp" class="staff-sidebar">
       <a :href="publicUrl" class="staff-brand"
         ><img src="/assets/logo.svg" alt="" width="32" /><span>тыныс.</span></a
       ><span class="sidebar-caption">{{ t("staff.workspaceEyebrow") }}</span>
@@ -64,7 +64,15 @@ const nav = computed(() => [
         >
         <div class="staff-topbar-actions">
           <LanguageSwitcher />
-          <a :href="publicUrl">{{ t("staff.openWebsite") }}</a>
+          <a v-if="!isStaffApp" :href="publicUrl">{{
+            t("staff.openWebsite")
+          }}</a>
+          <template v-else
+            ><span v-if="isDemo" class="demo-badge">DEMO</span
+            ><button class="text-button" @click="emit('logout')">
+              {{ t(isStaffApp ? "common.mobile.logout" : "staff.signOut") }}
+            </button></template
+          >
         </div>
       </header>
       <slot />

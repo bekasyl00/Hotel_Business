@@ -14,7 +14,18 @@
     "arch": "node scripts/arch-dev.mjs",
     "arch:build": "npm run arch:sync && likec4 build architecture -o dist/architecture",
     "dev": "vite --host 127.0.0.1 --port 4173",
-    "preview": "vite preview --host 127.0.0.1 --port 4174"
+    "preview": "vite preview --host 127.0.0.1 --port 4174",
+    "build:mobile": "npm run arch:sync && vite build --mode mobile && node scripts/check-mobile.mjs guest",
+    "ios:sync": "npm run build:mobile && cap sync ios",
+    "ios:open": "cap open ios",
+    "ios:run": "npm run ios:sync && cap run ios",
+    "ios:check": "node scripts/check-ios.mjs",
+    "build:mobile:staff": "npm run arch:sync && vite build --mode mobile-staff && node scripts/check-mobile.mjs staff",
+    "build:apps": "npm run build:mobile && npm run build:mobile:staff",
+    "ios:staff:sync": "npm run build:mobile:staff && TYNYS_MOBILE_APP=staff cap sync ios",
+    "ios:staff:open": "TYNYS_MOBILE_APP=staff cap open ios",
+    "ios:staff:run": "npm run ios:staff:sync && TYNYS_MOBILE_APP=staff cap run ios",
+    "ios:staff:check": "node scripts/check-ios.mjs staff"
   },
   "repository": {
     "type": "git",
@@ -28,6 +39,10 @@
   },
   "homepage": "https://github.com/bekasyl00/Hotel_Business#readme",
   "dependencies": {
+    "@capacitor/core": "8.5.3",
+    "@capacitor/filesystem": "8.1.5",
+    "@capacitor/ios": "8.5.3",
+    "@capacitor/share": "8.0.3",
     "jspdf": "^4.2.1",
     "leaflet": "1.9.4",
     "pinia": "^3.0.4",
@@ -36,11 +51,18 @@
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.3",
     "@vitejs/plugin-vue": "^6.0.10",
     "axe-core": "^4.14.0",
     "likec4": "1.60.0",
     "prettier": "^3.9.10",
-    "vite": "^7.3.7"
+    "vite": "^7.3.7",
+    "typescript": "5.9.3"
   },
-  "private": true
+  "private": true,
+  "overrides": {
+    "xcode": {
+      "uuid": "11.1.1"
+    }
+  }
 }

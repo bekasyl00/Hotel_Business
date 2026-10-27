@@ -9,9 +9,10 @@ model {
   admin = actor 'Администратор' { description 'Создаёт санатории, настраивает каталог, назначает управляющих.' }
   manager = actor 'Управляющий' { description 'Управляет каталогом, заявками, отзывами и историей своего санатория.' }
   operator = actor 'Оператор платформы' { description 'Активный Django staff-superuser; просматривает общую БД в технической консоли. Обычный администратор/управляющий этого доступа не получает.' }
-  native = system 'iOS / Android — будущий клиент' { description 'Само приложение ещё не реализовано. Подготовлен общий /api/v1 и native guest access/refresh API. Keychain/Keystore, native OTP, push и публикация остаются работой клиента.' }
+  native = system 'Тыныс — iOS гостя' { description 'Capacitor 8 + Vue public routes, dist/mobile, kz.tynys.booking. Каталог/карта, брони, профиль; без страниц сотрудников. Native API через HTTPS /api/v1; токены в Keychain, PDF через Share. Default demo; облачный API и физический iPhone не проверены.' }
+  nativeStaff = system 'Тыныс Команда — iOS сотрудников' { description 'Отдельный Capacitor bundle kz.tynys.staff, dist/mobile-staff. Обзор, брони, аналитика, управление; карточки на телефоне. Staff native credentials и отдельный sandbox. Default demo, данные не синхронизируются с гостевым demo.' }
   frontend = system 'Тыныс — Vue 3' {
-    description 'Vue 3, Pinia, Vue Router, Vite и FSD. Отдельные public/staff сборки и адреса; combined для локальной разработки. vue-i18n RU/KK/EN. Будущие native-приложения пока не реализованы.'
+    description 'Vue 3, Pinia, Vue Router, Vite и FSD. Отдельные public/staff сборки и адреса; combined для локальной разработки. vue-i18n RU/KK/EN. Общие FSD-компоненты используются в двух отдельных Capacitor iOS приложениях; Android ещё не добавлен.'
     discovery = service 'Категории и карта' { description 'pages/catalog + widgets/public-header: поиск без дат, каталог по умолчанию; плавающая кнопка открывает модальную карту и загружает Leaflet.' }
     guestAuth = service 'Вход гостя по телефону' { description 'pages/guest-auth + entities/guest-account: регистрация, пароль, demo OTP, сброс, выход. Аккаунты сотрудников имеют отдельную модель и вход.' }
     localization = service 'RU / KK / EN' { description 'shared/i18n: vue-i18n, JSON namespaces, сохранённый выбор языка, формат дат/денег. Контент объектов остаётся языком автора; тесты ключей, placeholders и компиляции.' }
@@ -23,16 +24,16 @@ model {
     features = service 'Действия и формы' { description 'Создание брони; редактирование объектов/номеров/тарифов/аккаунтов; demo-payment и review-form. shared/ui выбирает фото/видео с устройства и отправляет FormData.' }
     gallery = service 'Галерея медиа' { description 'widgets/media-gallery: фотографии, alt-тексты и видео без автозапуска со звуком.' }
     stores = store 'Pinia' { description 'entities/session, guest-account, resort, booking: состояние интерфейса и загруженные записи; без прямого доступа представлений к localStorage.' }
-    transport = service 'API transport' { description 'shared/api: асинхронный JSON/FormData контракт; app/main выбирает demo или HTTP по VITE_DATA_MODE.' }
+    transport = service 'API transport' { description 'shared/api: асинхронный JSON/FormData контракт; app/main выбирает demo, browser HTTP+CSRF или native HTTP+Bearer по VITE_DATA_MODE и audience. shared/api/mobile-client сериализует refresh; app/providers/mobile связывает Keychain и авторизованные файлы.' }
     demo = service 'Браузерная демонстрация' { description 'app/providers/demo + demo-marketplace: каталог, заявки, отзывы, оплата/возврат, проверки версий и история. Фиксированный Asia/Almaty. Это имитация, не защита данных.' }
     local = store 'Локальные данные браузера' { description 'localStorage tynys:workspace:v2; sessionStorage гостя/сотрудника, demo-хеши паролей/OTP; IndexedDB для загруженных blobs. Отдельные origins имеют разные данные; общей БД между устройствами нет. Только вымышленные данные.' }
     http = service 'HTTP + CSRF' { description 'VITE_DATA_MODE=api: fetch, cookie-сессия и X-CSRFToken, JSON/FormData. /api и /media проксируются в локальной среде.' }
   }
   backend = system 'Django + DRF — локальный API' {
-    description 'Модульный transactional backend для web и будущих native-клиентов; публикация в облаке не выполнена. Операционные ограничения: docs/backend.md и docs/verification.md.'
-    api = service 'Общий /api/v1' { description 'config/urls: versioned /api/v1 и legacy /api вызывают одни DRF handlers. Browser cookie+CSRF либо проверенный guest Bearer; JSON/FormData и серверные permissions.' }
+    description 'Модульный transactional backend для web и двух native-клиентов; публикация в облаке не выполнена. Операционные ограничения: docs/backend.md и docs/verification.md.'
+    api = service 'Общий /api/v1' { description 'config/urls: versioned /api/v1 и legacy /api вызывают одни DRF handlers. Browser cookie+CSRF либо проверенный guest/staff Bearer с разными namespaces; JSON/FormData и серверные permissions.' }
     auth = service 'Аккаунты и web-сессии' { description 'Staff User и отдельный GuestAccount по телефону. Cookie+CSRF, серверные password/OTP hashes, TTL/лимиты, одноразовые challenge, отзыв сессий при reset. Demo OTP только DEBUG+флаг; реальный SMS и native challenge transport ещё не реализованы.' }
-    mobileAuth = service 'Native guest credentials' { description 'booking/mobile_auth + identity: opaque access 15мин, семейство 30дней, rotating refresh и отзыв при replay, список/отзыв устройств, auth-version. Хранятся HMAC hashes; Bearer не даёт staff-прав и не откатывается к cookie при ошибке.' }
+    mobileAuth = service 'Native guest и staff credentials' { description 'booking/mobile_auth и staff_mobile_auth + identity: отдельные GuestDevice/StaffDevice, opaque access 15мин, guest-family 30дней/staff-family 12ч, refresh rotation/replay revoke. Guest Bearer не даёт staff-прав. Staff password/role/resort changes отзывают доступ; invalid Bearer не откатывается к cookie.' }
     adminConsole = service 'Django Admin /django-admin/' { description 'booking.admin platform_admin_site: только active staff superuser, readonly модели, поиск/фильтры/счётчики и переходы в service-backed staff UI. Хеши, OTP и storage keys скрыты; login rate-limit. /admin/ перенаправляет сюда.' }
     profiles = service 'Гости, аватары и проживание' { description 'GuestProfile: контакт/история владельца и scoped staff view. Avatar FK на MediaAsset; upload/delete только signed-in guest с аудитом. Оплаченная confirmed-бронь: not_arrived → in_house → checked_out; после заселения отмена недоступна.' }
     catalog = service 'Каталог и профили' { description 'booking: санатории, физические номера, классы, категории, медиа-ссылки, обычные/скидочные тарифы, время заезда и IANA timezone.' }
@@ -56,14 +57,18 @@ model {
   guest -> frontend.bookingsPage 'Заявка, оплата, отмена, отзыв'
   guest -> frontend.guestProfile 'История, контакт и PDF'
   guest -> frontend.guestAuth 'Телефон и пароль'
-  guest -> native 'Будущее приложение'
-  native -> backend.api 'Подготовлен API; клиент ещё не создан'
+  guest -> native 'Приложение гостя'
+  manager -> nativeStaff 'Рабочее приложение'
+  admin -> nativeStaff 'Управление платформой'
+  nativeStaff -> backend.api 'Тот же scoped transactional API'
+  nativeStaff -> backend.mobileAuth 'staff-mobile-auth + отдельный Keychain'
+  native -> backend.api 'Guest Bearer / JSON / multipart'
   native -> backend.mobileAuth 'login / refresh / sessions'
   operator -> backend.adminConsole 'Superuser web session'
   backend.adminConsole -> database 'Только чтение и агрегаты'
   backend.adminConsole -> frontend.staffPage 'Действия через сервисный кабинет'
   backend.api -> backend.auth 'Web cookie / CSRF'
-  backend.api -> backend.mobileAuth 'Native guest Bearer'
+  backend.api -> backend.mobileAuth 'Guest / staff credentials без cookie fallback'
   backend.api -> backend.reservations 'Общие правила бронирования'
   backend.api -> backend.profiles 'Профиль и проживание'
   backend.api -> backend.catalog 'Каталог'
