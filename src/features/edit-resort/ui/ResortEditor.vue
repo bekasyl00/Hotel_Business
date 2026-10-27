@@ -1,79 +1,149 @@
 <script setup>
-import { reactive } from "vue";
-import { Modal, GeoMap } from "@/shared/ui";
+import { useI18n } from "vue-i18n";
+import { reactive, ref } from "vue";
+import { Modal, GeoMap, MediaEditor } from "@/shared/ui";
 import { useEditor } from "@/shared/api/use-editor.js";
+import { useSessionStore } from "@/entities/session";
+const session = useSessionStore();
+const { t } = useI18n();
 const props = defineProps({ item: Object });
 const emit = defineEmits(["close", "saved"]);
+const mediaBusy = ref(false);
 const form = reactive({
+  media: [],
+  amenities: [],
   name: "",
-  city: "Сарыагаш",
+  category: "wellness",
+  resortClass: "standard",
+  checkInTime: "14:00",
+  timeZone: "Asia/Almaty",
+  commissionPercent: null,
+  city: t("staff.saryagash"),
   address: "",
   subtitle: "",
   description: "",
-  feature: "Отдых",
+  feature: t("staff.rest"),
   lat: 41.385,
   lng: 69.061,
   status: "draft",
   ...props.item,
+  media: JSON.parse(JSON.stringify(props.item?.media || [])),
+  amenities: (props.item?.amenities || []).join("\n"),
 });
 const { busy, error, save } = useEditor("resorts", props.item, emit);
+function submit() {
+  if (mediaBusy.value) return;
+  const payload = {
+    ...form,
+    amenities: form.amenities
+      .split("\n")
+      .map((v) => v.trim())
+      .filter(Boolean),
+  };
+  if (!session.isAdmin) delete payload.commissionPercent;
+  else if (payload.commissionPercent === "") payload.commissionPercent = null;
+  return save(payload);
+}
 </script>
 <template>
   <Modal
-    :title="item ? 'Настройки санатория' : 'Новый санаторий'"
+    :title="item ? t('staff.resortSettings') : t('staff.newResort')"
     wide
-    :busy="busy"
+    :busy="busy || mediaBusy"
     @close="emit('close')"
-    ><form class="editor-form" @submit.prevent="save(form)">
+    ><form class="editor-form" @submit.prevent="submit">
       <div class="form-section">
         <span class="section-number">01</span>
-        <h3>Основная информация</h3>
+        <h3>{{ t("staff.basicInformation") }}</h3>
       </div>
       <div class="form-grid">
+        <label v-if="session.isAdmin">
+          {{ t("common.checkout.commissionPercent") }}
+          <input
+            v-model="form.commissionPercent"
+            type="number"
+            min="0"
+            max="100"
+            step="0.01"
+          />
+          <small>{{ t("common.checkout.commissionHelp") }}</small>
+        </label>
+        <label
+          >{{ t("staff.category")
+          }}<select v-model="form.category">
+            <option value="wellness">{{ t("staff.wellness") }}</option>
+            <option value="family">{{ t("staff.family") }}</option>
+            <option value="premium">{{ t("staff.premium") }}</option>
+            <option value="nature">{{ t("staff.nature") }}</option>
+          </select></label
+        >
+        <label
+          >{{ t("staff.resortClass")
+          }}<select v-model="form.resortClass">
+            <option value="standard">{{ t("staff.standard") }}</option>
+            <option value="comfort">{{ t("staff.comfort") }}</option>
+            <option value="premium">{{ t("staff.premium") }}</option>
+          </select></label
+        >
+        <label
+          >{{ t("staff.checkInTime")
+          }}<input v-model="form.checkInTime" type="time" required
+        /></label>
+        <label
+          >{{ t("staff.timeZone")
+          }}<select v-model="form.timeZone">
+            <option value="Asia/Almaty">
+              {{ t("staff.kazakhstanTimeZone") }}
+            </option>
+          </select></label
+        >
         <label class="span-2"
-          >Название<input
+          >{{ t("staff.name")
+          }}<input
             v-model="form.name"
             required
             maxlength="100"
-            placeholder="Например, Altyn Bulak" /></label
+            :placeholder="t('staff.resortNamePlaceholder')" /></label
         ><label
-          >Город<input v-model="form.city" required maxlength="80" /></label
+          >{{ t("staff.city")
+          }}<input v-model="form.city" required maxlength="80" /></label
         ><label
-          >Адрес<input
+          >{{ t("staff.address")
+          }}<input
             v-model="form.address"
             required
             maxlength="200"
-            placeholder="Улица и дом" /></label
+            :placeholder="t('staff.addressPlaceholder')" /></label
         ><label class="span-2"
-          >Краткое описание<input
+          >{{ t("staff.shortDescription")
+          }}<input
             v-model="form.subtitle"
             maxlength="160"
-            placeholder="Чем запомнится отдых здесь" /></label
+            :placeholder="t('staff.subtitlePlaceholder')" /></label
         ><label class="span-2"
-          >Описание<textarea
+          >{{ t("staff.description")
+          }}<textarea
             v-model="form.description"
             rows="3"
             maxlength="2000"
           ></textarea></label
         ><label
-          >Основная услуга<input
-            v-model="form.feature"
-            maxlength="80"
-            required /></label
+          >{{ t("staff.mainService")
+          }}<input v-model="form.feature" maxlength="80" required /></label
         ><label
-          >Видимость<select v-model="form.status">
-            <option value="draft">Черновик</option>
-            <option value="published">Опубликован</option>
+          >{{ t("staff.visibility")
+          }}<select v-model="form.status">
+            <option value="draft">{{ t("staff.draft") }}</option>
+            <option value="published">{{ t("staff.published") }}</option>
           </select></label
         >
       </div>
       <p class="field-help">
-        Для публикации нужен хотя бы один активный номер и тариф. Новый
-        санаторий сначала сохраните как черновик.
+        {{ t("staff.publishHint") }}
       </p>
       <div class="form-section">
         <span class="section-number">02</span>
-        <h3>Положение на карте</h3>
+        <h3>{{ t("staff.mapLocation") }}</h3>
       </div>
       <GeoMap
         editable
@@ -83,7 +153,8 @@ const { busy, error, save } = useEditor("resorts", props.item, emit);
       />
       <div class="form-grid">
         <label
-          >Широта<input
+          >{{ t("staff.latitude")
+          }}<input
             v-model.number="form.lat"
             type="number"
             step="any"
@@ -91,7 +162,8 @@ const { busy, error, save } = useEditor("resorts", props.item, emit);
             max="90"
             required /></label
         ><label
-          >Долгота<input
+          >{{ t("staff.longitude")
+          }}<input
             v-model.number="form.lng"
             type="number"
             step="any"
@@ -100,17 +172,30 @@ const { busy, error, save } = useEditor("resorts", props.item, emit);
             required
         /></label>
       </div>
+      <label
+        >{{ t("staff.amenitiesLines")
+        }}<textarea
+          v-model="form.amenities"
+          maxlength="1500"
+          rows="3"
+        ></textarea>
+      </label>
+      <MediaEditor
+        v-model="form.media"
+        :resort-id="item?.id"
+        @busy="mediaBusy = $event"
+      />
       <p v-if="error" role="alert" class="form-error">{{ error }}</p>
       <div class="form-actions">
         <button
           class="secondary"
           type="button"
-          :disabled="busy"
+          :disabled="busy || mediaBusy"
           @click="emit('close')"
         >
-          Отмена</button
-        ><button class="primary" :disabled="busy">
-          {{ busy ? "Сохраняем…" : "Сохранить санаторий" }}
+          {{ t("staff.cancel") }}</button
+        ><button class="primary" :disabled="busy || mediaBusy">
+          {{ busy ? t("staff.saving") : t("staff.saveResort") }}
         </button>
       </div>
     </form></Modal

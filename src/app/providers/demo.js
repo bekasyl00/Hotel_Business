@@ -1,4 +1,18 @@
 import {
+  resolveGuest,
+  demoAuthRequest,
+  serializeDemo,
+  ownerOf,
+} from "./demo-guest-auth.js";
+import {
+  upgradeMarketplace,
+  marketplaceRequest,
+  freezePolicy,
+  applyDemoCancellation,
+  safeMedia,
+  amenities,
+} from "./demo-marketplace.js";
+import {
   resorts as seedResorts,
   tariffs as seedTariffs,
 } from "./seed-catalog.js";
@@ -7,8 +21,14 @@ import {
   validateSearch,
   overlaps,
   nightsBetween,
+  quoteStay,
+  validatePricePeriods,
+  validateChildren,
 } from "../../entities/booking/rules.js";
 import { ApiError } from "../../shared/api/index.js";
+import { demoAnalytics } from "./demo-analytics.js";
+import { upgradeGuests, demoGuestRequest } from "./demo-guests.js";
+import { createDemoMediaStore, demoMediaRequest } from "./demo-media.js";
 export const DATABASE_KEY = "tynys:workspace:v2";
 export const SESSION_KEY = "tynys:session:v2";
 const clone = (value) => JSON.parse(JSON.stringify(value));
@@ -156,6 +176,7 @@ export function createDemoTransport({
   storage = localStorage,
   session = sessionStorage,
   delay = 120,
+  media = createDemoMediaStore(),
 } = {}) {
   const read = () => {
     let db;
@@ -166,7 +187,7 @@ export function createDemoTransport({
         const legacy = JSON.parse(storage.getItem("tynys:bookings:v1") || "[]");
         if (!Array.isArray(legacy)) throw new Error();
         db = initialState(legacy);
-        storage.setItem(DATABASE_KEY, JSON.stringify(db));
+        storage.setItem(DATABASE_KEY, serializeDemo(db));
       }
       if (
         db.schema !== 2 ||
@@ -182,6 +203,9 @@ export function createDemoTransport({
         503,
       );
     }
+    upgradeMarketplace(db);
+    resolveGuest(db, session);
+    upgradeGuests(db);
     return db;
   };
   const userFor = (db) => {
@@ -195,7 +219,7 @@ export function createDemoTransport({
       db.accounts.find((a) => a.id === id && a.status === "active") || null
     );
   };
-  const execute = (method, path, payload = {}) => {
+  const execute = async (method, path, payload = {}) => {
     const db = read();
     const user = userFor(db);
     const [pathname, query] = path.split("?");
@@ -229,9 +253,12 @@ export function createDemoTransport({
       db.audit.unshift({
         id: crypto.randomUUID(),
         at: new Date().toISOString(),
-        actor: pathname.startsWith("/my-bookings")
-          ? "Гость сайта"
-          : user?.name || "Демо-система",
+        actor:
+          action === "payment_expired"
+            ? "Система"
+            : pathname.startsWith("/my-bookings")
+              ? "Гость сайта"
+              : user?.name || "Демо-система",
         resortId,
         entity,
         entityId: (after || before).id,
@@ -241,12 +268,30 @@ export function createDemoTransport({
           (after || before).number ||
           (after || before).guestLabel ||
           (after || before).id,
-        before: clone(before),
-        after: clone(after),
+        before:
+          before &&
+          clone(
+            Object.fromEntries(
+              Object.entries(before).filter(
+                ([key]) =>
+                  !["phone", "guestPhone", "owner", "ownerId"].includes(key),
+              ),
+            ),
+          ),
+        after:
+          after &&
+          clone(
+            Object.fromEntries(
+              Object.entries(after).filter(
+                ([key]) =>
+                  !["phone", "guestPhone", "owner", "ownerId"].includes(key),
+              ),
+            ),
+          ),
       });
       db.revision++;
       try {
-        storage.setItem(DATABASE_KEY, JSON.stringify(db));
+        storage.setItem(DATABASE_KEY, serializeDemo(db));
       } catch {
         fail(
           "Не удалось сохранить изменения. Проверьте свободное место и разрешение на хранение данных.",
@@ -255,6 +300,63 @@ export function createDemoTransport({
       }
       return clone(after);
     };
+    for (const booking of db.bookings) {
+      if (
+        booking.status === "pending" &&
+        booking.holdExpiresAt &&
+        Date.parse(booking.holdExpiresAt) <= Date.now()
+      ) {
+        const before = clone(booking);
+        booking.status = "expired";
+        booking.version++;
+        commit("bookings", booking, before, "payment_expired");
+      }
+    }
+    const authResult = await demoAuthRequest({
+      db,
+      session,
+      method,
+      pathname,
+      payload,
+      persist: () => storage.setItem(DATABASE_KEY, serializeDemo(db)),
+    });
+    if (authResult.handled) return clone(authResult.value);
+    const mediaRequest = await demoMediaRequest({
+      db,
+      user,
+      method,
+      pathname,
+      payload,
+      authorize,
+      commit,
+      media,
+    });
+    if (mediaRequest.handled) return clone(mediaRequest.value);
+    const guestRequest = demoGuestRequest({
+      db,
+      user,
+      method,
+      pathname,
+      payload,
+      commit,
+      authorize,
+      version,
+    });
+    if (guestRequest.handled) return clone(guestRequest.value);
+    const expansion = marketplaceRequest({
+      db,
+      user,
+      method,
+      pathname,
+      params,
+      payload,
+      commit,
+      authorize,
+      version,
+    });
+    if (expansion.handled) return clone(expansion.value);
+    if (pathname === "/analytics" && method === "GET")
+      return clone(demoAnalytics(db, user, params));
     if (pathname === "/auth/session" && method === "GET") return clone(user);
     if (pathname === "/demo/accounts" && method === "GET")
       return clone(
@@ -282,7 +384,9 @@ export function createDemoTransport({
     }
     if (pathname === "/catalog" && method === "GET")
       return clone({
-        resorts: publicResorts,
+        resorts: publicResorts.map(
+          ({ commissionPercent, ...resort }) => resort,
+        ),
         rooms: db.rooms.filter(
           (r) => isPublic(r.resortId) && r.status === "active",
         ),
@@ -296,7 +400,9 @@ export function createDemoTransport({
         end: params.get("end"),
         guests: Number(params.get("guests")),
       };
-      const error = validateSearch(search);
+      const error =
+        validateSearch(search) ||
+        validateChildren(search.guests, search.childrenAges);
       if (error) fail(error);
       return {
         roomIds: db.rooms
@@ -308,7 +414,7 @@ export function createDemoTransport({
               !db.bookings.some(
                 (b) =>
                   b.roomId === r.id &&
-                  b.status === "confirmed" &&
+                  ["pending", "confirmed"].includes(b.status) &&
                   overlaps(b, search),
               ),
           )
@@ -329,10 +435,11 @@ export function createDemoTransport({
             ? db.accounts.filter((a) => a.role === "manager")
             : [],
         audit: db.audit.filter(scoped),
+        reviews: db.reviews.filter(scoped),
       });
     }
     if (pathname === "/my-bookings" && method === "GET")
-      return clone(db.bookings.filter((b) => b.ownerId === db.clientId));
+      return clone(db.bookings.filter((b) => b.ownerId === ownerOf(db)));
     const match = pathname.match(
       /^\/(resorts|rooms|tariffs|accounts|bookings|my-bookings)(?:\/([^/]+))?$/,
     );
@@ -362,8 +469,11 @@ export function createDemoTransport({
           start: payload.start,
           end: payload.end,
           guests: Number(payload.guests),
+          childrenAges: payload.childrenAges ?? [],
         };
-        const error = validateSearch(search);
+        const error =
+          validateSearch(search) ||
+          validateChildren(search.guests, search.childrenAges);
         if (error) fail(error);
         if (search.guests > room.capacity)
           fail("Вместимость номера меньше числа гостей.");
@@ -371,7 +481,7 @@ export function createDemoTransport({
           db.bookings.some(
             (b) =>
               b.roomId === room.id &&
-              b.status === "confirmed" &&
+              ["pending", "confirmed"].includes(b.status) &&
               overlaps(b, search),
           )
         )
@@ -379,7 +489,18 @@ export function createDemoTransport({
             "Номер занят на выбранные даты. Выберите другой номер или даты.",
             409,
           );
-        const nightly = room.price + tariff.supplement * search.guests;
+        const price = quoteStay(room, tariff, search);
+        const cancellationPolicy = freezePolicy(resort, search.start);
+        if (Date.parse(cancellationPolicy.checkinAt) <= Date.now())
+          fail("Время заезда уже наступило. Выберите другую дату.", 409);
+        const percent = resort.commissionPercent ?? null;
+        const commission =
+          percent == null
+            ? null
+            : Math.floor(
+                (price.total * Math.round(Number(percent) * 100) + 5000) /
+                  10000,
+              );
         const booking = {
           id: crypto.randomUUID(),
           resortId: room.resortId,
@@ -390,16 +511,44 @@ export function createDemoTransport({
           unit: room.number,
           tariffName: tariff.name,
           ...search,
-          nightly,
+          ...price,
+          originalNightly: price.regularNightly,
+          priceKind: tariff.priceKind,
+          discountPercent: tariff.discountPercent,
+          cancellationPolicy,
+          holdExpiresAt: new Date(
+            Math.min(
+              Date.now() + 30 * 60000,
+              Date.parse(cancellationPolicy.checkinAt),
+            ),
+          ).toISOString(),
+          commissionTerms: {
+            percent,
+            amount: commission,
+            resortAmount: commission == null ? null : price.total - commission,
+            currency: "KZT",
+            basis: "booking_total",
+            mode: "estimate",
+            refundHandling: "requires_reconciliation",
+          },
+          payment: null,
+          guestProfileId:
+            kind === "my-bookings"
+              ? db.guestProfiles.find((p) => p.owner === ownerOf(db)).id
+              : null,
+          stayStatus: "not_arrived",
+          checkedInAt: null,
+          checkedOutAt: null,
           nights: nightsBetween(search.start, search.end),
-          total: nightly * nightsBetween(search.start, search.end),
+          total: price.total,
           guestLabel:
             kind === "bookings"
               ? text(payload.guestLabel, "Обозначение гостя", 80)
-              : "Гость сайта",
+              : db.guestProfiles.find((p) => p.owner === ownerOf(db))?.name ||
+                "Гость сайта",
           source: kind === "bookings" ? "staff" : "website",
-          ownerId: kind === "bookings" ? null : db.clientId,
-          status: "confirmed",
+          ownerId: kind === "bookings" ? null : ownerOf(db),
+          status: "pending",
           version: 1,
           createdAt: new Date().toISOString(),
         };
@@ -408,16 +557,43 @@ export function createDemoTransport({
       }
       if (method === "PATCH" && item) {
         if (kind === "my-bookings") {
-          if (item.ownerId !== db.clientId)
+          if (item.ownerId !== ownerOf(db))
             fail("Эта бронь вам недоступна.", 403);
         } else authorize(item.resortId);
         version(item);
-        if (payload.status !== "cancelled" || item.status !== "confirmed")
-          fail("Можно отменить только подтверждённую бронь.");
+        const allowed = {
+          pending: ["cancelled"],
+          confirmed: ["cancelled"],
+        };
+        if (
+          !allowed[item.status]?.includes(payload.status) ||
+          (kind === "my-bookings" && payload.status !== "cancelled")
+        )
+          fail("Этот переход статуса недоступен.");
+        if (item.end <= dateAfter())
+          fail("Завершённое проживание нельзя изменить.", 409);
+        if (item.checkedInAt)
+          fail("Заселённую бронь нельзя отменить. Отметьте выезд.", 409);
         const before = clone(item);
-        item.status = "cancelled";
+        if (payload.status === "cancelled") {
+          item.cancellation = {
+            ...applyDemoCancellation(item, kind === "bookings"),
+            createdAt: new Date().toISOString(),
+          };
+          const paymentIndex = db.payments.findIndex(
+            (p) => p.id === item.payment?.id,
+          );
+          if (paymentIndex >= 0)
+            db.payments[paymentIndex] = clone(item.payment);
+        }
+        item.status = payload.status;
         item.version++;
-        return commit(entity, item, before, "cancel");
+        return commit(
+          entity,
+          item,
+          before,
+          payload.status === "cancelled" ? "cancel" : payload.status,
+        );
       }
       fail("Бронирования сохраняются в истории. Используйте отмену.", 405);
     }
@@ -433,7 +609,7 @@ export function createDemoTransport({
           db.bookings.some(
             (b) =>
               b.resortId === id &&
-              b.status === "confirmed" &&
+              ["pending", "confirmed"].includes(b.status) &&
               b.end > dateAfter(),
           )
         )
@@ -468,7 +644,35 @@ export function createDemoTransport({
     }
     let fields;
     if (entity === "resorts") {
+      if ("commissionPercent" in payload) admin();
+      const commissionPercent =
+        payload.commissionPercent === undefined
+          ? (item?.commissionPercent ?? null)
+          : payload.commissionPercent;
+      if (
+        commissionPercent !== null &&
+        (!/^\d{1,3}(\.\d{1,2})?$/.test(String(commissionPercent)) ||
+          Number(commissionPercent) > 100)
+      )
+        fail(
+          "Комиссия: укажите процент от 0 до 100, не более двух знаков после запятой.",
+        );
       fields = {
+        commissionPercent,
+        category: choice(payload.category || item?.category || "wellness", [
+          "wellness",
+          "family",
+          "premium",
+          "nature",
+        ]),
+        resortClass: choice(
+          payload.resortClass || item?.resortClass || "standard",
+          ["standard", "comfort", "premium"],
+        ),
+        checkInTime: payload.checkInTime || item?.checkInTime || "14:00",
+        timeZone: "Asia/Almaty",
+        media: safeMedia(payload.media || item?.media || []),
+        amenities: amenities(payload.amenities || item?.amenities || []),
         name: text(payload.name, "Название", 100),
         city: text(payload.city, "Город", 80),
         address: text(payload.address, "Адрес"),
@@ -479,6 +683,8 @@ export function createDemoTransport({
         lng: number(payload.lng, "Долгота", -180, 180),
         status: choice(payload.status, ["draft", "published"]),
       };
+      if (!/^([01]\d|2[0-3]):[0-5]\d(:00)?$/.test(fields.checkInTime))
+        fail("Укажите корректное время заезда.");
       if (
         fields.status === "published" &&
         (!item ||
@@ -490,15 +696,30 @@ export function createDemoTransport({
         );
     }
     if (entity === "rooms") {
+      const priceError = validatePricePeriods(
+        payload.pricePeriods ?? item?.pricePeriods ?? [],
+      );
+      if (priceError) fail(priceError);
       fields = {
         resortId,
         number: text(payload.number, "Номер комнаты", 20),
         category: choice(payload.category, ["standard", "comfort", "suite"]),
         title: text(payload.title, "Название категории", 80),
+        description: text(
+          payload.description || item?.description || "",
+          "Описание",
+          3000,
+          false,
+        ),
+        media: safeMedia(payload.media || item?.media || []),
+        amenities: amenities(payload.amenities || item?.amenities || []),
         area: number(payload.area, "Площадь", 5, 500),
         capacity: number(payload.capacity, "Вместимость", 1, 4, true),
         beds: text(payload.beds, "Кровати", 120),
         price: number(payload.price, "Цена", 0, 10000000, true),
+        pricePeriods: structuredClone(
+          payload.pricePeriods ?? item?.pricePeriods ?? [],
+        ),
         status: choice(payload.status, ["active", "maintenance"]),
       };
       if (
@@ -512,7 +733,9 @@ export function createDemoTransport({
         fail("Комната с таким номером уже существует.");
       const future = db.bookings.filter(
         (b) =>
-          b.roomId === id && b.status === "confirmed" && b.end > dateAfter(),
+          b.roomId === id &&
+          ["pending", "confirmed"].includes(b.status) &&
+          b.end > dateAfter(),
       );
       if (
         (fields.status === "maintenance" && future.length) ||
@@ -528,10 +751,25 @@ export function createDemoTransport({
         name: text(payload.name, "Название", 80),
         description: text(payload.description, "Описание", 400, false),
         supplement: number(payload.supplement, "Доплата", 0, 10000000, true),
-        features: text(payload.features || "", "Услуги", 400, false)
-          .split("\n")
-          .map((v) => v.trim())
-          .filter(Boolean),
+        childrenUnderThreeFree:
+          payload.childrenUnderThreeFree ??
+          item?.childrenUnderThreeFree ??
+          false,
+        priceKind: choice(payload.priceKind || item?.priceKind || "regular", [
+          "regular",
+          "discount",
+        ]),
+        discountPercent:
+          (payload.priceKind || item?.priceKind) === "discount"
+            ? number(
+                payload.discountPercent ?? item?.discountPercent,
+                "Скидка",
+                1,
+                90,
+                true,
+              )
+            : 0,
+        features: amenities(payload.features || []),
         status: choice(payload.status, ["active", "disabled"]),
       };
     if (entity === "accounts") {
@@ -562,16 +800,35 @@ export function createDemoTransport({
     else collection.push(after);
     return commit(entity, after, before, item ? "update" : "create");
   };
-  return async (method, path, body) => {
+  const transport = async (method, path, body) => {
     if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
-    if (
-      typeof window !== "undefined" &&
-      globalThis.navigator?.locks &&
-      method !== "GET"
-    )
-      return navigator.locks.request(DATABASE_KEY, () =>
-        execute(method, path, body),
-      );
-    return execute(method, path, body);
+    body = media.canonical(body);
+    const result =
+      typeof window !== "undefined" && globalThis.navigator?.locks
+        ? await navigator.locks.request(DATABASE_KEY, () =>
+            execute(method, path, body),
+          )
+        : await execute(method, path, body);
+    const privateTerms = new Set(["commissionTerms", "commissionPercent"]);
+    const publicData = (value) =>
+      Array.isArray(value)
+        ? value.map(publicData)
+        : value && typeof value === "object"
+          ? Object.fromEntries(
+              Object.entries(value)
+                .filter(([key]) => !privateTerms.has(key))
+                .map(([key, child]) => [key, publicData(child)]),
+            )
+          : value;
+    const guestOutput = /^\/(my-bookings|profile)(\/|\?|$)/.test(path);
+    return media.hydrate(guestOutput ? publicData(result) : result);
   };
+  transport.dispose = () => media.dispose();
+  if (typeof window !== "undefined") {
+    const close = (event) => {
+      if (!event.persisted) transport.dispose();
+    };
+    window.addEventListener("pagehide", close, { once: true });
+  }
+  return transport;
 }

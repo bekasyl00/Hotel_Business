@@ -1,5 +1,7 @@
 <script setup>
+import { useI18n } from "vue-i18n";
 import { onMounted, onBeforeUnmount, ref, useId } from "vue";
+const { t } = useI18n();
 const props = defineProps({ title: String, wide: Boolean, busy: Boolean });
 const emit = defineEmits(["close"]);
 const dialog = ref();
@@ -30,7 +32,7 @@ onBeforeUnmount(() => {
         <button
           class="icon-button"
           type="button"
-          aria-label="Закрыть"
+          :aria-label="t('staff.close')"
           :disabled="busy"
           @click="emit('close')"
         >

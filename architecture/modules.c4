@@ -2,12 +2,16 @@
 specification { element module }
 model {
   app = module 'app' {
-    description 'Инициализация Vue, Router, Pinia; выбор HTTP или локального демо-адаптера.. Файлов: 5'
+    description 'Инициализация Vue, Router, Pinia; выбор HTTP или локального демо-адаптера.. Файлов: 16'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/app 'Исходный код'
   }
   entities_booking = module 'entities/booking' {
     description 'Pinia: брони и чистые правила дат.. Файлов: 4'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/entities/booking 'Исходный код'
+  }
+  entities_guest_account = module 'entities/guest-account' {
+    description 'Компоненты и действия среза entities/guest-account. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/entities/guest-account 'Исходный код'
   }
   entities_resort = module 'entities/resort' {
     description 'Pinia: санатории, физические комнаты и тарифы.. Файлов: 2'
@@ -20,6 +24,10 @@ model {
   features_create_booking = module 'features/create-booking' {
     description 'Компоненты и действия среза features/create-booking. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/create-booking 'Исходный код'
+  }
+  features_demo_payment = module 'features/demo-payment' {
+    description 'Симуляция результата оплаты без обращения к банку.. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/demo-payment 'Исходный код'
   }
   features_edit_account = module 'features/edit-account' {
     description 'Компоненты и действия среза features/edit-account. Файлов: 2'
@@ -37,73 +45,227 @@ model {
     description 'Компоненты и действия среза features/edit-tariff. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/edit-tariff 'Исходный код'
   }
+  features_payment_receipt = module 'features/payment-receipt' {
+    description 'Скачивание PDF и передача файла по действию пользователя.. Файлов: 3'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/payment-receipt 'Исходный код'
+  }
+  features_review_form = module 'features/review-form' {
+    description 'Отзыв по завершённой брони и загрузка фотографий.. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/review-form 'Исходный код'
+  }
+  pages_analytics = module 'pages/analytics' {
+    description 'Scoped аналитика событий, периоды, графики и разрезы.. Файлов: 3'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/analytics 'Исходный код'
+  }
   pages_catalog = module 'pages/catalog' {
-    description 'Гостевой сайт: поиск, карта, комнаты, тарифы и собственные брони.. Файлов: 2'
+    description 'Поиск санатория по категории и карте, без выбора дат.. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/catalog 'Исходный код'
+  }
+  pages_guest_auth = module 'pages/guest-auth' {
+    description 'Компоненты и действия среза pages/guest-auth. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/guest-auth 'Исходный код'
+  }
+  pages_guest_profile = module 'pages/guest-profile' {
+    description 'Сессионный контакт гостя и история бронирований/оплат.. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/guest-profile 'Исходный код'
   }
   pages_login = module 'pages/login' {
     description 'Выбор демо-аккаунта или форма серверного входа в режиме api.. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/login 'Исходный код'
+  }
+  pages_my_bookings = module 'pages/my-bookings' {
+    description 'Гостевые заявки, демонстрационная оплата, отмена и отзыв.. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/my-bookings 'Исходный код'
+  }
+  pages_receipt = module 'pages/receipt' {
+    description 'Демо-квитанция и отдельные сведения о возврате.. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/receipt 'Исходный код'
+  }
+  pages_resort_profile = module 'pages/resort-profile' {
+    description 'Профиль санатория, выбор дат, доступные номера и отзывы.. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/resort-profile 'Исходный код'
+  }
+  pages_room_profile = module 'pages/room-profile' {
+    description 'Профиль физического номера, медиа, описание и тарифы.. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/room-profile 'Исходный код'
+  }
+  pages_staff_guest = module 'pages/staff-guest' {
+    description 'Профиль гостя с историей только доступных санаториев.. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/staff-guest 'Исходный код'
+  }
+  pages_staff_menu = module 'pages/staff-menu' {
+    description 'Компоненты и действия среза pages/staff-menu. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/staff-menu 'Исходный код'
   }
   pages_workspace = module 'pages/workspace' {
     description 'Кабинет: реестры, фильтры, действия и история изменений.. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/workspace 'Исходный код'
   }
   shared_api = module 'shared/api' {
-    description 'Контракт транспорта, ошибки, HTTP fetch с cookies и сохранение форм.. Файлов: 2'
+    description 'Контракт транспорта, ошибки, HTTP fetch с cookies и сохранение форм.. Файлов: 6'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/api 'Исходный код'
   }
   shared_config = module 'shared/config' {
     description 'Режим demo/api и адрес API.. Файлов: 1'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/config 'Исходный код'
   }
+  shared_i18n = module 'shared/i18n' {
+    description 'Компоненты и действия среза shared/i18n. Файлов: 1'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/i18n 'Исходный код'
+  }
   shared_lib = module 'shared/lib' {
     description 'Форматирование дат, сумм и подписей.. Файлов: 1'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/lib 'Исходный код'
   }
+  shared_native = module 'shared/native' {
+    description 'Компоненты и действия среза shared/native. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/native 'Исходный код'
+  }
   shared_ui = module 'shared/ui' {
-    description 'Общие native dialog и карта Leaflet.. Файлов: 3'
+    description 'Общие native dialog, карта Leaflet и редактор медиа.. Файлов: 5'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/ui 'Исходный код'
+  }
+  widgets_guest_booking_history = module 'widgets/guest-booking-history' {
+    description 'Компоненты и действия среза widgets/guest-booking-history. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/widgets/guest-booking-history 'Исходный код'
+  }
+  widgets_media_gallery = module 'widgets/media-gallery' {
+    description 'Галерея фотографий и видео профиля.. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/widgets/media-gallery 'Исходный код'
+  }
+  widgets_mobile_navigation = module 'widgets/mobile-navigation' {
+    description 'Компоненты и действия среза widgets/mobile-navigation. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/widgets/mobile-navigation 'Исходный код'
   }
   widgets_overview = module 'widgets/overview' {
     description 'Компоненты и действия среза widgets/overview. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/widgets/overview 'Исходный код'
   }
+  widgets_public_header = module 'widgets/public-header' {
+    description 'Навигация гостя и категории каталога.. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/widgets/public-header 'Исходный код'
+  }
+  widgets_staff_mobile_navigation = module 'widgets/staff-mobile-navigation' {
+    description 'Компоненты и действия среза widgets/staff-mobile-navigation. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/widgets/staff-mobile-navigation 'Исходный код'
+  }
   widgets_staff_shell = module 'widgets/staff-shell' {
     description 'Компоненты и действия среза widgets/staff-shell. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/widgets/staff-shell 'Исходный код'
   }
-  app -> shared_api 'import'
   app -> shared_config 'import'
+  app -> shared_native 'import'
+  app -> widgets_staff_mobile_navigation 'import'
+  app -> widgets_mobile_navigation 'import'
+  app -> shared_api 'import'
+  app -> shared_i18n 'import'
   app -> entities_booking 'import'
   app -> entities_session 'import'
+  app -> entities_guest_account 'import'
+  app -> pages_staff_menu 'import'
   app -> pages_catalog 'import'
+  app -> pages_resort_profile 'import'
+  app -> pages_room_profile 'import'
+  app -> pages_my_bookings 'import'
+  app -> pages_guest_profile 'import'
+  app -> pages_receipt 'import'
+  app -> pages_guest_auth 'import'
   app -> pages_login 'import'
+  app -> pages_staff_guest 'import'
+  app -> pages_analytics 'import'
   app -> pages_workspace 'import'
+  entities_booking -> shared_i18n 'import'
+  entities_booking -> shared_lib 'import'
   entities_booking -> shared_api 'import'
+  entities_guest_account -> shared_api 'import'
   entities_resort -> shared_api 'import'
   entities_session -> shared_api 'import'
+  features_create_booking -> shared_config 'import'
   features_create_booking -> shared_ui 'import'
   features_create_booking -> entities_booking 'import'
+  features_create_booking -> entities_guest_account 'import'
   features_create_booking -> shared_lib 'import'
+  features_demo_payment -> shared_ui 'import'
+  features_demo_payment -> shared_api 'import'
+  features_demo_payment -> shared_lib 'import'
+  features_edit_account -> shared_config 'import'
   features_edit_account -> shared_ui 'import'
   features_edit_account -> shared_api 'import'
   features_edit_resort -> shared_ui 'import'
   features_edit_resort -> shared_api 'import'
+  features_edit_resort -> entities_session 'import'
   features_edit_room -> shared_ui 'import'
   features_edit_room -> shared_api 'import'
+  features_edit_room -> entities_booking 'import'
   features_edit_room -> shared_lib 'import'
   features_edit_tariff -> shared_ui 'import'
   features_edit_tariff -> shared_api 'import'
+  features_payment_receipt -> shared_i18n 'import'
+  features_payment_receipt -> shared_api 'import'
+  features_payment_receipt -> shared_config 'import'
+  features_payment_receipt -> shared_native 'import'
+  features_review_form -> shared_ui 'import'
+  features_review_form -> shared_api 'import'
+  pages_analytics -> widgets_staff_shell 'import'
+  pages_analytics -> entities_session 'import'
+  pages_analytics -> entities_resort 'import'
+  pages_analytics -> entities_booking 'import'
+  pages_analytics -> shared_api 'import'
+  pages_analytics -> shared_lib 'import'
+  pages_analytics -> shared_config 'import'
+  pages_analytics -> shared_i18n 'import'
   pages_catalog -> entities_resort 'import'
-  pages_catalog -> entities_booking 'import'
-  pages_catalog -> features_create_booking 'import'
+  pages_catalog -> widgets_public_header 'import'
   pages_catalog -> shared_ui 'import'
-  pages_catalog -> shared_api 'import'
   pages_catalog -> shared_lib 'import'
+  pages_guest_auth -> widgets_public_header 'import'
+  pages_guest_auth -> entities_guest_account 'import'
+  pages_guest_auth -> entities_booking 'import'
+  pages_guest_auth -> shared_api 'import'
+  pages_guest_auth -> shared_config 'import'
+  pages_guest_profile -> widgets_public_header 'import'
+  pages_guest_profile -> widgets_guest_booking_history 'import'
+  pages_guest_profile -> entities_guest_account 'import'
+  pages_guest_profile -> entities_booking 'import'
+  pages_guest_profile -> shared_api 'import'
+  pages_guest_profile -> shared_config 'import'
   pages_login -> entities_session 'import'
   pages_login -> shared_api 'import'
   pages_login -> shared_config 'import'
+  pages_login -> shared_ui 'import'
+  pages_my_bookings -> widgets_public_header 'import'
+  pages_my_bookings -> features_demo_payment 'import'
+  pages_my_bookings -> features_review_form 'import'
+  pages_my_bookings -> entities_booking 'import'
+  pages_my_bookings -> shared_ui 'import'
+  pages_my_bookings -> shared_api 'import'
+  pages_my_bookings -> shared_lib 'import'
+  pages_receipt -> widgets_public_header 'import'
+  pages_receipt -> features_payment_receipt 'import'
+  pages_receipt -> shared_api 'import'
+  pages_receipt -> shared_config 'import'
+  pages_receipt -> shared_lib 'import'
+  pages_resort_profile -> widgets_public_header 'import'
+  pages_resort_profile -> widgets_media_gallery 'import'
+  pages_resort_profile -> entities_booking 'import'
+  pages_resort_profile -> shared_ui 'import'
+  pages_resort_profile -> shared_api 'import'
+  pages_resort_profile -> shared_lib 'import'
+  pages_room_profile -> widgets_public_header 'import'
+  pages_room_profile -> widgets_media_gallery 'import'
+  pages_room_profile -> features_create_booking 'import'
+  pages_room_profile -> entities_booking 'import'
+  pages_room_profile -> shared_api 'import'
+  pages_room_profile -> shared_lib 'import'
+  pages_staff_guest -> widgets_staff_shell 'import'
+  pages_staff_guest -> widgets_guest_booking_history 'import'
+  pages_staff_guest -> entities_session 'import'
+  pages_staff_guest -> entities_resort 'import'
+  pages_staff_guest -> entities_booking 'import'
+  pages_staff_guest -> shared_api 'import'
+  pages_staff_guest -> shared_config 'import'
+  pages_staff_menu -> widgets_staff_shell 'import'
+  pages_staff_menu -> entities_session 'import'
   pages_workspace -> entities_session 'import'
   pages_workspace -> entities_resort 'import'
   pages_workspace -> entities_booking 'import'
@@ -113,18 +275,30 @@ model {
   pages_workspace -> features_edit_room 'import'
   pages_workspace -> features_edit_tariff 'import'
   pages_workspace -> features_edit_account 'import'
+  pages_workspace -> features_demo_payment 'import'
   pages_workspace -> features_create_booking 'import'
   pages_workspace -> shared_ui 'import'
   pages_workspace -> shared_api 'import'
   pages_workspace -> shared_lib 'import'
   pages_workspace -> shared_config 'import'
+  shared_api -> shared_i18n 'import'
+  shared_lib -> shared_i18n 'import'
+  shared_ui -> shared_i18n 'import'
+  shared_ui -> shared_api 'import'
+  shared_ui -> shared_config 'import'
+  widgets_guest_booking_history -> shared_lib 'import'
   widgets_overview -> shared_lib 'import'
   widgets_overview -> entities_booking 'import'
+  widgets_public_header -> shared_api 'import'
+  widgets_public_header -> shared_ui 'import'
+  widgets_public_header -> shared_config 'import'
   widgets_staff_shell -> entities_session 'import'
+  widgets_staff_shell -> shared_ui 'import'
+  widgets_staff_shell -> shared_config 'import'
 }
 views {
   view modules {
     title 'FSD: реальные зависимости срезов Vue'
-    include app, entities_booking, entities_resort, entities_session, features_create_booking, features_edit_account, features_edit_resort, features_edit_room, features_edit_tariff, pages_catalog, pages_login, pages_workspace, shared_api, shared_config, shared_lib, shared_ui, widgets_overview, widgets_staff_shell
+    include app, entities_booking, entities_guest_account, entities_resort, entities_session, features_create_booking, features_demo_payment, features_edit_account, features_edit_resort, features_edit_room, features_edit_tariff, features_payment_receipt, features_review_form, pages_analytics, pages_catalog, pages_guest_auth, pages_guest_profile, pages_login, pages_my_bookings, pages_receipt, pages_resort_profile, pages_room_profile, pages_staff_guest, pages_staff_menu, pages_workspace, shared_api, shared_config, shared_i18n, shared_lib, shared_native, shared_ui, widgets_guest_booking_history, widgets_media_gallery, widgets_mobile_navigation, widgets_overview, widgets_public_header, widgets_staff_mobile_navigation, widgets_staff_shell
   }
 }

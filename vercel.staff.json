@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm ci",
+  "buildCommand": "npm run build:staff",
+  "outputDirectory": "dist/staff",
+  "rewrites": [
+    { "source": "/staff/:path*", "destination": "/index.html" },
+    { "source": "/receipts/:path*", "destination": "/index.html" }
+  ]
+}

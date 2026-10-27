@@ -1,7 +1,9 @@
 <script setup>
+import { useI18n } from "vue-i18n";
 import { reactive } from "vue";
 import { Modal } from "@/shared/ui";
 import { useEditor } from "@/shared/api/use-editor.js";
+const { t } = useI18n();
 const props = defineProps({ item: Object, resortId: String });
 const emit = defineEmits(["close", "saved"]);
 const form = reactive({
@@ -9,6 +11,9 @@ const form = reactive({
   name: "",
   description: "",
   supplement: 0,
+  childrenUnderThreeFree: false,
+  priceKind: "regular",
+  discountPercent: 0,
   status: "active",
   ...props.item,
   features: props.item?.features.join("\n") || "",
@@ -17,18 +22,29 @@ const { busy, error, save } = useEditor("tariffs", props.item, emit);
 </script>
 <template>
   <Modal
-    :title="item ? 'Редактировать тариф' : 'Добавить тариф'"
+    :title="item ? t('staff.editTariff') : t('staff.addTariff')"
     :busy="busy"
     @close="emit('close')"
-    ><form class="editor-form" @submit.prevent="save(form)">
+    ><form
+      class="editor-form"
+      @submit.prevent="
+        save({
+          ...form,
+          discountPercent:
+            form.priceKind === 'discount' ? form.discountPercent : 0,
+        })
+      "
+    >
       <label
-        >Название<input
+        >{{ t("staff.name")
+        }}<input
           v-model="form.name"
           required
           maxlength="80"
-          placeholder="Например, С питанием" /></label
+          :placeholder="t('staff.tariffNamePlaceholder')" /></label
       ><label
-        >Описание<textarea
+        >{{ t("staff.description")
+        }}<textarea
           v-model="form.description"
           rows="2"
           maxlength="400"
@@ -36,7 +52,24 @@ const { busy, error, save } = useEditor("tariffs", props.item, emit);
       </label>
       <div class="form-grid">
         <label
-          >Доплата за гостя / ночь, ₸<input
+          >{{ t("staff.priceKind")
+          }}<select v-model="form.priceKind">
+            <option value="regular">{{ t("staff.regularPrice") }}</option>
+            <option value="discount">{{ t("staff.discountPrice") }}</option>
+          </select></label
+        >
+        <label v-if="form.priceKind === 'discount'"
+          >{{ t("staff.discountPercent")
+          }}<input
+            v-model.number="form.discountPercent"
+            type="number"
+            min="1"
+            max="90"
+            required
+        /></label>
+        <label
+          >{{ t("staff.supplementKzt")
+          }}<input
             v-model.number="form.supplement"
             type="number"
             min="0"
@@ -44,23 +77,30 @@ const { busy, error, save } = useEditor("tariffs", props.item, emit);
             step="1"
             required /></label
         ><label
-          >Статус<select v-model="form.status">
-            <option value="active">Активен</option>
-            <option value="disabled">Отключён</option>
+          >{{ t("staff.status")
+          }}<select v-model="form.status">
+            <option value="active">{{ t("staff.active") }}</option>
+            <option value="disabled">{{ t("staff.disabled") }}</option>
           </select></label
         >
       </div>
       <label
-        >Что включено, по одной услуге на строку<textarea
+        >{{ t("staff.includedLines")
+        }}<textarea
           v-model="form.features"
           rows="4"
           maxlength="400"
-          placeholder="Трёхразовое питание&#10;Бассейн"
+          :placeholder="t('staff.featuresPlaceholder')"
         ></textarea>
       </label>
+      <label class="consent"
+        ><input v-model="form.childrenUnderThreeFree" type="checkbox" />{{
+          t("common.pricing.freeUnderThree")
+        }}</label
+      >
+      <p class="field-help">{{ t("common.pricing.childPolicyHint") }}</p>
       <p class="field-help">
-        Итог = (цена номера + доплата × гости) × ночи. Сумма существующих броней
-        не меняется.
+        {{ t("staff.discountHint") }}
       </p>
       <p v-if="error" role="alert" class="form-error">{{ error }}</p>
       <div class="form-actions">
@@ -70,9 +110,9 @@ const { busy, error, save } = useEditor("tariffs", props.item, emit);
           :disabled="busy"
           @click="emit('close')"
         >
-          Отмена</button
+          {{ t("staff.cancel") }}</button
         ><button class="primary" :disabled="busy">
-          {{ busy ? "Сохраняем…" : "Сохранить тариф" }}
+          {{ busy ? t("staff.saving") : t("staff.saveTariff") }}
         </button>
       </div>
     </form></Modal
