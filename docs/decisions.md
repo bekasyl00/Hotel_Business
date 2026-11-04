@@ -140,6 +140,13 @@ The tariff navigation/editor and selector in new staff bookings are removed. Man
 Boundaries: calendar reads existing unpaginated workspace; date-scoped paginated API/virtualization remain required for large properties. Manual refresh; no real-time sync claim. Same-day orders after advertised check-in, late/walk-in payments, deposits, changing dates/rooms and freeing an early-departure interval require additional explicit workflows; current server constraints remain. iOS binaries and Android are untouched. Migration rollback to non-null tariff is unsafe once room-only rows exist; use forward fixes rather than assigning invented tariffs to history.
 
 
+## 2026-11-05 — Halyk ePay sandbox before Kaspi: implementation plan
+
+User selected Halyk ePay sandbox first, with an exact booking-amount payment link and automatic server-verified confirmation; Kaspi follows later. This supersedes the previous provider order, not the payment-first booking, frozen pricing/commission, ownership or bounded-hold rules. The requested AI implementation guide is docs/halyk-epay-implementation-plan.md. It is a plan, not an implemented adapter or a verified bank connection.
+
+Official invoice-link documentation has separate sandbox credentials, required email/phone, day-based expiry, and distinct lookup/deactivation authentication. The implementation must verify compatibility with transaction-status credentials before enabling checkout. A return URL, unauthenticated callback, HTTP 200 or a successful status-query result cannot independently confirm a booking. Durable reconciliation must handle lost callbacks, expired holds, late charges and refunds outside database network transactions. Existing simulator history remains separate from bank sandbox facts. No native rebuild, cloud migration, payment or deployment was performed for this documentation change.
+
+
 ## 2026-11-05 — Guest availability calendar and simpler guest password
 
 The user withdrew booking editing after considering payment differences. No amendment endpoint, date/room mutation or edit button is introduced. Frozen booking/payment/receipt terms and existing staff notes remain unchanged.
@@ -147,3 +154,12 @@ The user withdrew booking editing after considering payment differences. No amen
 Public resort pages show a mini calendar only after selecting a room class, filtered by guest capacity. The user's final clarification keeps both scopes: a class-wide calendar on the resort page and a separate exact-room calendar on each room profile. The optional `roomId` must belong to the selected resort/class; visible headings and hints distinguish the two scopes. The bounded no-store API returns daily aggregate availability and continuous-room checkout choices, without guest/booking identities. Day-of-departure remains exclusive, active payment holds block nights, expired holds do not, and property timezone/check-in time controls same-day selection. First click selects arrival; second selects a valid departure within 30 nights and runs the existing full-stay availability check. Creation remains authoritative and transactional.
 
 Guest registration and reset accept 8–128 Unicode characters without mandatory character classes or a common/numeric-password block, as requested. Staff Django validators are unchanged. OTP challenges, authentication limits, hashing and session revocation remain in force. Demo and Django share this policy. This delivery does not rebuild/sync/install either iPhone application.
+
+
+## 2026-11-05 — Halyk sandbox и общее тестовое окружение
+
+Реализованы отдельные PaymentAttempt/Event, RefundRequest и durable PaymentJob. Только проверенный server-to-server CHARGE с совпадением invoice/terminal/account/amount/currency может автоматически подтвердить pending-бронь. Callback/redirect не являются доказательством; неизвестный исход создания и финансовые расхождения не допускают повторной оплаты вслепую. Старый Kaspi-themed симулятор и его история сохранены отдельно.
+
+Общие официальные sandbox-доступы работают с client_credentials для invoice lookup/deactivation. Live обнаружено: create HTTP 400/code1079 создаёт ACTIVE invoice, поэтому восстановление через lookup обязательно; empty lookup возвращает Records:null; invoice account_id пустой, transaction accountID содержит переданную привязку. Visa/Mastercard отклонены 455 (3DS), AMEX 3340. Успешного CHARGE нет: HALYK_EPAY_PROTOCOL_VERIFIED=False, production payments и публичный simulator выключены. Полная банковская приёмка не завершена.
+
+Django опубликован отдельным Vercel проектом tynys-api, Supabase restored ACTIVE_HEALTHY. Отдельная private schema/роль tynys_stage сохраняет старый tynys; Django migrations применены, вымышленный каталог загружен. TLS verify-full, transaction pooler, приватный S3 write/read/delete проверены. pg_cron вызывает защищённый bounded tick раз в минуту. Это staging с вымышленными данными, не production по нагрузке/праву/платежам. iPhone не пересобирался.

@@ -1,0 +1,429 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Tynys sandbox payments",
+    "version": "1.0.0",
+    "description": "Halyk invoice-link sandbox; not production. Sandbox contacts are fixed fictional non-deliverable values; guests never submit card details to Django."
+  },
+  "servers": [
+    {
+      "url": "/api/v1"
+    },
+    {
+      "url": "/api"
+    }
+  ],
+  "paths": {
+    "/payments/checkouts": {
+      "post": {
+        "summary": "Create or recover the guest-owned checkout",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfToken": []
+          },
+          {
+            "nativeBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Local authorized payment state. No banking mutations on GET.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Expired, paid, conflict, or idempotency mismatch"
+          },
+          "503": {
+            "description": "Sandbox is not verified/configured"
+          }
+        }
+      }
+    },
+    "/payments/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "nativeBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local authorized payment state. No banking mutations on GET.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not owned or absent"
+          }
+        }
+      }
+    },
+    "/payments/{id}/refresh": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Enqueue a coalesced bank lookup; never accepts an outcome",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfToken": []
+          },
+          {
+            "nativeBearer": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Local authorized payment state. No banking mutations on GET.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        }
+      }
+    },
+    "/payments/staff/checkouts": {
+      "post": {
+        "summary": "Create or recover one durable checkout; staff source only",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfToken": []
+          },
+          {
+            "nativeBearer": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CheckoutInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Local authorized payment state. No banking mutations on GET.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Expired, paid, conflict, or idempotency mismatch"
+          },
+          "503": {
+            "description": "Sandbox is not verified/configured"
+          }
+        }
+      }
+    },
+    "/payments/staff/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "get": {
+        "security": [
+          {
+            "sessionCookie": []
+          },
+          {
+            "nativeBearer": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Local authorized payment state. No banking mutations on GET.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not owned or absent"
+          }
+        }
+      }
+    },
+    "/payments/staff/{id}/refresh": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        }
+      ],
+      "post": {
+        "summary": "Enqueue a coalesced bank lookup; never accepts an outcome",
+        "security": [
+          {
+            "sessionCookie": [],
+            "csrfToken": []
+          },
+          {
+            "nativeBearer": []
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Local authorized payment state. No banking mutations on GET.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Payment"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        }
+      }
+    },
+    "/payments/config": {
+      "get": {
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "provider, environment, available; reason if unavailable. No fallback from bank to simulator."
+          }
+        }
+      }
+    },
+    "/payments/providers/halyk/callback": {
+      "post": {
+        "security": [],
+        "description": "Untrusted notification only. Maximum 16 KiB, rate limited; invoiceId/invoiceID/invoice_id may enqueue verification. Status, amount and other fields cannot confirm a booking.",
+        "responses": {
+          "200": {
+            "description": "Accepted; unknown invoices get the same response"
+          },
+          "413": {
+            "description": "Body too large"
+          },
+          "429": {
+            "description": "Rate limited"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CheckoutInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bookingId",
+          "requestKey",
+          "locale"
+        ],
+        "properties": {
+          "bookingId": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "requestKey": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "locale": {
+            "enum": [
+              "ru",
+              "kk",
+              "en"
+            ]
+          }
+        }
+      },
+      "Payment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "bookingId",
+          "bookingStatus",
+          "provider",
+          "environment",
+          "status",
+          "amount",
+          "currency",
+          "checkoutUrl",
+          "expiresAt",
+          "lastVerifiedAt",
+          "refundStatus",
+          "refundedAmount",
+          "reconciliationReason",
+          "receiptUrl"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "bookingId": {
+            "type": "string"
+          },
+          "bookingStatus": {
+            "enum": [
+              "pending",
+              "confirmed",
+              "cancelled",
+              "expired",
+              "rejected"
+            ]
+          },
+          "provider": {
+            "const": "halyk_epay"
+          },
+          "environment": {
+            "const": "sandbox"
+          },
+          "status": {
+            "enum": [
+              "creating",
+              "pending",
+              "succeeded",
+              "failed",
+              "expired",
+              "reconciliation_required"
+            ]
+          },
+          "amount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "currency": {
+            "const": "KZT"
+          },
+          "checkoutUrl": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uri"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastVerifiedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "refundStatus": {
+            "enum": [
+              null,
+              "queued",
+              "submitted",
+              "succeeded",
+              "reconciliation_required"
+            ]
+          },
+          "refundedAmount": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "reconciliationReason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "receiptUrl": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "sessionCookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "sessionid"
+      },
+      "csrfToken": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-CSRFToken"
+      },
+      "nativeBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Opaque guest or staff device token, audience-bound."
+      }
+    }
+  }
+}

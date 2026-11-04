@@ -4,25 +4,24 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build:public",
   "outputDirectory": "dist/site",
-  "rewrites": [
-    { "source": "/account/:path*", "destination": "/index.html" },
-    { "source": "/profile", "destination": "/index.html" },
-    { "source": "/receipts/:path*", "destination": "/index.html" },
+  "routes": [
     {
-      "source": "/staff/:path*",
-      "destination": "/index.html"
+      "src": "/api/(.*)",
+      "dest": "https://tynys-api.vercel.app/api/$1",
+      "headers": {
+        "Cache-Control": "private, no-store"
+      }
     },
     {
-      "source": "/resorts/:path*",
-      "destination": "/index.html"
+      "handle": "filesystem"
     },
     {
-      "source": "/rooms/:path*",
-      "destination": "/index.html"
+      "src": "/(staff|account|resorts|rooms|receipts)(/.*)?",
+      "dest": "/index.html"
     },
     {
-      "source": "/bookings",
-      "destination": "/index.html"
+      "src": "/(profile|bookings)",
+      "dest": "/index.html"
     }
   ]
 }

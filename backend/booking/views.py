@@ -156,7 +156,7 @@ class Endpoint(APIView):
                     for b in Booking.objects.filter(
                         owner=svc.guest_owner(request), source="website"
                     )
-                    .select_related("review")
+                    .select_related("review", "bank_payment__refund")
                     .prefetch_related("demo_payments")
                     .order_by("-created_at")
                 ]
@@ -186,7 +186,7 @@ class Endpoint(APIView):
                     "bookings": [
                         booking_data(b, staff=True)
                         for b in Booking.objects.filter(resort__in=resorts)
-                        .select_related("review")
+                        .select_related("review", "bank_payment__refund")
                         .prefetch_related("demo_payments")
                         .order_by("-created_at")
                     ],

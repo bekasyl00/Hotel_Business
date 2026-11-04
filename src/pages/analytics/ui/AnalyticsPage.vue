@@ -35,6 +35,7 @@ const filters = reactive({
   end: reportDateAfter(),
   resortId: "",
   granularity: "day",
+  paymentMode: "demo",
 });
 const preset = ref("28"),
   metricKey = ref("bookingCount"),
@@ -210,6 +211,7 @@ async function load() {
     start: filters.start,
     end: filters.end,
     granularity: filters.granularity,
+    paymentMode: filters.paymentMode,
   });
   const scope = session.isAdmin ? filters.resortId : session.user?.resortId;
   if (scope) params.set("resortId", scope);
@@ -263,7 +265,9 @@ function download() {
       [
         rowLabel(row),
         ...tableMetrics.value.map((m) => row[m.key] ?? ""),
-        t("staff.demo"),
+        data.value?.paymentMode === "sandbox"
+          ? "Halyk sandbox"
+          : t("staff.demo"),
       ]
         .map(csvCell)
         .join(";"),
@@ -313,6 +317,15 @@ onBeforeUnmount(() => {
         <aside class="analytics-filters">
           <form @submit.prevent="load">
             <h2>{{ t("staff.reportSettings") }}</h2>
+            <label v-if="!isDemo"
+              >{{ t("common.payment.financialSource") }}
+              <select v-model="filters.paymentMode">
+                <option value="demo">
+                  {{ t("common.payment.simulator") }}
+                </option>
+                <option value="sandbox">Halyk sandbox</option>
+              </select>
+            </label>
             <label
               >{{ t("staff.resort")
               }}<select v-model="filters.resortId" :disabled="!session.isAdmin">

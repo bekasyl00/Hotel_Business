@@ -36,7 +36,8 @@
     "rateLimit": "Too many attempts. Please wait and try again.",
     "fileType": "The server returned an unsupported file format.",
     "font": "The PDF font could not load. Please retry.",
-    "fileNetwork": "The file could not be downloaded. Check your connection and try again."
+    "fileNetwork": "The file could not be downloaded. Check your connection and try again.",
+    "fileTooLarge": "Files on the test server must be no larger than 4 MB."
   },
   "media": {
     "avatar": "Profile photo",
@@ -54,7 +55,8 @@
     "videoSize": "Videos must be no larger than 40 MB.",
     "storageUnavailable": "The file could not be saved in this browser. Check storage permissions and retry.",
     "quota": "Demo files can use up to 100 MB. Free some browser storage or choose a smaller file.",
-    "notFound": "This file is unavailable for this record. Please upload it again."
+    "notFound": "This file is unavailable for this record. Please upload it again.",
+    "deploymentSize": "Files on the test server must be no larger than 4 MB."
   },
   "booking": {
     "invalidDates": "Enter valid check-in and check-out dates.",
@@ -113,5 +115,36 @@
     "demoPay": "Demo payment",
     "resortEstimate": "Resort share before bank fees (estimate)",
     "paymentBooked": "Booked after payment"
+  },
+  "payment": {
+    "title": "Halyk ePay payment",
+    "sandbox": "Bank sandbox · no real money",
+    "explanation": "The amount is fixed in your booking. Payment opens on Halyk’s test page. The server verifies payment before confirming your booking. Official test cards only.",
+    "hold": "Your room is held for {minutes} more min.",
+    "expired": "The room hold has expired.",
+    "unavailable": "Bank payment is unavailable: sandbox setup or verification is incomplete.",
+    "loading": "Connecting…",
+    "create": "Create test invoice",
+    "open": "Open Halyk sandbox",
+    "refresh": "Check payment",
+    "paused": "Checks on this page have paused. The server continues reconciliation. You can check again.",
+    "noReceipt": "Halyk test transaction. A bank receipt is not available yet.",
+    "simulator": "Local simulator",
+    "financialSource": "Payment source",
+    "states": {
+      "creating": "Creating invoice…",
+      "pending": "Waiting for payment and bank verification.",
+      "succeeded": "Payment verified. Booking confirmed.",
+      "failed": "The bank declined this attempt. Retry with the same link before the hold expires.",
+      "expired": "Booking expired or cancelled. Do not pay the old link.",
+      "reconciliation_required": "Bank reconciliation required. Do not pay again."
+    },
+    "refunds": {
+      "queued": "Refund queued.",
+      "submitted": "The bank is processing the refund.",
+      "succeeded": "Refund verified.",
+      "reconciliation_required": "Refund needs bank reconciliation."
+    },
+    "details": "Payment details"
   }
 }

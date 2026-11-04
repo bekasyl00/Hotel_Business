@@ -81,6 +81,8 @@ def safe_video(upload):
 def save_asset(upload, *, purpose, resort=None, booking=None, profile=None):
     if not upload or not upload.size:
         raise Problem("Выберите непустой файл.", 422, "media_file_required")
+    if settings.MEDIA_UPLOAD_MAX_BYTES and upload.size > settings.MEDIA_UPLOAD_MAX_BYTES:
+        raise Problem("Файл превышает лимит текущего сервера.", 413, "media_deployment_size")
     if upload.content_type in {"image/jpeg", "image/png", "image/webp"}:
         content, extension, kind = safe_image(upload)
     elif purpose == "catalog" and upload.content_type in {"video/mp4", "video/webm"}:

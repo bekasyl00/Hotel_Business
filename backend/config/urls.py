@@ -9,6 +9,8 @@ from booking.media import MediaFile, MediaUpload, ProfileAvatar
 from booking.mobile_auth import MobileAuthView, MobileSessionView
 from booking.staff_mobile_auth import StaffMobileAuthView, StaffMobileSessionView
 from booking.views import Endpoint
+from commerce.payment_views import HalykCallbackView, PaymentView
+from commerce.scheduler import tick
 from commerce.views import CancellationPreviewView, DemoPaymentView, ReceiptView
 
 from .health import live, ready
@@ -28,8 +30,16 @@ api_patterns = [
         r"^(?P<resource>bookings)/(?P<pk>[^/]+)/(?P<action>check-in|check-out|notes)$",
         Endpoint.as_view(),
     ),
+    path("payments/config", PaymentView.as_view()),
+    path("payments/checkouts", PaymentView.as_view()),
+    path("payments/staff/checkouts", PaymentView.as_view(), {"staff": True}),
+    path("payments/providers/halyk/callback", HalykCallbackView.as_view()),
+    path("payments/staff/<str:pk>/refresh", PaymentView.as_view(), {"staff": True}),
+    path("payments/staff/<str:pk>", PaymentView.as_view(), {"staff": True}),
+    path("payments/<str:pk>/refresh", PaymentView.as_view()),
     path("payments/demo", DemoPaymentView.as_view()),
     path("payments/demo/staff", DemoPaymentView.as_view(), {"staff": True}),
+    path("payments/<str:pk>", PaymentView.as_view()),
     path("receipts/<str:pk>/pdf", ReceiptView.as_view(), {"pdf": True}),
     path("receipts/<str:pk>", ReceiptView.as_view()),
     path("cancellation-preview/<str:pk>", CancellationPreviewView.as_view()),
@@ -38,6 +48,7 @@ api_patterns = [
     path("<str:resource>/<str:pk>", Endpoint.as_view()),
 ]
 urlpatterns = [
+    path("internal/payments/tick", tick),
     path("health/live", live),
     path("health/ready", ready),
     path("django-admin/", platform_admin_site.urls),

@@ -148,3 +148,8 @@ Manual confirmation/rejection is no longer supported. Demo payment creates payme
 Migration 0009 adds private `Booking.staff_notes` and permits null protected tariff references. New staff orders can omit `tariffId` to use seasonal/base room-only pricing; guest orders still require it. Explicit legacy tariff input remains supported. No historical data is rewritten. `pricingBasis=room|tariff` is frozen in new snapshots. Receipts and readonly Django Admin accept null tariff.
 
 `POST /bookings/:id/notes` is a service-backed staff-only mutation with version/tenant checks, resort lock, CSRF for browser sessions and transactional redacted audit. Guest output omits `staffNotes`. Both `/api` and `/api/v1` route to the same handler. Apply the migration before deploying the new server. After room-only bookings exist, rollback to a non-null tariff would fail; preserve history and deploy forward fixes. Local tests do not constitute a Supabase migration or a production load test.
+
+
+## Общее sandbox окружение, 05.11.2026
+
+Django, Supabase PostgreSQL/private S3 и scheduler подключены. Актуальная конфигурация, ограничения и статус банковской приёмки: [halyk-sandbox.md](halyk-sandbox.md). Более ранние записи о неподключённом runtime ниже/выше относятся к предыдущему этапу. Не считать staging production-ready.

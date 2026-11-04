@@ -1,0 +1,38 @@
+{
+  "note": "Fictional values; shapes from official Halyk docs and the 2026-11-05 live sandbox probe. No card or credential data.",
+  "emptyLookup": {
+    "TotalCount": 0,
+    "Records": null
+  },
+  "activeLink": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "shop_id": "fixture-shop",
+    "terminal_id": "fixture-terminal",
+    "invoice_id": "700001",
+    "amount": 100,
+    "currency": "KZT",
+    "account_id": "",
+    "status": "ACTIVE",
+    "invoice_url": "https://testepay.homebank.kz/api/redirect/invoice-link/00000000-0000-4000-8000-000000000001"
+  },
+  "rejected": {
+    "resultCode": "101",
+    "transaction": {
+      "id": "fixture-transaction",
+      "invoiceID": "700001",
+      "terminalID": "fixture-terminal",
+      "accountID": "fixture-account",
+      "amount": 100,
+      "orgAmount": 100,
+      "payoutAmount": 0,
+      "currency": "KZT",
+      "statusName": "REJECT",
+      "createdDate": "2026-11-05T14:00:00+05:00"
+    }
+  },
+  "createSmsError": {
+    "code": 1079,
+    "message": "SMS delivery failed (translated fixture)"
+  },
+  "deactivatedStatus": "ANNULLED"
+}

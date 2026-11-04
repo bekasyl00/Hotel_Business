@@ -1,6 +1,7 @@
 from datetime import datetime, time
 from zoneinfo import ZoneInfo
 
+from django.conf import settings
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -9,7 +10,7 @@ from rest_framework import serializers
 from booking.errors import Problem
 from booking.models import Booking, Resort
 
-from .models import DemoPayment, DemoRefund
+from .models import DemoPayment, DemoRefund, PaymentAttempt, RefundRequest
 from .receipts import freeze_receipt
 
 PARTIAL_REFUND_PERCENT = 70
@@ -66,7 +67,39 @@ def payment_data(payment):
     }
 
 
+def bank_payment_data(payment):
+    refund = getattr(payment, "refund", None)
+    refunded = refund.amount if refund and refund.status == "succeeded" else 0
+    status = "paid" if payment.applied_at else payment.status
+    if refunded:
+        status = "refunded" if refunded == payment.amount else "partially_refunded"
+    return {
+        "id": str(payment.pk),
+        "bookingId": str(payment.booking_id),
+        "status": status,
+        "checkoutStatus": payment.status,
+        "paymentMode": "sandbox",
+        "provider": "halyk_epay",
+        "currency": payment.currency,
+        "amount": payment.amount,
+        "refundedAmount": refunded,
+        "refundStatus": refund.status if refund else None,
+        "receiptUrl": None,
+        "createdAt": payment.created_at.isoformat(),
+    }
+
+
+def has_paid_booking(booking):
+    bank = getattr(booking, "bank_payment", None)
+    if bank and bank.applied_at:
+        return not RefundRequest.objects.filter(payment=bank).exists()
+    return booking.demo_payments.filter(outcome="success", status="paid").exists()
+
+
 def booking_payment_data(booking):
+    bank = getattr(booking, "bank_payment", None)
+    if bank:
+        return bank_payment_data(bank)
     payments = list(booking.demo_payments.all())
     payment = next((p for p in payments if p.outcome == "success"), None)
     payment = payment or max(payments, key=lambda p: p.created_at, default=None)
@@ -91,6 +124,8 @@ def _create_demo_payment(request, staff=False):
     from booking.serializers import booking_data
     from booking.services import log_change, require_staff
 
+    if not settings.PAYMENTS_ALLOW_SIMULATOR:
+        raise Problem("Симулятор оплаты отключён.", 403)
     inp = PaymentInput(data=request.data)
     inp.is_valid(raise_exception=True)
     data = inp.validated_data
@@ -103,6 +138,8 @@ def _create_demo_payment(request, staff=False):
         _require_owner(request, booking)
     Resort.objects.select_for_update().get(pk=booking.resort_id)
     booking.refresh_from_db()
+    if PaymentAttempt.objects.filter(booking=booking).exists():
+        raise Problem("Для брони уже создан банковский счёт.", 409)
     previous = DemoPayment.objects.filter(request_key=data["requestId"]).first()
     if previous:
         if previous.booking_id != booking.id or previous.outcome != data["outcome"]:
@@ -162,6 +199,8 @@ def create_demo_payment(request, staff=False):
     from booking.holds import expire_resort_holds
     from booking.services import require_staff
 
+    if not settings.PAYMENTS_ALLOW_SIMULATOR:
+        raise Problem("Симулятор оплаты отключён.", 403)
     inp = PaymentInput(data=request.data)
     inp.is_valid(raise_exception=True)
     booking = get_object_or_404(Booking, pk=inp.validated_data["bookingId"])
@@ -177,6 +216,13 @@ def create_demo_payment(request, staff=False):
 
 
 def cancellation_preview(booking, *, staff=False, now=None):
+    bank = getattr(booking, "bank_payment", None)
+    if bank and hasattr(bank, "refund"):
+        return {
+            **bank.refund.policy,
+            "refundStatus": bank.refund.status,
+            "finalized": bank.refund.status == "succeeded",
+        }
     payment = booking.demo_payments.filter(outcome="success").first()
     if payment:
         previous = DemoRefund.objects.filter(payment=payment).first()
@@ -190,7 +236,7 @@ def cancellation_preview(booking, *, staff=False, now=None):
         if remaining >= 48 * 3600
         else (terms["partialRefundPercent"] if remaining >= 24 * 3600 else 0)
     )
-    amount = payment.amount if payment else 0
+    amount = bank.amount if bank and bank.applied_at else (payment.amount if payment else 0)
     result = {
         **terms,
         "paidAmount": amount,
@@ -199,6 +245,8 @@ def cancellation_preview(booking, *, staff=False, now=None):
         "hoursBeforeCheckin": round(remaining / 3600, 4),
         "actorKind": "provider" if staff else "guest",
     }
+    if bank:
+        result["mode"] = "sandbox"
     return result
 
 
@@ -227,6 +275,13 @@ def apply_cancellation(booking, user, *, staff=False):
     from booking.services import log_change
 
     Resort.objects.select_for_update().get(pk=booking.resort_id)
+    from .jobs import retire_booking
+    from .refund_services import queue_refund
+
+    retire_booking(booking)
+    bank = PaymentAttempt.objects.filter(booking=booking).first()
+    if bank and bank.applied_at:
+        return queue_refund(bank, cancellation_preview(booking, staff=staff))
     payment = booking.demo_payments.filter(outcome="success").first()
     if payment:
         previous = DemoRefund.objects.filter(payment=payment).first()

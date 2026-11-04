@@ -7,10 +7,30 @@ from .infrastructure import database_config, media_storage_config
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env(DEBUG=(bool, False))
 environ.Env.read_env(env("DJANGO_ENV_FILE", default=str(BASE_DIR / ".env")))
+if env("PAYMENTS_ENV_FILE", default=""):
+    environ.Env.read_env(env("PAYMENTS_ENV_FILE"))
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = env("DEBUG")
 GUEST_AUTH_DEMO_OTP = env.bool("GUEST_AUTH_DEMO_OTP", default=False)
 BOOKING_HOLD_MINUTES = env.int("BOOKING_HOLD_MINUTES", default=30)
+PAYMENTS_SCHEDULER_SECRET = env("PAYMENTS_SCHEDULER_SECRET", default="")
+PAYMENT_PROVIDER = env("PAYMENT_PROVIDER", default="simulator")
+PAYMENTS_ALLOW_SIMULATOR = env.bool("PAYMENTS_ALLOW_SIMULATOR", default=DEBUG)
+HALYK_EPAY_ENV = env("HALYK_EPAY_ENV", default="sandbox")
+HALYK_EPAY_PROTOCOL_VERIFIED = env.bool("HALYK_EPAY_PROTOCOL_VERIFIED", default=False)
+HALYK_EPAY_CLIENT_ID = env("HALYK_EPAY_CLIENT_ID", default="")
+HALYK_EPAY_CLIENT_SECRET = env("HALYK_EPAY_CLIENT_SECRET", default="")
+HALYK_EPAY_SHOP_ID = env("HALYK_EPAY_SHOP_ID", default="")
+HALYK_EPAY_TERMINAL_ID = env("HALYK_EPAY_TERMINAL_ID", default="")
+HALYK_EPAY_INVOICE_USERNAME = env("HALYK_EPAY_INVOICE_USERNAME", default="")
+HALYK_EPAY_INVOICE_PASSWORD = env("HALYK_EPAY_INVOICE_PASSWORD", default="")
+HALYK_EPAY_LOOKUP_GRANT = env("HALYK_EPAY_LOOKUP_GRANT", default="password")
+HALYK_EPAY_INVOICE_PREFIX = env("HALYK_EPAY_INVOICE_PREFIX", default="")
+HALYK_EPAY_INVOICE_START = env.int("HALYK_EPAY_INVOICE_START", default=100000)
+HALYK_EPAY_INVOICE_END = env.int("HALYK_EPAY_INVOICE_END", default=999999)
+PAYMENTS_PUBLIC_API_ORIGIN = env("PAYMENTS_PUBLIC_API_ORIGIN", default="")
+PAYMENTS_PUBLIC_SITE_ORIGIN = env("PAYMENTS_PUBLIC_SITE_ORIGIN", default="")
+PAYMENTS_PUBLIC_STAFF_ORIGIN = env("PAYMENTS_PUBLIC_STAFF_ORIGIN", default="")
 if not 1 <= BOOKING_HOLD_MINUTES <= 120:
     raise ValueError("BOOKING_HOLD_MINUTES must be between 1 and 120")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
@@ -82,6 +102,7 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "private-media"
 LEGACY_MEDIA_ROOT = BASE_DIR / "mediafiles"
 MEDIA_STORAGE = env("MEDIA_STORAGE", default="local")
+MEDIA_UPLOAD_MAX_BYTES = env.int("MEDIA_UPLOAD_MAX_BYTES", default=0)
 MEDIA_GUEST_DAILY_BYTES = env.int("MEDIA_GUEST_DAILY_BYTES", default=50 * 1024 * 1024)
 MEDIA_RESORT_DAILY_BYTES = env.int("MEDIA_RESORT_DAILY_BYTES", default=500 * 1024 * 1024)
 STAFF_WORKSPACE_URL = env("STAFF_WORKSPACE_URL", default="http://127.0.0.1:4173/staff")

@@ -1,4 +1,16 @@
-# Проверки проекта
+# Проверки
+
+## 05.11.2026 — общий облачный API и Halyk sandbox
+
+- Backend: **164 теста** на отдельном реальном PostgreSQL 17, включая duplicate/concurrent CHARGE, чужой owner/tenant, CSRF/Bearer, forged callback, late/extra/mismatched charge, unknown-create recovery, no network inside SQL transaction, refund intent/verification, lease recovery и schema/provider fixtures. Ruff и migration drift — pass; stage `check --deploy` — 0 issues.
+- Frontend: **90 тестов**, FSD 107 files / 263 imports; build, API build:surfaces и LikeC4 validate — pass. RU/KK/EN key/placeholder parity сохранены.
+- Supabase: Django migration chain применён в отдельную private tynys_stage; 33 RLS tables, restrictive server login, TLS verify-full, private S3 write/read/delete собственного JPEG — pass. Старый tynys сохранён.
+- Live HTTPS: public и staff `/api` обращаются к одному Django. Тестовая бронь `07b77f32…` с public видна manager Altun; чужой guest session её не видит; checkout gate возвращает 503. Этой вымышленной записи сократили hold для проверки cron: pg_cron самостоятельно перевёл её в expired; HTTP tick 200.
+- Через браузер создана бронь `ce3d1022…`, №112, 12–15 ноября; она видна в кабинете сотрудника. Проверены 390px и 1280px, без overflow документа. Платёжный диалог показывает недоступность sandbox; финальный client console — без ошибок. Снимки `output/halyk-{guest,staff}-live-mobile.png`, `output/halyk-payment-unavailable-mobile.png`.
+- Vercel: отдельные client/staff/API проекты, API регион icn1 рядом с Supabase Seoul. Использовать реальный cwd артефакта и `--local-config vercel.json`: при вызовах из корня с одним --cwd наблюдалось наследование чужих routing settings. API не должен содержать frontend rewrite на самого себя. Итоговые deployment IDs/SHA — `output/halyk-final-deployment.json`.
+- **Банковская приёмка не завершена:** shared Halyk OAuth, create/recovery, lookup, deactivate/ANNULLED работают; Visa/Mastercard 455, AMEX 3340, lookup REJECT. Нет доказательства успешного CHARGE/refund/callback. Protocol gate закрыт, public simulator выключен; реальные деньги/персональные данные не использовались. Подробности: [halyk-sandbox.md](halyk-sandbox.md).
+- SMS отсутствует: DEBUG=False, demo OTP выключен; регистрация/сброс через SMS пока недоступны. Vercel uploads ограничены 4 MB. Не проверены production capacity, backup restore, настоящий эквайринг, официальные документы. Native iPhone/Android не менялись.
+
 
 ## Календари доступности и гостевой пароль — 5 ноября 2026
 

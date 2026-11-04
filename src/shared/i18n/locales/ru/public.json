@@ -125,7 +125,7 @@
   "48HoursOrMore": "48 часов и более",
   "24To48Hours": "От 24 до 48 часов",
   "lessThan24Hours": "Менее 24 часов",
-  "kaspiDemoSimulatesPaymentsAndRefundsNoRealMoneyIsCharged": "Kaspi Demo — симуляция оплаты и возврата. Реальные деньги не списываются.",
+  "kaspiDemoSimulatesPaymentsAndRefundsNoRealMoneyIsCharged": "Тестовая среда оплаты и возвратов. Настоящие деньги не списываются.",
   "yourStay": "ВАШЕ ПРОЖИВАНИЕ",
   "thisRoomIsBookedForTheseDatesChooseDifferentDates": "Номер занят на эти даты. Выберите другие даты.",
   "thisRoomIsAvailableForYourDates": "Номер свободен на выбранные даты",

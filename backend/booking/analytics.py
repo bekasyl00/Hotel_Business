@@ -7,7 +7,7 @@ from django.db.models.functions import Cast, Coalesce, TruncDay, TruncMonth, Tru
 from django.utils import timezone
 from rest_framework import serializers
 
-from commerce.models import DemoPayment, DemoRefund
+from commerce.models import DemoPayment, DemoRefund, PaymentEvent, RefundRequest
 
 from .errors import Problem
 from .models import Booking, Resort, Review, Room
@@ -58,15 +58,18 @@ def parse_period(params):
     return start, end, granularity
 
 
-def facts(resorts, start, end):
+def facts(resorts, start, end, payment_mode="demo"):
     lower, upper = bounds(start, end)
     window = {"created_at__gte": lower, "created_at__lt": upper}
+    payments = DemoPayment.objects.filter(booking__resort__in=resorts, outcome="success", **window)
+    refunds = DemoRefund.objects.filter(payment__booking__resort__in=resorts, **window)
+    if payment_mode == "sandbox":
+        payments = PaymentEvent.objects.filter(payment__booking__resort__in=resorts, environment="sandbox", kind="charge", applied=True, **window)
+        refunds = RefundRequest.objects.filter(payment__booking__resort__in=resorts, status="succeeded", confirmed_at__gte=lower, confirmed_at__lt=upper)
     return {
         "bookings": Booking.objects.filter(resort__in=resorts, **window),
-        "payments": DemoPayment.objects.filter(
-            booking__resort__in=resorts, outcome="success", **window
-        ),
-        "refunds": DemoRefund.objects.filter(payment__booking__resort__in=resorts, **window),
+        "payments": payments,
+        "refunds": refunds,
         "reviews": Review.objects.filter(resort__in=resorts, **window),
     }
 
@@ -131,7 +134,7 @@ def series(source, start, end, granularity):
     truncate = {"day": TruncDay, "week": TruncWeek, "month": TruncMonth}[granularity]
     for kind, queryset in source.items():
         grouped = (
-            queryset.annotate(bucket=truncate("created_at", tzinfo=ZONE))
+            queryset.annotate(bucket=truncate("confirmed_at" if queryset.model == RefundRequest else "created_at", tzinfo=ZONE))
             .values("bucket")
             .annotate(**aggregates(kind))
             .order_by()
@@ -142,11 +145,11 @@ def series(source, start, end, granularity):
     return list(rows.values())
 
 
-def group_field(kind, dimension):
+def group_field(kind, dimension, queryset=None):
     field = "resort_id" if dimension == "resort" else "room_id"
     if kind == "bookings" or (kind == "reviews" and dimension == "resort"):
         return field
-    if kind == "refunds":
+    if kind == "refunds" or (queryset is not None and queryset.model == PaymentEvent):
         return f"payment__booking__{field}"
     return f"booking__{field}"
 
@@ -171,7 +174,7 @@ def breakdown(source, resorts, dimension):
         else Room.objects.filter(resort__in=resorts)
     )
     ranked = catalog.annotate(
-        metric_gross=financial_subquery(source["payments"], group_field("payments", dimension)),
+        metric_gross=financial_subquery(source["payments"], group_field("payments", dimension, source["payments"])),
         metric_refunds=financial_subquery(source["refunds"], group_field("refunds", dimension)),
     ).annotate(metric_net=F("metric_gross") - F("metric_refunds"))
     fields = ["id", "name"] if dimension == "resort" else ["id", "resort_id", "title", "number"]
@@ -192,7 +195,7 @@ def breakdown(source, resorts, dimension):
         result[item["id"]] = {**metadata, **empty_metrics()}
     if result:
         for kind, queryset in source.items():
-            field = group_field(kind, dimension)
+            field = group_field(kind, dimension, queryset)
             for row in (
                 queryset.filter(**{field + "__in": result})
                 .values(field)
@@ -221,7 +224,8 @@ def analytics_for_request(request):
         resorts = resorts.filter(pk=selected)
     previous_end = start - timedelta(days=1)
     previous_start = previous_end - (end - start)
-    source = facts(resorts, start, end)
+    payment_mode = serializers.ChoiceField(choices=["demo", "sandbox"]).run_validation(request.query_params.get("paymentMode", "demo"))
+    source = facts(resorts, start, end, payment_mode)
     by_resort, resorts_truncated = breakdown(source, resorts, "resort")
     by_room, rooms_truncated = breakdown(source, resorts, "room")
     return {
@@ -232,9 +236,9 @@ def analytics_for_request(request):
             "timeZone": str(ZONE),
         },
         "previousPeriod": {"start": previous_start.isoformat(), "end": previous_end.isoformat()},
-        "paymentMode": "demo",
+        "paymentMode": payment_mode,
         "totals": totals(source),
-        "previousTotals": totals(facts(resorts, previous_start, previous_end)),
+        "previousTotals": totals(facts(resorts, previous_start, previous_end, payment_mode)),
         "series": series(source, start, end, granularity),
         "byResort": by_resort,
         "byRoom": by_room,

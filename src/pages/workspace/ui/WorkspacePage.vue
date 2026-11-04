@@ -11,7 +11,7 @@ import { ResortEditor } from "@/features/edit-resort";
 import { RoomEditor } from "@/features/edit-room";
 import { OccupancyBoard, StayCard } from "@/widgets/occupancy-board";
 import { AccountEditor } from "@/features/edit-account";
-import { DemoPayment } from "@/features/demo-payment";
+import { PaymentDialog } from "@/widgets/payment-dialog";
 import { BookingEditor } from "@/features/create-booking";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
@@ -22,7 +22,8 @@ const paymentDialog = ref(null);
 const canPayStaff = (b) =>
   b.source === "staff" &&
   ["pending", "confirmed"].includes(b.status) &&
-  (!b.payment || b.payment.status === "failed") &&
+  (!b.payment ||
+    ["failed", "creating", "pending"].includes(b.payment.status)) &&
   (!b.holdExpiresAt ||
     b.status === "confirmed" ||
     Date.parse(b.holdExpiresAt) > Date.now()) &&
@@ -271,6 +272,15 @@ async function load(quiet = false) {
     if (run !== generation) return;
     catalog.setData(data);
     bookings.items = data.bookings;
+    if (typeof route.query.paymentReturn === "string") {
+      paymentDialog.value =
+        data.bookings.find(
+          (b) =>
+            b.source === "staff" && b.payment?.id === route.query.paymentReturn,
+        ) || null;
+      const { paymentReturn, ...query } = route.query;
+      await router.replace({ query });
+    }
     accounts.value = data.accounts;
     audit.value = data.audit;
     reviews.value = data.reviews || [];
@@ -835,7 +845,9 @@ onBeforeUnmount(() => {
                           >{{
                             b.payment.status === "paid"
                               ? t("staff.demoPaid")
-                              : b.payment.status === "failed"
+                              : ["failed", "creating", "pending"].includes(
+                                    b.payment.status,
+                                  )
                                 ? t("staff.demoFailed")
                                 : t("staff.demoRefunded")
                           }}<span v-if="b.payment.refundedAmount">
@@ -1226,7 +1238,7 @@ onBeforeUnmount(() => {
     @close="editor = null"
     @saved="saved"
   />
-  <DemoPayment
+  <PaymentDialog
     v-if="paymentDialog"
     :booking="paymentDialog"
     staff

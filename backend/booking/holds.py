@@ -32,6 +32,9 @@ def expire_locked_holds(resort_id, now=None):
             before={"status": "pending"},
             after={"status": "expired"},
         )
+        from commerce.jobs import retire_booking
+
+        retire_booking(booking)
         count += 1
     return count
 

@@ -6,11 +6,12 @@ import { useRoute, useRouter } from "vue-router";
 const route = useRoute(),
   router = useRouter();
 import { PublicHeader } from "@/widgets/public-header";
-import { DemoPayment } from "@/features/demo-payment";
+import { PaymentDialog } from "@/widgets/payment-dialog";
 import { ReviewForm } from "@/features/review-form";
 import { useBookingStore, dateAfter } from "@/entities/booking";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
+import { isDemo } from "@/shared/config";
 import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
 const store = useBookingStore();
 const loading = ref(true),
@@ -45,7 +46,8 @@ const canPay = (booking) =>
     !booking.holdExpiresAt ||
     Date.parse(booking.holdExpiresAt) > Date.now()) &&
   Date.parse(booking.cancellationPolicy?.checkinAt || "") > Date.now() &&
-  (!booking.payment || booking.payment.status === "failed");
+  (!booking.payment ||
+    ["failed", "creating", "pending"].includes(booking.payment.status));
 function checkinLabel(booking) {
   const at = booking.cancellationPolicy?.checkinAt;
   if (!at)
@@ -62,6 +64,14 @@ async function load() {
   error.value = "";
   try {
     await store.loadMine();
+    if (typeof route.query.paymentReturn === "string") {
+      const target = store.items.find(
+        (booking) => booking.payment?.id === route.query.paymentReturn,
+      );
+      if (target) paymentTarget.value = target;
+      const { paymentReturn, ...query } = route.query;
+      await router.replace({ query });
+    }
     if (typeof route.query.pay === "string") {
       const target = store.items.find(
         (booking) => booking.id === route.query.pay && canPay(booking),
@@ -108,7 +118,10 @@ async function cancel() {
 async function paymentSaved(result) {
   if (!result.failed) {
     paymentTarget.value = null;
-    notice.value = t("public.demoPaymentSuccessfulNoRealMoneyWasCharged");
+    notice.value =
+      result.payment?.provider === "halyk_epay"
+        ? t("common.payment.states.succeeded")
+        : t("public.demoPaymentSuccessfulNoRealMoneyWasCharged");
   }
   await load();
 }
@@ -231,14 +244,26 @@ onMounted(load);
         </p>
         <div v-if="booking.payment" class="payment-state">
           <strong>{{
-            paymentNames[booking.payment.status] || booking.payment.status
+            booking.payment.provider === "halyk_epay"
+              ? t(`common.payment.states.${booking.payment.checkoutStatus}`)
+              : paymentNames[booking.payment.status] || booking.payment.status
           }}</strong
           ><span v-if="booking.payment.refundedAmount"
             >{{ t("public.refunded") }}
             {{ money(booking.payment.refundedAmount) }}</span
           ><span class="small muted">{{
-            t("public.kaspiDemoNoRealMoneyIsUsed")
+            booking.payment.provider === "halyk_epay"
+              ? t("common.payment.sandbox")
+              : t("public.kaspiDemoNoRealMoneyIsUsed")
           }}</span>
+          <span
+            v-if="
+              booking.payment.provider === 'halyk_epay' &&
+              booking.payment.refundStatus
+            "
+          >
+            {{ t(`common.payment.refunds.${booking.payment.refundStatus}`) }}
+          </span>
         </div>
         <div class="guest-booking-actions">
           <RouterLink
@@ -252,8 +277,16 @@ onMounted(load);
             class="primary"
             @click="paymentTarget = booking"
           >
-            {{ t("public.payKaspiDemo") }}</button
-          ><button
+            {{ isDemo ? t("public.payKaspiDemo") : t("common.payment.title") }}
+          </button>
+          <button
+            v-else-if="booking.payment?.provider === 'halyk_epay'"
+            class="secondary"
+            @click="paymentTarget = booking"
+          >
+            {{ t("common.payment.details") }}
+          </button>
+          <button
             v-if="canReview(booking)"
             class="secondary"
             @click="reviewTarget = booking"
@@ -272,7 +305,7 @@ onMounted(load);
           </button>
         </div>
       </article>
-      <DemoPayment
+      <PaymentDialog
         v-if="paymentTarget"
         :booking="paymentTarget"
         @close="paymentTarget = null"

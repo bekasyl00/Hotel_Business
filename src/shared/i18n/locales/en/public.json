@@ -125,7 +125,7 @@
   "48HoursOrMore": "48 hours or more",
   "24To48Hours": "24 to 48 hours",
   "lessThan24Hours": "Less than 24 hours",
-  "kaspiDemoSimulatesPaymentsAndRefundsNoRealMoneyIsCharged": "Kaspi Demo simulates payments and refunds. No real money is charged.",
+  "kaspiDemoSimulatesPaymentsAndRefundsNoRealMoneyIsCharged": "Test environment for payments and refunds. No real money is charged.",
   "yourStay": "YOUR STAY",
   "thisRoomIsBookedForTheseDatesChooseDifferentDates": "This room is booked for these dates. Choose different dates.",
   "thisRoomIsAvailableForYourDates": "This room is available for your dates",

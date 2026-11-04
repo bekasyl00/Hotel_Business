@@ -509,7 +509,7 @@ def upsert_guest_profile(owner, name, phone):
 def profile_bookings(queryset):
     return [
         booking_data(b)
-        for b in queryset.select_related("review")
+        for b in queryset.select_related("review", "bank_payment__refund")
         .prefetch_related("demo_payments")
         .order_by("-created_at")
     ]
@@ -602,8 +602,10 @@ def change_stay(request, pk, action):
     version_check(item, request.data)
     if item.status != "confirmed":
         raise Problem("Заселение и выезд доступны только для подтверждённой брони.", 409)
-    if not item.demo_payments.filter(outcome="success", status="paid").exists():
-        raise Problem("Сначала требуется успешная демонстрационная оплата.", 409)
+    from commerce.services import has_paid_booking
+
+    if not has_paid_booking(item):
+        raise Problem("Сначала требуется подтверждённая сервером оплата.", 409)
     now = timezone.now()
     if action == "check-in":
         today = now.astimezone(ZoneInfo(resort.time_zone)).date()
