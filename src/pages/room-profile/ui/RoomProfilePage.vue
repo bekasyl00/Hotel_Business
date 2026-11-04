@@ -1,10 +1,11 @@
 <script setup>
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
-import { computed, reactive, ref, watch } from "vue";
+import { computed, nextTick, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { MediaGallery } from "@/widgets/media-gallery";
+import { AvailabilityCalendar } from "@/widgets/availability-calendar";
 import { BookingEditor } from "@/features/create-booking";
 import {
   dateAfter,
@@ -77,6 +78,11 @@ async function load() {
     if (run === generation) loading.value = false;
   }
   if (run === generation && data.value && route.query.start) await checkDates();
+}
+async function selectCalendarDates(range) {
+  Object.assign(dates, range);
+  await nextTick();
+  await checkDates();
 }
 async function checkDates() {
   searchError.value = validateSearch(dates);
@@ -197,6 +203,16 @@ watch(() => route.params.id, load, { immediate: true });
                 </div>
               </dl>
             </section>
+            <AvailabilityCalendar
+              :resort-id="resort.id"
+              :category="room.category"
+              :room-id="room.id"
+              :guests="dates.guests"
+              :time-zone="resort.timeZone"
+              :start="dates.start"
+              :end="dates.end"
+              @select="selectCalendarDates"
+            />
             <section class="profile-section">
               <h2>{{ t("public.chooseARate") }}</h2>
               <p class="field-help">

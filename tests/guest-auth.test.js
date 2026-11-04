@@ -114,7 +114,7 @@ test("reset revokes other sessions and requires the new password", async () => {
     phone,
     purpose: "reset",
   });
-  const replacement = "New-demo-password!2031";
+  const replacement = "abcdefgh";
   await api("POST", "/guest-auth/reset", {
     challengeId: c.challengeId,
     code: c.demoCode,
@@ -181,4 +181,27 @@ test("OTP is bound to browser and purpose, expires and stops after five failed a
     }),
     (e) => e.code === "code_expired",
   );
+});
+
+test("guest passwords accept eight characters without composition rules", async () => {
+  const { api } = setup();
+  const c = await api("POST", "/guest-auth/challenges", {
+    phone,
+    purpose: "register",
+  });
+  const data = {
+    challengeId: c.challengeId,
+    code: c.demoCode,
+    name: "Demo guest",
+  };
+  for (const password of ["1234567", "x".repeat(129)])
+    await assert.rejects(
+      api("POST", "/guest-auth/register", { ...data, password }),
+      (e) => e.code === "weak_password",
+    );
+  const result = await api("POST", "/guest-auth/register", {
+    ...data,
+    password: "12345678",
+  });
+  assert.equal(result.authenticated, true);
 });

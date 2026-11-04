@@ -220,7 +220,7 @@ async function submit() {
                 v-model="form.password"
                 :type="show ? 'text' : 'password'"
                 required
-                :minlength="action === 'login' ? 1 : 12"
+                :minlength="action === 'login' ? 1 : 8"
                 maxlength="128"
                 :autocomplete="
                   action === 'login' ? 'current-password' : 'new-password'
@@ -249,7 +249,7 @@ async function submit() {
                 v-model="form.confirm"
                 :type="show ? 'text' : 'password'"
                 required
-                minlength="12"
+                minlength="8"
                 maxlength="128"
                 autocomplete="new-password" /></label
           ></template>

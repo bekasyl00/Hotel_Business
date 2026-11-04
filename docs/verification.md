@@ -1,5 +1,13 @@
 # Проверки проекта
 
+## Календари доступности и гостевой пароль — 5 ноября 2026
+
+- Календарь класса на странице санатория и отдельный календарь физического номера; интерфейс явно различает области. Занятые ночи, эксклюзивный день выезда, вместимость, активные/истёкшие удержания и непрерывная доступность одного номера проверены в demo и Django. Редактирование брони отменено пользователем и не добавлено.
+- `npm test`: **90 tests**, FSD **103 files / 252 imports**; `npm run build`, `npm run build:surfaces`, `npm run arch:check` pass. Backend: **142 tests** на изолированном локальном PostgreSQL 17 (не SQLite); Ruff и migration drift pass. Для тестов поднят отдельный процесс PostgreSQL: Docker daemon не отвечал. Производственная БД не менялась.
+- В браузере проверены выбор класса, перенос диапазона в поиск, занятость отдельного номера, разрешённый выезд перед занятой ночью, RU/KK/EN и мобильная ширина 390 без overflow; desktop 1280. В календаре названия месяцев/дней берутся из переводов, включая қазақша в WebKit. Guest register/reset: 8–128 символов без требований к составу; серверные тесты проверяют границы, хеширование и отзыв сессий. Staff policy сохранена.
+- Public Vercel deployment `dpl_J3mG1QGEoKwJLjyK36swU3rzgwtT` **Ready**: https://vercel-site-puce-two.vercel.app. Опубликован только `dist/site` из изолированного каталога. HTML и entry assets на публичном alias побайтно совпали со сборкой; SHA-256 index `ffecd0065b65d74887147803024de95123fb9e9d8e168e53bec350709665e85c`. Deep links `/resorts/altun`, `/rooms/altun-112`, `/account/register`, `/account/reset-password` — 200; файлы секретов/backend/architecture — 404. Staff index до/после не изменился.
+- Live room calendar проверен на 390×844, browser warnings/errors пусто. Снимок `output/calendar-room-live-mobile.png`; HTTP evidence `output/calendars-live-check.json` (игнорируются Git). Сайт остаётся demo с локальными данными браузера. Backend API не опубликован, Supabase не обновлялся; iPhone-сборки не трогали.
+
 ## Публикация кабинета сотрудников — 5 ноября 2026
 
 - Обновлён только production-проект `tynys-staff`: https://tynys-staff.vercel.app/staff/login. Vercel deployment `dpl_7eR1SKdK7EkAz4QgwiQBsvVznqru` — **Ready**, production alias проверен. Исходный код: `026dc4f8d99812ebbfc382292bbb3ed3efc58782`; оба GitHub CI runs этого commit завершились success.

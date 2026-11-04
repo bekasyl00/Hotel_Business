@@ -27,6 +27,7 @@ import {
 } from "../../entities/booking/rules.js";
 import { ApiError } from "../../shared/api/index.js";
 import { demoAnalytics } from "./demo-analytics.js";
+import { demoAvailability } from "./demo-availability.js";
 import { upgradeGuests, demoGuestRequest } from "./demo-guests.js";
 import { createDemoMediaStore, demoMediaRequest } from "./demo-media.js";
 export const DATABASE_KEY = "tynys:workspace:v2";
@@ -406,6 +407,8 @@ export function createDemoTransport({
           (t) => isPublic(t.resortId) && t.status === "active",
         ),
       });
+    if (pathname === "/availability-calendar" && method === "GET")
+      return demoAvailability(db, params);
     if (pathname === "/availability" && method === "GET") {
       const search = {
         start: params.get("start"),

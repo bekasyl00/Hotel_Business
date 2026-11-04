@@ -2,7 +2,7 @@
 specification { element module }
 model {
   app = module 'app' {
-    description 'Инициализация Vue, Router, Pinia; выбор HTTP или локального демо-адаптера.. Файлов: 16'
+    description 'Инициализация Vue, Router, Pinia; выбор HTTP или локального демо-адаптера.. Файлов: 17'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/app 'Исходный код'
   }
   entities_booking = module 'entities/booking' {
@@ -120,6 +120,10 @@ model {
   shared_ui = module 'shared/ui' {
     description 'Общие native dialog, карта Leaflet и редактор медиа.. Файлов: 5'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/ui 'Исходный код'
+  }
+  widgets_availability_calendar = module 'widgets/availability-calendar' {
+    description 'Компоненты и действия среза widgets/availability-calendar. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/widgets/availability-calendar 'Исходный код'
   }
   widgets_guest_booking_history = module 'widgets/guest-booking-history' {
     description 'Компоненты и действия среза widgets/guest-booking-history. Файлов: 2'
@@ -245,12 +249,14 @@ model {
   pages_receipt -> shared_lib 'import'
   pages_resort_profile -> widgets_public_header 'import'
   pages_resort_profile -> widgets_media_gallery 'import'
+  pages_resort_profile -> widgets_availability_calendar 'import'
   pages_resort_profile -> entities_booking 'import'
   pages_resort_profile -> shared_ui 'import'
   pages_resort_profile -> shared_api 'import'
   pages_resort_profile -> shared_lib 'import'
   pages_room_profile -> widgets_public_header 'import'
   pages_room_profile -> widgets_media_gallery 'import'
+  pages_room_profile -> widgets_availability_calendar 'import'
   pages_room_profile -> features_create_booking 'import'
   pages_room_profile -> entities_booking 'import'
   pages_room_profile -> shared_api 'import'
@@ -284,6 +290,8 @@ model {
   shared_ui -> shared_i18n 'import'
   shared_ui -> shared_api 'import'
   shared_ui -> shared_config 'import'
+  widgets_availability_calendar -> entities_booking 'import'
+  widgets_availability_calendar -> shared_api 'import'
   widgets_guest_booking_history -> shared_lib 'import'
   widgets_occupancy_board -> entities_booking 'import'
   widgets_occupancy_board -> shared_lib 'import'
@@ -300,6 +308,6 @@ model {
 views {
   view modules {
     title 'FSD: реальные зависимости срезов Vue'
-    include app, entities_booking, entities_guest_account, entities_resort, entities_session, features_create_booking, features_demo_payment, features_edit_account, features_edit_resort, features_edit_room, features_payment_receipt, features_review_form, pages_analytics, pages_catalog, pages_guest_auth, pages_guest_profile, pages_login, pages_my_bookings, pages_receipt, pages_resort_profile, pages_room_profile, pages_staff_guest, pages_staff_menu, pages_workspace, shared_api, shared_config, shared_i18n, shared_lib, shared_native, shared_ui, widgets_guest_booking_history, widgets_media_gallery, widgets_mobile_navigation, widgets_occupancy_board, widgets_overview, widgets_public_header, widgets_staff_mobile_navigation, widgets_staff_shell
+    include app, entities_booking, entities_guest_account, entities_resort, entities_session, features_create_booking, features_demo_payment, features_edit_account, features_edit_resort, features_edit_room, features_payment_receipt, features_review_form, pages_analytics, pages_catalog, pages_guest_auth, pages_guest_profile, pages_login, pages_my_bookings, pages_receipt, pages_resort_profile, pages_room_profile, pages_staff_guest, pages_staff_menu, pages_workspace, shared_api, shared_config, shared_i18n, shared_lib, shared_native, shared_ui, widgets_availability_calendar, widgets_guest_booking_history, widgets_media_gallery, widgets_mobile_navigation, widgets_occupancy_board, widgets_overview, widgets_public_header, widgets_staff_mobile_navigation, widgets_staff_shell
   }
 }

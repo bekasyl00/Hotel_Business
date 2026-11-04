@@ -43,10 +43,8 @@ export function normalizePhone(value) {
 function password(value) {
   if (
     typeof value !== "string" ||
-    value.length < 12 ||
-    value.length > 128 ||
-    /^\d+$/.test(value) ||
-    /^(password|qwerty|123456|пароль)/i.test(value)
+    [...value].length < 8 ||
+    [...value].length > 128
   )
     fail("weak_password");
   return value;

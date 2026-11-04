@@ -19,7 +19,7 @@ from .models import Audit, Booking, GuestAccount, GuestChallenge, GuestProfile, 
 from .tests import PASSWORD, fixture
 
 PHONE = "+77010000001"
-NEW_PASSWORD = "Replacement-forest-93845!"
+NEW_PASSWORD = "abcdefgh"
 
 
 def client():
@@ -84,6 +84,21 @@ class GuestAuthTests(TestCase):
         )
         self.assertEqual(response.status_code, 201, response.content)
         return Booking.objects.get(pk=response.json()["id"])
+
+    def test_registration_accepts_eight_characters_without_composition_rules(self):
+        api = client()
+        item = challenge(api)
+        data = {
+            "challengeId": item["challengeId"],
+            "code": item["demoCode"],
+            "name": "Demo guest",
+            "password": "12345678",
+        }
+        for value in ["1234567", "x" * 129]:
+            response = write(api, "register", {**data, "password": value})
+            self.assertEqual(response.json()["code"], "weak_password")
+        self.assertEqual(write(api, "register", data).status_code, 201)
+        self.assertTrue(check_password("12345678", GuestAccount.objects.get().password))
 
     def test_registration_adopts_only_current_history_and_rotates_opaque_owner(self):
         api = client()
@@ -365,7 +380,7 @@ class GuestAuthTests(TestCase):
             "challengeId": item["challengeId"],
             "code": item["demoCode"],
             "name": "Гость",
-            "password": "123456789012",
+            "password": "1234567",
         }
         self.assertEqual(write(api, "register", data).json()["code"], "weak_password")
         self.assertEqual(

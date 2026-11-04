@@ -1,10 +1,11 @@
 <script setup>
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
-import { computed, reactive, ref, watch } from "vue";
+import { computed, nextTick, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { MediaGallery } from "@/widgets/media-gallery";
+import { AvailabilityCalendar } from "@/widgets/availability-calendar";
 import { dateAfter, validateSearch, nightsBetween } from "@/entities/booking";
 import { GeoMap } from "@/shared/ui";
 import { request } from "@/shared/api";
@@ -67,6 +68,11 @@ async function load() {
   } finally {
     if (run === generation) loading.value = false;
   }
+}
+async function selectCalendarDates(range) {
+  Object.assign(dates, range);
+  await nextTick();
+  await checkDates();
 }
 async function checkDates() {
   searchError.value = validateSearch(dates);
@@ -204,6 +210,15 @@ watch(() => route.params.id, load, { immediate: true });
                   </select></label
                 >
               </div>
+              <AvailabilityCalendar
+                :resort-id="resort.id"
+                :category="roomClass"
+                :guests="dates.guests"
+                :time-zone="resort.timeZone"
+                :start="dates.start"
+                :end="dates.end"
+                @select="selectCalendarDates"
+              />
               <form class="stay-date-form" @submit.prevent="checkDates">
                 <label
                   >{{ t("public.checkin")

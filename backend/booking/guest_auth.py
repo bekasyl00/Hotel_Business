@@ -6,8 +6,6 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
-from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.middleware.csrf import rotate_token
 from django.utils import timezone
@@ -74,12 +72,8 @@ def payload(request, keys):
 
 
 def password_value(value):
-    if not isinstance(value, str) or not 12 <= len(value) <= 128:
-        raise Problem("Пароль должен содержать от 12 до 128 символов.", 422, "weak_password")
-    try:
-        validate_password(value)
-    except ValidationError as exc:
-        raise Problem(" ".join(exc.messages), 422, "weak_password") from exc
+    if not isinstance(value, str) or not 8 <= len(value) <= 128:
+        raise Problem("Пароль должен содержать от 8 до 128 символов.", 422, "weak_password")
     return value
 
 

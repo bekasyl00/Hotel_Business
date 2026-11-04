@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 
 from . import services as svc
 from .authentication import bearer_or_csrf_protect
+from .availability import availability_calendar
 from .errors import Problem
 from .holds import active_inventory
 from .models import Audit, Booking, Resort, Review, Room, Tariff, User
@@ -128,6 +129,8 @@ class Endpoint(APIView):
                     ).data,
                 }
             )
+        if resource == "availability-calendar":
+            return Response(availability_calendar(request.query_params))
         if resource == "availability":
             start = serializers.DateField().run_validation(request.query_params.get("start"))
             end = serializers.DateField().run_validation(request.query_params.get("end"))
