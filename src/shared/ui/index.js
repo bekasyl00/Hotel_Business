@@ -1,2 +1,6 @@
+import { defineAsyncComponent } from "vue";
 export { default as Modal } from "./Modal.vue";
-export { default as GeoMap } from "./GeoMap.vue";
+export const GeoMap = defineAsyncComponent(() => import("./GeoMap.vue"));
+export { default as LanguageSwitcher } from "./LanguageSwitcher.vue";
+
+export { default as MediaEditor } from "./MediaEditor.vue";

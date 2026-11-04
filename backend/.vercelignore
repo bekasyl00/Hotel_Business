@@ -1,0 +1,12 @@
+.env*
+.venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+private-media/
+mediafiles/
+staticfiles/
+tests.py
+test_*.py
+**/test_*.py
+**/tests.py

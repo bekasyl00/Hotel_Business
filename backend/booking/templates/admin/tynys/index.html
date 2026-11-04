@@ -1,0 +1,27 @@
+{% extends "admin/index.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .tynys-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .tynys-metric { display: flex; flex-direction: column; padding: 18px; border: 1px solid var(--hairline-color); border-radius: 8px; background: var(--darkened-bg); }
+  .tynys-metric strong { margin-bottom: 6px; font-size: 28px; color: var(--body-fg); }
+  .tynys-console-note { margin: 0 0 24px; padding: 16px; background: var(--darkened-bg); border-radius: 8px; line-height: 1.6; }
+  .tynys-console-note p:last-child { margin-bottom: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tynys-console-note">
+  <p>Обзор общей базы платформы: каталог, гости, бронирования, проживание, отзывы и история операций.</p>
+  <p>Здесь записи доступны для просмотра. Создание и изменение выполняются в кабинете сотрудников через серверные проверки, журнал изменений и правила бронирования.</p>
+  {% if staff_workspace_url %}<p><a href="{{ staff_workspace_url }}">Перейти в кабинет сотрудников →</a></p>{% endif %}
+  <p>Платежи и квитанции обозначены как демо: подключение к банку ещё не выполнено.</p>
+</div>
+<div class="tynys-metrics">
+  {% for card in operation_cards %}
+  <a class="tynys-metric" href="{{ card.url }}"><strong>{{ card.count }}</strong><span>{{ card.label }}</span></a>
+  {% endfor %}
+</div>
+{{ block.super }}
+{% endblock %}

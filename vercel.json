@@ -2,12 +2,26 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "installCommand": "npm ci",
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build:public",
   "outputDirectory": "dist/site",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/staff/:path*",
-      "destination": "/index.html"
+      "src": "/api/(.*)",
+      "dest": "https://tynys-api.vercel.app/api/$1",
+      "headers": {
+        "Cache-Control": "private, no-store"
+      }
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(staff|account|resorts|rooms|receipts)(/.*)?",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/(profile|bookings)",
+      "dest": "/index.html"
     }
   ]
 }

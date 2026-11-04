@@ -1,0 +1,14 @@
+{% extends "admin/change_form.html" %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+  .tynys-json { max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+  .tynys-readonly { margin-bottom: 18px; padding: 14px 18px; border: 1px solid var(--hairline-color); border-radius: 6px; background: var(--darkened-bg); }
+</style>
+{% endblock %}
+
+{% block form_top %}
+<p class="tynys-readonly">Просмотр записи. Операции выполняются через проверяемые сервером действия кабинета сотрудников.{% if operation_url %} <a href="{{ operation_url }}">Открыть кабинет →</a>{% endif %}</p>
+{{ block.super }}
+{% endblock %}

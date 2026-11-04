@@ -39,6 +39,19 @@ const newResort = {
   lng: 69.061,
   status: "draft",
 };
+test("invalid child ages cannot create a demo booking or change the audit", async () => {
+  const { api } = await setup();
+  const before = await api("GET", "/workspace");
+  for (const childrenAges of [[null], [18], [0, 1], "2", false]) {
+    await assert.rejects(
+      api("POST", "/bookings", { ...booking(), childrenAges }),
+      (error) => error.status === 422,
+    );
+  }
+  const after = await api("GET", "/workspace");
+  assert.deepEqual(after.bookings, before.bookings);
+  assert.deepEqual(after.audit, before.audit);
+});
 test("manager sees only assigned tenant and cannot mutate foreign records or accounts", async () => {
   const { api } = await setup();
   await api("POST", "/auth/login", { accountId: "manager-altun" });
@@ -118,7 +131,7 @@ test("booking collision, totals, availability, cancellation and immutable histor
   assert.notEqual(next.id, b.id);
   const events = (await api("GET", "/workspace")).audit;
   const cancel = events.find((e) => e.action === "cancel");
-  assert.equal(cancel.before.status, "confirmed");
+  assert.equal(cancel.before.status, "pending");
   assert.equal(cancel.after.status, "cancelled");
 });
 test("stale versions and duplicate room numbers cannot silently overwrite records", async () => {
@@ -252,4 +265,64 @@ test("deleting an unused room retains before-snapshot in scoped audit", async ()
   );
   assert.equal(event.before.number, "999");
   assert.equal(event.after, null);
+});
+test("staff room-only booking locks the room price, while guest still requires a tariff", async () => {
+  const { api } = await setup();
+  const payload = booking();
+  delete payload.tariffId;
+  const workspace = await api("GET", "/workspace");
+  const room = workspace.rooms.find((r) => r.id === payload.roomId);
+  const created = await api("POST", "/bookings", payload);
+  assert.equal(created.tariffId, null);
+  assert.equal(created.pricingBasis, "room");
+  assert.equal(created.total, room.price * 3);
+  assert.equal(created.status, "pending");
+  const paid = await api("POST", "/payments/demo/staff", {
+    bookingId: created.id,
+    requestId: crypto.randomUUID(),
+    outcome: "success",
+  });
+  assert.ok(paid);
+  assert.equal(
+    (await api("GET", "/workspace")).bookings.find((b) => b.id === created.id)
+      .status,
+    "confirmed",
+  );
+  await assert.rejects(
+    api("POST", "/my-bookings", {
+      ...payload,
+      start: dateAfter(12),
+      end: dateAfter(14),
+    }),
+  );
+});
+test("staff notes enforce tenant and version, never copy free text to audit or guest output", async () => {
+  const { api } = await setup();
+  const created = await api("POST", "/bookings", booking());
+  const result = await api("POST", `/bookings/${created.id}/notes`, {
+    version: created.version,
+    staffNotes: "Test internal note",
+  });
+  assert.equal(result.staffNotes, "Test internal note");
+  assert.equal(result.version, created.version + 1);
+  await assert.rejects(
+    api("POST", `/bookings/${created.id}/notes`, {
+      version: created.version,
+      staffNotes: "Stale",
+    }),
+    (e) => e.status === 409,
+  );
+  assert.ok(
+    !JSON.stringify((await api("GET", "/workspace")).audit).includes(
+      "Test internal note",
+    ),
+  );
+  await api("POST", "/auth/login", { accountId: "manager-arasan" });
+  await assert.rejects(
+    api("POST", `/bookings/${created.id}/notes`, {
+      version: result.version,
+      staffNotes: "Foreign",
+    }),
+    (e) => e.status === 403,
+  );
 });
