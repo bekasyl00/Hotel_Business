@@ -1,5 +1,14 @@
 # Проверки проекта
 
+## Публикация кабинета сотрудников — 5 ноября 2026
+
+- Обновлён только production-проект `tynys-staff`: https://tynys-staff.vercel.app/staff/login. Vercel deployment `dpl_7eR1SKdK7EkAz4QgwiQBsvVznqru` — **Ready**, production alias проверен. Исходный код: `026dc4f8d99812ebbfc382292bbb3ed3efc58782`; оба GitHub CI runs этого commit завершились success.
+- Заново собран `dist/staff` с `VITE_DATA_MODE=demo`, `VITE_APP_SURFACE=staff` и ссылкой на публичный сайт. CLI загрузил только изолированный статический staff-артефакт; backend, секреты и LikeC4 не публиковались. Git-привязка гостевого проекта не изменялась.
+- Независимые HTTP-запросы к `/`, `/staff/login`, `/staff/bookings`, `/receipts/demo-check` возвращают 200 и опубликованный index с SHA-256 `aca93da81057c07e9c387b68b6d18949a50fd1433d1a7c548db63d03e3d95c0d`, совпадающим с локальной сборкой. Entry assets совпали побайтно. `/.env`, `/backend/.env`, `/architecture/system.c4` возвращают 404. Index гостевого сайта до/после публикации совпал.
+- В браузере без Vercel-авторизации проверены вход через demo-account, новый план размещения, отсутствие пункта тарифов и перезагрузка прямой страницы календаря. Browser errors/warnings: пусто. Снимок: `output/staff-planner-vercel-live.png` (локальный, игнорируется Git).
+- Это обновление демо-сайта с браузерным хранилищем. Общий облачный Django API, Supabase-миграции и банковская оплата этой публикацией не подключены. iPhone-приложения не пересобирались, не синхронизировались и не устанавливались.
+
+
 ## План размещения сотрудников — 4 ноября 2026
 
 - `npm test`: **83 tests**, FSD **100 files / 243 imports**. `npm run build`, `npm run build:surfaces`, `npm run arch:check` pass. RU/KK/EN key/placeholder parity and literal references checked. Tariff editor removed from staff source/navigation; existing public tariff contract retained.
