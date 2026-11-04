@@ -310,7 +310,7 @@ class AccountInput(serializers.Serializer):
 
 class BookingInput(serializers.Serializer):
     roomId = serializers.CharField(max_length=64)
-    tariffId = serializers.CharField(max_length=64)
+    tariffId = serializers.CharField(max_length=64, required=False)
     start = serializers.DateField()
     end = serializers.DateField()
     guests = serializers.IntegerField(min_value=1, max_value=4)
@@ -430,6 +430,7 @@ def booking_data(b, staff=False):
         "payment": booking_payment_data(b),
         "reviewId": review.pk if review else None,
         "reviewStatus": review.status if review else None,
+        **({"staffNotes": b.staff_notes} if staff else {}),
     }
 
 

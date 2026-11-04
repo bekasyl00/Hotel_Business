@@ -190,11 +190,12 @@ class GuestChallenge(models.Model):
 class Booking(Record):
     resort = models.ForeignKey(Resort, on_delete=models.PROTECT)
     room = models.ForeignKey(Room, on_delete=models.PROTECT)
-    tariff = models.ForeignKey(Tariff, on_delete=models.PROTECT)
+    tariff = models.ForeignKey(Tariff, on_delete=models.PROTECT, null=True, blank=True)
     stay = DateRangeField()
     guests = models.PositiveSmallIntegerField()
     guest_label = models.CharField(max_length=80)
     guest_phone = models.CharField(max_length=30, blank=True)
+    staff_notes = models.TextField(blank=True, default="", max_length=2000)
     owner = models.CharField(max_length=64, db_index=True)
     guest_profile = models.ForeignKey(
         GuestProfile, null=True, blank=True, on_delete=models.PROTECT, related_name="bookings"

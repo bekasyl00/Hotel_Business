@@ -11,7 +11,6 @@ const { t } = useI18n();
 const sections = computed(() => [
   ["resorts", session.isAdmin ? "staff.resorts" : "staff.myResort", "⌖"],
   ["rooms", "staff.rooms", "▦"],
-  ["tariffs", "staff.tariffs", "◈"],
   ["reviews", "staff.reviews", "☆"],
   ["history", "staff.history", "◷"],
   ...(session.isAdmin ? [["accounts", "staff.managers", "♙"]] : []),

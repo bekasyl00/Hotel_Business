@@ -11,7 +11,7 @@ const links = [
   },
   {
     to: "/staff/bookings",
-    key: "staff.bookings",
+    key: "staff.board.calendar",
     icon: "M4 5h16v16H4ZM8 2v6m8-6v6M4 11h16",
   },
   {

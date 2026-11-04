@@ -1,6 +1,7 @@
 export const staffRoutes = [
+  { path: "/staff/tariffs", redirect: "/staff/rooms" },
   { path: "/staff/login", component: () => import("@/pages/login") },
-  { path: "/staff", redirect: "/staff/overview" },
+  { path: "/staff", redirect: "/staff/bookings" },
   {
     path: "/staff/guests/:id",
     component: () => import("@/pages/staff-guest"),
@@ -18,7 +19,7 @@ export const staffRoutes = [
   },
 ];
 export const routes = [
-  { path: "/", redirect: "/staff/overview" },
+  { path: "/", redirect: "/staff/bookings" },
   ...staffRoutes,
   {
     path: "/receipts/:id",

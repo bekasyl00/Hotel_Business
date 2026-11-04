@@ -399,7 +399,7 @@ class BookingAdmin(ResortRelation, ReadOnlyAdmin):
 
     @admin.display(description="Тариф")
     def tariff_link(self, obj):
-        return record_link(obj.tariff, obj.tariff.name)
+        return record_link(obj.tariff, obj.tariff.name) if obj.tariff_id else "Цена номера"
 
     @admin.display(description="Профиль гостя")
     def profile_link(self, obj):

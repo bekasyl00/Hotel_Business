@@ -119,6 +119,37 @@ export function demoGuestRequest({
       fail("Гость не найден.", 404);
     return done(bundle(profile, scope));
   }
+  const notes = pathname.match(/^\/bookings\/([^/]+)\/notes$/);
+  if (notes && method === "POST") {
+    const b = db.bookings.find((b) => b.id === notes[1]);
+    if (!b) fail("Бронирование не найдено.", 404);
+    authorize(b.resortId);
+    version(b);
+    if (
+      typeof payload.staffNotes !== "string" ||
+      payload.staffNotes.length > 2000
+    )
+      fail("Примечание должно содержать не более 2000 символов.");
+    const before = {
+      version: b.version,
+      notesLength: (b.staffNotes || "").length,
+    };
+    b.staffNotes = payload.staffNotes.trim();
+    b.version++;
+    // Persist the record, but never duplicate the free text in audit history.
+    commit(
+      "bookings",
+      {
+        id: b.id,
+        resortId: b.resortId,
+        version: b.version,
+        notesLength: b.staffNotes.length,
+      },
+      before,
+      "notes",
+    );
+    return done(JSON.parse(JSON.stringify(b)));
+  }
   const stay = pathname.match(/^\/bookings\/([^/]+)\/(check-in|check-out)$/);
   if (stay && method === "POST") {
     const b = db.bookings.find((b) => b.id === stay[1]);

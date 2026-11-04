@@ -32,7 +32,7 @@ Compose API alternative: `docker compose build api`, `docker compose run --rm ap
 
 ## Workflows and ownership
 
-- New website/manual requests: `pending`. Manager/admin can confirm or reject; guest can cancel only their own request/confirmed reservation. Rejected/cancelled are terminal. Past completed stays cannot change status.
+- New website/manual orders: `pending` with a bounded payment hold. Successful server-side payment confirms atomically; staff cannot manually confirm/reject. Expired/cancelled holds release inventory; past completed stays cannot be cancelled. Real providers remain unconnected.
 - Pending reserves the physical room until processed; no automatic timeout yet. The date interval is `[start,end)`. A checkout and subsequent checkin may be on the same date.
 - Anonymous guests can still book with name/phone and an opaque server-session owner. They can register a separate phone/password guest account and keep this browser's existing profile/history. Authenticated guests can recover that history by signing in on another device. Anonymous history is not claimed by matching phone numbers. Session cookies have a 14-day sliding lifetime.
 - API checks role and resort on every mutation; manager scope comes from the database, not request payload. No production `/demo/accounts` endpoint.
@@ -141,3 +141,10 @@ Migrations 0006/0007 add RoomPricePeriod (date range + GiST exclusion, parent Ro
 Booking migration 0008 adds nullable per-resort commission and indexed hold_expires_at, plus expired status; existing rows/snapshots are retained. Configure BOOKING_HOLD_MINUTES (default 30; 1–120). Run `backend/.venv/bin/python backend/manage.py expire_payment_holds` every minute via the future scheduler; monitor lag. New booking/payment writes also handle stale holds. Production still requires provider expiry/callback reconciliation, outbox/queue, rate limits and delivery monitoring. Null expiry on historical records is intentionally retained until an explicit migration policy is agreed; do not silently release legacy inventory.
 
 Manual confirmation/rejection is no longer supported. Demo payment creates payment + confirmed status + receipt + audit atomically. For staff-created orders use the scoped /payments/demo/staff simulator. Real collection and split settlements are not connected. Only platform admin sets commissionPercent; public/guest serializers hide commission terms.
+
+
+## Staff planner contract (2026-11-04)
+
+Migration 0009 adds private `Booking.staff_notes` and permits null protected tariff references. New staff orders can omit `tariffId` to use seasonal/base room-only pricing; guest orders still require it. Explicit legacy tariff input remains supported. No historical data is rewritten. `pricingBasis=room|tariff` is frozen in new snapshots. Receipts and readonly Django Admin accept null tariff.
+
+`POST /bookings/:id/notes` is a service-backed staff-only mutation with version/tenant checks, resort lock, CSRF for browser sessions and transactional redacted audit. Guest output omits `staffNotes`. Both `/api` and `/api/v1` route to the same handler. Apply the migration before deploying the new server. After room-only bookings exist, rollback to a non-null tariff would fail; preserve history and deploy forward fixes. Local tests do not constitute a Supabase migration or a production load test.

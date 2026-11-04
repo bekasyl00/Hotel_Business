@@ -78,6 +78,11 @@ export function validateChildren(guests, childrenAges = []) {
     : "";
 }
 export function quoteStay(room, tariff, search) {
+  tariff = tariff || {
+    supplement: 0,
+    priceKind: "regular",
+    discountPercent: 0,
+  };
   const count = nightsBetween(search.start, search.end);
   if (
     !Number.isInteger(count) ||

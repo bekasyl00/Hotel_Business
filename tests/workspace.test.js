@@ -266,3 +266,63 @@ test("deleting an unused room retains before-snapshot in scoped audit", async ()
   assert.equal(event.before.number, "999");
   assert.equal(event.after, null);
 });
+test("staff room-only booking locks the room price, while guest still requires a tariff", async () => {
+  const { api } = await setup();
+  const payload = booking();
+  delete payload.tariffId;
+  const workspace = await api("GET", "/workspace");
+  const room = workspace.rooms.find((r) => r.id === payload.roomId);
+  const created = await api("POST", "/bookings", payload);
+  assert.equal(created.tariffId, null);
+  assert.equal(created.pricingBasis, "room");
+  assert.equal(created.total, room.price * 3);
+  assert.equal(created.status, "pending");
+  const paid = await api("POST", "/payments/demo/staff", {
+    bookingId: created.id,
+    requestId: crypto.randomUUID(),
+    outcome: "success",
+  });
+  assert.ok(paid);
+  assert.equal(
+    (await api("GET", "/workspace")).bookings.find((b) => b.id === created.id)
+      .status,
+    "confirmed",
+  );
+  await assert.rejects(
+    api("POST", "/my-bookings", {
+      ...payload,
+      start: dateAfter(12),
+      end: dateAfter(14),
+    }),
+  );
+});
+test("staff notes enforce tenant and version, never copy free text to audit or guest output", async () => {
+  const { api } = await setup();
+  const created = await api("POST", "/bookings", booking());
+  const result = await api("POST", `/bookings/${created.id}/notes`, {
+    version: created.version,
+    staffNotes: "Test internal note",
+  });
+  assert.equal(result.staffNotes, "Test internal note");
+  assert.equal(result.version, created.version + 1);
+  await assert.rejects(
+    api("POST", `/bookings/${created.id}/notes`, {
+      version: created.version,
+      staffNotes: "Stale",
+    }),
+    (e) => e.status === 409,
+  );
+  assert.ok(
+    !JSON.stringify((await api("GET", "/workspace")).audit).includes(
+      "Test internal note",
+    ),
+  );
+  await api("POST", "/auth/login", { accountId: "manager-arasan" });
+  await assert.rejects(
+    api("POST", `/bookings/${created.id}/notes`, {
+      version: result.version,
+      staffNotes: "Foreign",
+    }),
+    (e) => e.status === 403,
+  );
+});

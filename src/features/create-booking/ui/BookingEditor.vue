@@ -25,7 +25,9 @@ const props = defineProps({
 const emit = defineEmits(["close", "saved"]);
 const form = reactive({
   roomId: props.rooms.find((r) => r.status === "active")?.id || "",
-  tariffId: props.tariffs.find((t) => t.status === "active")?.id || "",
+  ...(props.staff
+    ? {}
+    : { tariffId: props.tariffs.find((t) => t.status === "active")?.id || "" }),
   start: dateAfter(7),
   end: dateAfter(10),
   guests: 2,
@@ -39,7 +41,9 @@ const tariff = computed(() =>
   props.tariffs.find((t) => t.id === form.tariffId),
 );
 const price = computed(() =>
-  room.value && tariff.value ? quoteStay(room.value, tariff.value, form) : null,
+  room.value && (props.staff || tariff.value)
+    ? quoteStay(room.value, props.staff ? null : tariff.value, form)
+    : null,
 );
 const total = computed(() => price.value?.total || 0);
 const childCount = computed({
@@ -201,7 +205,7 @@ watch(
         /></label>
         <p class="field-help">{{ t("common.pricing.ageHint") }}</p>
       </fieldset>
-      <label
+      <label v-if="!staff"
         >{{ t("public.rate")
         }}<select v-model="form.tariffId" required>
           <option disabled value="">{{ t("public.noActiveRates") }}</option>
@@ -229,8 +233,10 @@ watch(
             {{ Math.max(0, nightsBetween(form.start, form.end)) || 0 }}
             {{ t("public.nightsInBookingEditor") }}</span
           ><small
-            >{{ t("public.roomAndRateFor") }} {{ form.guests }}
-            {{ t("public.guestsInBookingEditor") }}</small
+            >{{
+              t(staff ? "staff.board.roomPriceFor" : "public.roomAndRateFor")
+            }}
+            {{ form.guests }} {{ t("public.guestsInBookingEditor") }}</small
           >
         </div>
         <strong>{{ price ? money(total) : "—" }}</strong>

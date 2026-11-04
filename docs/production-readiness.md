@@ -199,3 +199,8 @@ Kaspi описывает подключение к Kaspi Pay через прил
 - Назначены владелец запуска, канал поддержки и условия остановки/отката. Первый запуск ограничен согласованным объектом и объёмом; расширение следует после проверки реальных операций.
 
 Незаполненные пункты — текущие задачи, а не уже подключённые услуги. Доступы к внешним кабинетам создаёт/подтверждает владелец бизнеса; команда получает делегированные роли и выполняет интеграции после получения действующей документации.
+
+
+### Staff planner follow-up (R12/R15/R31)
+
+2026-11-04: employee room/date calendar, room-only manual pricing, paid stay actions, private notes and receipt access implemented and locally checked. Before operational rollout: agree late/walk-in booking and payment rules, deposits/cash reconciliation, date/room changes with repricing/refunds, early-checkout inventory release, full guest roster requirements, and room maintenance periods. Do not implement these by arbitrary edits to paid snapshots. For scale: window-scoped/paginated planner query, incremental refresh and virtualization/load validation; current `/workspace` is not a large-property capacity proof. Guest tariffs/old native clients remain compatible until a separate rollout decision.

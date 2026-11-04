@@ -151,7 +151,7 @@ function initialState(legacy = []) {
     db.bookings.push({
       ...b,
       roomId: room.id,
-      tariffId: tariff.id,
+      tariffId: tariff?.id || null,
       guestLabel: "Гость сайта",
       source: "website",
       ownerId: db.clientId,
@@ -274,7 +274,13 @@ export function createDemoTransport({
             Object.fromEntries(
               Object.entries(before).filter(
                 ([key]) =>
-                  !["phone", "guestPhone", "owner", "ownerId"].includes(key),
+                  ![
+                    "phone",
+                    "guestPhone",
+                    "owner",
+                    "ownerId",
+                    "staffNotes",
+                  ].includes(key),
               ),
             ),
           ),
@@ -284,7 +290,13 @@ export function createDemoTransport({
             Object.fromEntries(
               Object.entries(after).filter(
                 ([key]) =>
-                  !["phone", "guestPhone", "owner", "ownerId"].includes(key),
+                  ![
+                    "phone",
+                    "guestPhone",
+                    "owner",
+                    "ownerId",
+                    "staffNotes",
+                  ].includes(key),
               ),
             ),
           ),
@@ -453,7 +465,12 @@ export function createDemoTransport({
       if (method === "POST") {
         const room = db.rooms.find((r) => r.id === payload.roomId);
         const tariff = db.tariffs.find((t) => t.id === payload.tariffId);
-        if (!room || !tariff || tariff.resortId !== room.resortId)
+        if (
+          !room ||
+          (tariff
+            ? tariff.resortId !== room.resortId
+            : kind !== "bookings" || payload.tariffId)
+        )
           fail("Выберите номер и тариф одного санатория.");
         const resort = db.resorts.find((r) => r.id === room.resortId);
         if (kind === "bookings") authorize(room.resortId);
@@ -462,7 +479,7 @@ export function createDemoTransport({
         if (
           resort.status === "archived" ||
           room.status !== "active" ||
-          tariff.status !== "active"
+          (tariff && tariff.status !== "active")
         )
           fail("Номер или тариф сейчас недоступен.");
         const search = {
@@ -505,16 +522,18 @@ export function createDemoTransport({
           id: crypto.randomUUID(),
           resortId: room.resortId,
           roomId: room.id,
-          tariffId: tariff.id,
+          tariffId: tariff?.id || null,
           resortName: resort.name,
           roomName: room.title,
           unit: room.number,
-          tariffName: tariff.name,
+          tariffName: tariff?.name || "",
+          pricingBasis: tariff ? "tariff" : "room",
+          staffNotes: "",
           ...search,
           ...price,
           originalNightly: price.regularNightly,
-          priceKind: tariff.priceKind,
-          discountPercent: tariff.discountPercent,
+          priceKind: tariff?.priceKind || "regular",
+          discountPercent: tariff?.discountPercent || 0,
           cancellationPolicy,
           holdExpiresAt: new Date(
             Math.min(
@@ -809,7 +828,11 @@ export function createDemoTransport({
             execute(method, path, body),
           )
         : await execute(method, path, body);
-    const privateTerms = new Set(["commissionTerms", "commissionPercent"]);
+    const privateTerms = new Set([
+      "commissionTerms",
+      "commissionPercent",
+      "staffNotes",
+    ]);
     const publicData = (value) =>
       Array.isArray(value)
         ? value.map(publicData)

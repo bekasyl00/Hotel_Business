@@ -28,3 +28,5 @@ Read `architecture/system.c4`, `architecture/modules.c4`, and recent `docs/decis
 - User deferred Android and iPhone rebuilds until a later delivery; do not sync/install native builds for ordinary web/backend work unless asked.
 
 - Only platform admins can set per-resort commissionPercent (nullable, 0–100, two decimal places). Freeze commissionTerms in new bookings, hide them from public/guest API, and never treat estimates as bank splits/payouts. Refund commission reconciliation remains a separate financial decision.
+
+- Staff `/staff/bookings` defaults to the room planner. Colors use actual stay/payment state, never infer check-in/out from elapsed dates. Staff room-only booking omits tariffId; public/legacy explicit tariff pricing remains. Preserve old price snapshots. Booking.tariff is nullable since 0009. Staff notes are scoped/versioned and never exposed to guests or duplicated in audit; see docs/api-contract.md.

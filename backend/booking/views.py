@@ -205,6 +205,8 @@ class Endpoint(APIView):
         raise Problem("Не найдено.", 404)
 
     def post(self, request, resource, pk=None, action=None):
+        if resource == "bookings" and pk and action == "notes":
+            return Response(booking_data(svc.update_staff_notes(request, pk), staff=True))
         if resource == "bookings" and pk and action in ["check-in", "check-out"]:
             return Response(booking_data(svc.change_stay(request, pk, action)))
         if pk:

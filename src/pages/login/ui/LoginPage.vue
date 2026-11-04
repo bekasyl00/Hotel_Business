@@ -40,7 +40,7 @@ async function login() {
         : { email: email.value, password: password.value },
     );
     password.value = "";
-    await router.push("/staff/overview");
+    await router.push("/staff/bookings");
   } catch (e) {
     error.value = e.message;
   } finally {

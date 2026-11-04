@@ -20,8 +20,9 @@ model {
     bookingsPage = service 'Мои бронирования' { description 'pages/my-bookings: заявки гостевой сессии, временное удержание, автоматическое оформление по demo-оплате, расчёт возврата, отмена и отзыв.' }
     guestProfile = service 'Профиль, аватар и квитанции' { description 'pages/guest-profile, receipt, staff-guest: история и загрузка аватара зарегистрированного гостя; подтверждённый телефон нельзя редактировать без новой проверки. Сотрудник видит гостя своего объекта. PDF по действию пользователя.' }
     analyticsPage = service 'Аналитика сотрудников' { description 'pages/analytics: периоды и сравнение, дни/недели/месяцы, заявки, demo-поступления/возвраты, отзывы и разрезы.' }
-    staffPage = service 'Кабинет сотрудников' { description 'pages/workspace + pages/login: обзор, каталог, аккаунты, оплаченные брони и истёкшие удержания, модерация/ответы и история.' }
-    features = service 'Действия и формы' { description 'Создание брони; редактирование объектов/номеров/тарифов/аккаунтов; demo-payment и review-form. shared/ui выбирает фото/видео с устройства и отправляет FormData.' }
+    staffPage = service 'Кабинет сотрудников' { description 'pages/workspace + pages/login: план размещения по номерам/датам, карточка проживания, обзор, каталог, аккаунты, модерация/ответы и история. Тарифы убраны из staff UI; ручная бронь по сезонной цене номера.' }
+    occupancy = service 'План размещения' { description 'widgets/occupancy-board + entities/booking/model/occupancy: календарь 7/14/30 дней, поиск, фактические статусы пребывания, read-only финансовый snapshot, staff-only notes. Выезд exclusive; прошедшая дата не означает фактический выезд. Цвета не заменяют серверные статусы.' }
+    features = service 'Действия и формы' { description 'Создание брони; редактирование объектов/номеров/аккаунтов; demo-payment и review-form. shared/ui выбирает фото/видео с устройства и отправляет FormData.' }
     gallery = service 'Галерея медиа' { description 'widgets/media-gallery: фотографии, alt-тексты и видео без автозапуска со звуком.' }
     stores = store 'Pinia' { description 'entities/session, guest-account, resort, booking: состояние интерфейса и загруженные записи; без прямого доступа представлений к localStorage.' }
     transport = service 'API transport' { description 'shared/api: асинхронный JSON/FormData контракт; app/main выбирает demo, browser HTTP+CSRF или native HTTP+Bearer по VITE_DATA_MODE и audience. shared/api/mobile-client сериализует refresh; app/providers/mobile связывает Keychain и авторизованные файлы.' }
@@ -35,7 +36,7 @@ model {
     auth = service 'Аккаунты и web-сессии' { description 'Staff User и отдельный GuestAccount по телефону. Cookie+CSRF, серверные password/OTP hashes, TTL/лимиты, одноразовые challenge, отзыв сессий при reset. Demo OTP только DEBUG+флаг; реальный SMS и native challenge transport ещё не реализованы.' }
     mobileAuth = service 'Native guest и staff credentials' { description 'booking/mobile_auth и staff_mobile_auth + identity: отдельные GuestDevice/StaffDevice, opaque access 15мин, guest-family 30дней/staff-family 12ч, refresh rotation/replay revoke. Guest Bearer не даёт staff-прав. Staff password/role/resort changes отзывают доступ; invalid Bearer не откатывается к cookie.' }
     adminConsole = service 'Django Admin /django-admin/' { description 'booking.admin platform_admin_site: только active staff superuser, readonly модели, поиск/фильтры/счётчики и переходы в service-backed staff UI. Хеши, OTP и storage keys скрыты; login rate-limit. /admin/ перенаправляет сюда.' }
-    profiles = service 'Гости, аватары и проживание' { description 'GuestProfile: контакт/история владельца и scoped staff view. Avatar FK на MediaAsset; upload/delete только signed-in guest с аудитом. Оплаченная confirmed-бронь: not_arrived → in_house → checked_out; после заселения отмена недоступна.' }
+    profiles = service 'Гости, аватары и проживание' { description 'GuestProfile: контакт/история владельца и scoped staff view. Avatar FK на MediaAsset; upload/delete только signed-in guest с аудитом. Оплаченная confirmed-бронь: not_arrived → in_house → checked_out; после заселения отмена недоступна. Staff notes с tenant scope/version и аудитом без содержимого; гостю не выдаются.' }
     catalog = service 'Каталог и профили' { description 'booking: санатории, физические номера, классы, категории, медиа-ссылки, обычные/скидочные тарифы, время заезда и IANA timezone.' }
     pricing = service 'Цены и возрастные правила' { description 'booking/pricing.py: RoomPricePeriod с PostgreSQL exclusion constraint; дневной расчёт, базовая цена вне периода, tariff children_under_three_free по решению сотрудника. Возраст на заезд, все гости входят во вместимость; snapshot фиксирует каждую ночь и политику. Это не государственное право на льготу.' }
     health = service 'Liveness / Readiness' { description 'config/health: процесс без БД и отдельный SELECT 1 с SQL timeout. Только ok/unavailable, no-store; не доказывает доступность S3/платежей и не заменяет SRE.' }
@@ -85,6 +86,7 @@ model {
   frontend.guestAuth -> frontend.transport 'guest-auth endpoints'
   frontend.guestProfile -> frontend.guestAuth 'Регистрация и восстановление'
   frontend.discovery -> frontend.localization 'Перевод интерфейса'
+  frontend.staffPage -> frontend.occupancy 'План и карточка размещения'
   frontend.staffPage -> frontend.localization 'Перевод кабинета'
   manager -> frontend.analyticsPage 'Показатели своего санатория'
   admin -> frontend.analyticsPage 'Показатели платформы'

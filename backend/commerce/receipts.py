@@ -38,7 +38,7 @@ def freeze_receipt(payment, *, legacy=False):
         "end": b.stay.upper.isoformat(),
         "guests": b.guests,
         "guestLabel": b.guest_label,
-        "tariffName": snapshot.get("tariffName", b.tariff.name),
+        "tariffName": snapshot.get("tariffName", b.tariff.name if b.tariff_id else ""),
         "regularNightly": snapshot.get("regularNightly", snapshot.get("nightly")),
         "nightly": snapshot.get("nightly"),
         "nightlyBreakdown": snapshot.get("nightlyBreakdown", []),

@@ -1,5 +1,15 @@
 # Проверки проекта
 
+## План размещения сотрудников — 4 ноября 2026
+
+- `npm test`: **83 tests**, FSD **100 files / 243 imports**. `npm run build`, `npm run build:surfaces`, `npm run arch:check` pass. RU/KK/EN key/placeholder parity and literal references checked. Tariff editor removed from staff source/navigation; existing public tariff contract retained.
+- `backend/.venv/bin/python backend/manage.py test booking commerce --noinput`: **135 tests**, real local PostgreSQL 17. New coverage: room-only seasonal price and payment/receipt, immutable snapshot, guest tariff requirement, notes scope/version/CSRF/redaction and atomic rollback. Existing payment/refund/concurrency/auth suites pass. Ruff check/format and migration drift pass.
+- Migration **0009** applied to an isolated local `tynys_planner_qa` database and recreated in test DB; no Supabase/production migration. UI QA used fictional rooms/guests with actual local Django HTTP transport, not production data.
+- Desktop 1280px and mobile 390×844: calendar/colors, empty-cell room/date preset, staff form without tariff, room-only booking for 26,000 KZT, internal note save/reload/history, simulator payment -> green confirmed card + receipt link; recorded checkout -> purple card. Mobile document width 390px (no page overflow); calendar/tabs scroll internally. RU/KK/EN visible labels checked. Browser error/warning log empty.
+- Evidence (ignored local files): `output/staff-room-planner-desktop.png`, `output/staff-stay-card-mobile.png`. These show the local QA instance; no real payment, cloud/runtime capacity or native install is proved.
+- Limits: window-scoped/paginated API and real-time refresh remain future work. Late walk-ins/deposits/room-date amendments/early-checkout interval release need their own services and decisions. No iPhone rebuild/sync/install; Android remains deferred.
+
+
 ## Автоматическое оформление после оплаты и комиссия — 27 октября 2026
 
 Это обновление заменяет более ранний сценарий подтверждения управляющим. Новые заказы ожидают оплату; успешная демонстрационная оплата атомарно оформляет бронь, ручное подтверждение/отклонение отклоняется API. Неуспешная попытка не оформляет бронь. Удержание по умолчанию 30 минут (настраивается на сервере, ограничено временем заезда); истечение освобождает инвентарь. Для production требуется периодический запуск expire_payment_holds и обработка поздних событий реального банка.

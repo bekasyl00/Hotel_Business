@@ -100,7 +100,7 @@ def log_change(user, entity, item, action, before, after, resort_id=None, websit
     def redact(data):
         if data is None:
             return None
-        return {k: v for k, v in data.items() if k not in ["guestPhone", "password"]}
+        return {k: v for k, v in data.items() if k not in ["guestPhone", "password", "staffNotes"]}
 
     Audit.objects.create(
         actor="Гость сайта" if website else (user.name or user.username),
@@ -175,8 +175,18 @@ def create_booking(request, staff=False):
         if previous.owner != owner or previous.request_hash != fingerprint:
             raise Problem("Ключ запроса уже использован для другой брони.", 409)
         return previous
-    tariff = get_object_or_404(Tariff, pk=data["tariffId"], resort=resort)
-    if resort.status != "published" or room.status != "active" or tariff.status != "active":
+    if not staff and not data.get("tariffId"):
+        raise Problem("Выберите тариф.")
+    tariff = (
+        get_object_or_404(Tariff, pk=data["tariffId"], resort=resort)
+        if data.get("tariffId")
+        else None
+    )
+    if (
+        resort.status != "published"
+        or room.status != "active"
+        or (tariff and tariff.status != "active")
+    ):
         raise Problem("Санаторий, номер или тариф недоступен.", 409)
     if data["guests"] > room.capacity:
         raise Problem("Число гостей превышает вместимость номера.")
@@ -217,7 +227,8 @@ def create_booking(request, staff=False):
             "resortName": resort.name,
             "roomName": room.title,
             "unit": room.number,
-            "tariffName": tariff.name,
+            "tariffName": tariff.name if tariff else "",
+            "pricingBasis": "tariff" if tariff else "room",
             **price,
             "cancellationPolicy": cancellation_policy,
             "commissionTerms": freeze_commission(resort, price["total"]),
@@ -551,6 +562,34 @@ def staff_guest_profile(request, pk):
         raise Problem("Профиль гостя не найден.", 404)
     profile = get_object_or_404(GuestProfile, pk=pk)
     return {"profile": guest_profile_data(profile), "bookings": profile_bookings(bookings)}
+
+
+@transaction.atomic
+def update_staff_notes(request, pk):
+    require_staff(request.user)
+    item = get_object_or_404(Booking, pk=pk)
+    require_staff(request.user, item.resort_id)
+    Resort.objects.select_for_update().get(pk=item.resort_id)
+    item.refresh_from_db()
+    version_check(item, request.data)
+    notes = request.data.get("staffNotes")
+    if not isinstance(notes, str) or len(notes) > 2000:
+        raise Problem("Примечание должно содержать не более 2000 символов.")
+    before = {"version": item.version, "notesLength": len(item.staff_notes)}
+    item.staff_notes = notes.strip()
+    item.version += 1
+    item.save(update_fields=["staff_notes", "version"])
+    # Audit the operation without copying potentially sensitive free text to the log.
+    log_change(
+        request.user,
+        "bookings",
+        item,
+        "notes",
+        before,
+        {"version": item.version, "notesLength": len(item.staff_notes)},
+        item.resort_id,
+    )
+    return item
 
 
 @transaction.atomic

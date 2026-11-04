@@ -25,7 +25,7 @@ api_patterns = [
     path("mobile-auth/sessions/<uuid:pk>", MobileSessionView.as_view()),
     path("mobile-auth/<str:action>", MobileAuthView.as_view()),
     re_path(
-        r"^(?P<resource>bookings)/(?P<pk>[^/]+)/(?P<action>check-in|check-out)$",
+        r"^(?P<resource>bookings)/(?P<pk>[^/]+)/(?P<action>check-in|check-out|notes)$",
         Endpoint.as_view(),
     ),
     path("payments/demo", DemoPaymentView.as_view()),
