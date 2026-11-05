@@ -64,7 +64,7 @@ class PaymentAttempt(Record):
     request_key = models.UUIDField(unique=True)
     fingerprint = models.CharField(max_length=64)
     actor_binding = models.CharField(max_length=64)
-    invoice_id = models.CharField(max_length=15)
+    invoice_id = models.CharField(max_length=64)
     shop_id = models.CharField(max_length=64)
     terminal_id = models.CharField(max_length=64)
     account_id = models.CharField(max_length=64)
@@ -107,9 +107,30 @@ class PaymentAttempt(Record):
                 name="bank_invoice_scope_unique",
             ),
             models.CheckConstraint(condition=Q(amount__gt=0), name="bank_amount_positive"),
-            models.CheckConstraint(condition=Q(environment="sandbox"), name="bank_sandbox_only"),
+            models.CheckConstraint(
+                condition=Q(provider="halyk_epay", environment="sandbox")
+                | Q(provider="xpayment", environment="production"),
+                name="bank_provider_environment",
+            ),
         ]
         indexes = [models.Index(fields=["status", "expires_at"])]
+
+
+class WebhookDelivery(models.Model):
+    """Deduplication metadata only. Never store raw provider payloads or signatures."""
+
+    merchant_scope = models.CharField(max_length=64)
+    delivery_id = models.UUIDField()
+    payment = models.ForeignKey(PaymentAttempt, on_delete=models.PROTECT)
+    event = models.CharField(max_length=32)
+    received_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["merchant_scope", "delivery_id"], name="xpayment_delivery_unique"
+            )
+        ]
 
 
 class PaymentEvent(Record):

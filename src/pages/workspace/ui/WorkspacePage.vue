@@ -13,6 +13,7 @@ import { OccupancyBoard, StayCard } from "@/widgets/occupancy-board";
 import { AccountEditor } from "@/features/edit-account";
 import { PaymentDialog } from "@/widgets/payment-dialog";
 import { BookingEditor } from "@/features/create-booking";
+import { isBankProvider } from "@/features/pay-booking";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
 import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
@@ -843,13 +844,17 @@ onBeforeUnmount(() => {
                         {{ money(b.total)
                         }}<small v-if="b.payment"
                           >{{
-                            b.payment.status === "paid"
-                              ? t("staff.demoPaid")
-                              : ["failed", "creating", "pending"].includes(
-                                    b.payment.status,
-                                  )
-                                ? t("staff.demoFailed")
-                                : t("staff.demoRefunded")
+                            isBankProvider(b.payment.provider)
+                              ? t(
+                                  `common.payment.states.${b.payment.checkoutStatus}`,
+                                )
+                              : b.payment.status === "paid"
+                                ? t("staff.demoPaid")
+                                : ["failed", "creating", "pending"].includes(
+                                      b.payment.status,
+                                    )
+                                  ? t("staff.demoFailed")
+                                  : t("staff.demoRefunded")
                           }}<span v-if="b.payment.refundedAmount">
                             {{ money(b.payment.refundedAmount) }}</span
                           ></small
@@ -912,7 +917,13 @@ onBeforeUnmount(() => {
                             class="text-button"
                             @click="paymentDialog = b"
                           >
-                            {{ t("common.checkout.demoPay") }}
+                            {{
+                              t(
+                                isDemo
+                                  ? "common.checkout.demoPay"
+                                  : "common.payment.title",
+                              )
+                            }}
                           </button>
                           <button
                             class="text-button danger"
@@ -931,7 +942,13 @@ onBeforeUnmount(() => {
                             class="text-button"
                             @click="paymentDialog = b"
                           >
-                            {{ t("common.checkout.demoPay") }}
+                            {{
+                              t(
+                                isDemo
+                                  ? "common.checkout.demoPay"
+                                  : "common.payment.title",
+                              )
+                            }}
                           </button>
                           <button
                             v-if="canCheckIn(b)"
@@ -959,6 +976,17 @@ onBeforeUnmount(() => {
                           </button>
                         </div>
                         <span v-else>—</span>
+                        <button
+                          v-if="
+                            b.source === 'staff' &&
+                            isBankProvider(b.payment?.provider) &&
+                            !canPayStaff(b)
+                          "
+                          class="text-button"
+                          @click="paymentDialog = b"
+                        >
+                          {{ t("common.payment.details") }}
+                        </button>
                       </td>
                     </tr>
                   </tbody>

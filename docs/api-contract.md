@@ -190,3 +190,11 @@ With `arrival`, `departureRooms` counts rooms available continuously for `[arriv
 ## Банковский sandbox checkout
 
 Канонический новый контракт: [payments.openapi.yaml](contracts/payments.openapi.yaml); проверяемые обезличенные формы ответов: [halyk-sandbox.json](contracts/fixtures/halyk-sandbox.json). Оба префикса `/api/v1` и `/api` используют одинаковые handlers. `POST /payments/checkouts` принимает только bookingId, requestKey, locale; contacts для общего sandbox генерируются сервером и вымышлены. Staff routes отдельные, только для staff-source брони своего объекта. GET читает локальный статус, POST refresh ставит durable сверку. `/payments/config` сообщает доступность. При закрытом protocol gate возвращается 503, без подмены симулятором.
+
+## XPayment: расширение банковского контракта, 06.11.2026
+
+`xpayment` — отдельный provider, `production` — тип его внешнего API; опубликованного денежного sandbox не найдено. До настройки и приёмки провайдер недоступен. Сумма, валюта, merchant binding и provider определяются сервером. Исторические `halyk_epay/sandbox` и `kaspi-demo/demo` не меняют тип при переключении нового checkout. Клиент должен читать provider/environment сохранённой попытки и не выводить sandbox-ярлык для XPayment. Нельзя подтверждать бронь из перехода по QR/deep link или страницы возврата.
+
+`POST /payments/providers/xpayment/callback` доступен под `/api/v1` и совместимым `/api`. Это endpoint провайдера без пользовательской сессии; он принимает ограниченное тело с `event_version="1"`, `source="xpayment"`, UUID `delivery_id`/`payment_id` и допустимым событием. `X-xPayment-Signature` проверяется как hex HMAC-SHA256 исходных байтов тела с серверным секретом. Повторная доставка дедуплицируется в БД. Callback ставит независимую GET-сверку; данные тела не являются финансовым доказательством, включая подписанный тест из кабинета провайдера.
+
+Завершённый возврат требуется подтвердить отдельно от принятого POST. Неизвестные статусы, чужой аккаунт/заказ, сумма или валюта, поздняя оплата и неясный исход операции не разрешают оформление брони. XPayment не предоставляет документированный receipt API: `receiptUrl` остаётся null, пока настоящий документ не получен поддержанным способом. Подготовка и уточнения контракта — [xpayment-integration.md](xpayment-integration.md).

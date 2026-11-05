@@ -12,6 +12,7 @@ from booking.views import Endpoint
 from commerce.payment_views import HalykCallbackView, PaymentView
 from commerce.scheduler import tick
 from commerce.views import CancellationPreviewView, DemoPaymentView, ReceiptView
+from commerce.xpayment_webhook import XPaymentCallbackView
 
 from .health import live, ready
 
@@ -34,6 +35,7 @@ api_patterns = [
     path("payments/checkouts", PaymentView.as_view()),
     path("payments/staff/checkouts", PaymentView.as_view(), {"staff": True}),
     path("payments/providers/halyk/callback", HalykCallbackView.as_view()),
+    path("payments/providers/xpayment/callback", XPaymentCallbackView.as_view()),
     path("payments/staff/<str:pk>/refresh", PaymentView.as_view(), {"staff": True}),
     path("payments/staff/<str:pk>", PaymentView.as_view(), {"staff": True}),
     path("payments/<str:pk>/refresh", PaymentView.as_view()),

@@ -14,31 +14,27 @@ from booking.models import Audit, Booking, Resort
 from booking.services import guest_owner, require_staff
 
 from .models import InvoicePool, PaymentAttempt, PaymentEvent
-from .provider_config import HalykConfig
+from .provider_registry import PROVIDERS, configuration
 from .providers.base import ProviderError
 from .services import cancellation_terms
 
 
-def configuration():
-    if settings.PAYMENT_PROVIDER != "halyk_epay":
-        raise ProviderError("bank_payments_disabled")
-    return HalykConfig.from_settings()
-
-
 def capabilities():
-    if settings.PAYMENT_PROVIDER == "simulator":
+    provider = settings.PAYMENT_PROVIDER
+    if provider == "simulator":
         return {
-            "provider": "simulator",
+            "provider": provider,
             "environment": "demo",
             "available": settings.PAYMENTS_ALLOW_SIMULATOR,
         }
+    environment = PROVIDERS.get(provider, ("disabled",))[0]
     try:
         configuration()
-        return {"provider": "halyk_epay", "environment": "sandbox", "available": True}
+        return {"provider": provider, "environment": environment, "available": True}
     except ProviderError as exc:
         return {
-            "provider": "halyk_epay",
-            "environment": "sandbox",
+            "provider": provider,
+            "environment": environment,
             "available": False,
             "reason": exc.code,
         }
@@ -114,10 +110,6 @@ def create_checkout(request, *, staff=False):
     data = inp.validated_data
     booking = get_object_or_404(Booking, pk=data["bookingId"])
     binding = authorize(request, booking, staff=staff)
-    try:
-        config = configuration()
-    except ProviderError as exc:
-        raise Problem("Тестовая банковская оплата временно недоступна.", 503, exc.code) from None
     expire_resort_holds(booking.resort_id)
     fingerprint = hashlib.sha256(
         json.dumps({"booking": str(booking.pk), "actor": binding}, sort_keys=True).encode()
@@ -133,6 +125,10 @@ def create_checkout(request, *, staff=False):
             if previous.actor_binding != binding:
                 raise Problem("Платёж уже создан другим сотрудником.", 409)
             return previous
+        try:
+            config = configuration()
+        except ProviderError as exc:
+            raise Problem("Банковская оплата временно недоступна.", 503, exc.code) from None
         now = timezone.now()
         if (
             booking.status != "pending"
@@ -145,32 +141,41 @@ def create_checkout(request, *, staff=False):
         amount = booking.snapshot.get("total")
         if type(amount) is not int or amount <= 0:
             raise Problem("Некорректная сохранённая сумма брони.", 409)
-        scope = hashlib.sha256(("halyk:sandbox:" + config.shop_id).encode()).hexdigest()
-        InvoicePool.objects.get_or_create(
-            scope=scope, defaults={"next_value": config.invoice_start}
-        )
-        pool = InvoicePool.objects.select_for_update().get(pk=scope)
-        if pool.next_value > config.invoice_end:
-            raise Problem("Пул тестовых счетов исчерпан.", 503)
-        invoice = config.invoice_prefix + str(pool.next_value)
-        pool.next_value += 1
-        pool.save(update_fields=["next_value"])
+        scope = config.merchant_scope
+        if settings.PAYMENT_PROVIDER == "halyk_epay":
+            InvoicePool.objects.get_or_create(
+                scope=scope, defaults={"next_value": config.invoice_start}
+            )
+            pool = InvoicePool.objects.select_for_update().get(pk=scope)
+            if pool.next_value > config.invoice_end:
+                raise Problem("Пул тестовых счетов исчерпан.", 503)
+            invoice = config.invoice_prefix + str(pool.next_value)
+            pool.next_value += 1
+            pool.save(update_fields=["next_value"])
+            identity = dict(
+                shop_id=config.shop_id,
+                terminal_id=config.terminal_id,
+                account_id="tynys-" + uuid4().hex,
+                recipient_email="checkout@example.invalid",
+                recipient_phone="+70000000000",
+            )
+        else:
+            invoice = str(uuid4())
+            # These are Halyk-only references; XPayment binds to merchant_scope and order UUID.
+            identity = dict(shop_id="", terminal_id="", account_id="")
         payment = PaymentAttempt.objects.create(
             booking=booking,
+            provider=settings.PAYMENT_PROVIDER,
+            environment=PROVIDERS[settings.PAYMENT_PROVIDER][0],
+            **identity,
             request_key=data["requestKey"],
             fingerprint=fingerprint,
             actor_binding=binding,
             merchant_scope=scope,
             invoice_id=invoice,
-            shop_id=config.shop_id,
-            terminal_id=config.terminal_id,
-            account_id="tynys-" + uuid4().hex,
             amount=amount,
             locale=data["locale"],
             expires_at=booking.hold_expires_at,
-            # Sandbox only: never send guests' personal contacts to the shared test merchant.
-            recipient_email="checkout@example.invalid",
-            recipient_phone="+70000000000",
         )
         enqueue(payment, "create")
         return payment
@@ -203,6 +208,7 @@ def apply_transaction(payment_id, evidence):
         or evidence.terminal_id != payment.terminal_id
         or evidence.currency != payment.currency
         or evidence.account_id != payment.account_id
+        or (payment.provider == "xpayment" and evidence.transaction_id != payment.invoice_link_id)
     ):
         reconcile_reason(payment, "bank_identity_mismatch")
         return
@@ -213,7 +219,8 @@ def apply_transaction(payment_id, evidence):
             reconcile_reason(payment, "refund_without_local_charge")
         elif (
             not payment.applied_at
-            and evidence.status in ("FAILED", "REJECT", "CANCEL", "CANCEL_OLD")
+            and evidence.status
+            in ("FAILED", "REJECT", "CANCEL", "CANCEL_OLD", "CANCELLED", "EXPIRED")
             and payment.status not in ("expired", "reconciliation_required")
         ):
             payment.status = "failed"
@@ -273,14 +280,18 @@ def apply_transaction(payment_id, evidence):
     payment.reconciliation_reason = ""
     payment.save(update_fields=["status", "applied_at", "reconciliation_reason", "updated_at"])
     Audit.objects.create(
-        actor="Halyk sandbox · серверная сверка",
+        actor=f"{payment.provider} · серверная сверка",
         resort_id=booking.resort_id,
         entity="bookings",
         entity_id=booking.pk,
         action="payment_confirmed",
-        label="Sandbox payment",
+        label="Verified payment",
         before={"status": before},
-        after={"status": "confirmed", "paymentId": str(payment.pk), "environment": "sandbox"},
+        after={
+            "status": "confirmed",
+            "paymentId": str(payment.pk),
+            "environment": payment.environment,
+        },
     )
 
 
@@ -292,4 +303,5 @@ def checkout_matches(payment, checkout):
         and checkout.account_id in ("", payment.account_id)
         and checkout.amount == payment.amount
         and checkout.currency == payment.currency
+        and (not payment.invoice_link_id or payment.invoice_link_id == checkout.link_id)
     )

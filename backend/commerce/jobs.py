@@ -10,9 +10,9 @@ from django.utils import timezone
 from booking.models import Booking, Resort
 
 from .models import PaymentAttempt, PaymentJob
-from .payment_services import apply_transaction, checkout_matches, configuration, reconcile_reason
+from .payment_services import apply_transaction, checkout_matches, reconcile_reason
+from .provider_registry import processable_jobs, provider_for
 from .providers.base import ProviderError
-from .providers.halyk_epay import HalykProvider
 
 
 @transaction.atomic
@@ -47,14 +47,20 @@ def retire_booking(booking):
 
 
 @transaction.atomic
-def claim(*, payment_id=None):
+def claim(*, payment_id=None, allowed=None):
     now = timezone.now()
     query = PaymentJob.objects.filter(
         Q(state="pending", available_at__lte=now) | Q(state="running", lease_until__lt=now)
     )
+    if allowed is not None:
+        query = query.filter(allowed)
     if payment_id:
         query = query.filter(payment_id=payment_id)
-    job = query.select_for_update(skip_locked=True).order_by("available_at", "id").first()
+    job = (
+        query.select_for_update(of=("self",), skip_locked=True)
+        .order_by("available_at", "id")
+        .first()
+    )
     if not job:
         return None
     job.state, job.lease_token = "running", uuid4()
@@ -72,7 +78,7 @@ def finish(job, error=None):
         return
     retry = error is not None or current.requested_again
     current.state = "pending" if retry else "done"
-    if error and current.attempts >= 10:
+    if error and (current.attempts >= 10 or not (error.retryable or error.ambiguous)):
         current.state = "dead"
     current.last_error = error.code if error else ""
     current.available_at = timezone.now() + timedelta(
@@ -109,10 +115,21 @@ def create_bank_link(payment, provider):
         Resort.objects.select_for_update().get(pk=payment.booking.resort_id)
         payment.refresh_from_db()
         payment.booking.refresh_from_db()
-        payment.invoice_link_id, payment.checkout_url = checkout.link_id, checkout.url
+        if not checkout_matches(payment, checkout):
+            raise ProviderError("bank_invoice_collision")
+        payment.invoice_link_id = checkout.link_id
+        payment.checkout_url = checkout.url or payment.checkout_url
+        if checkout.expires_at:
+            payment.expires_at = min(payment.expires_at, checkout.expires_at)
+            payment.booking.hold_expires_at = min(
+                payment.booking.hold_expires_at, payment.expires_at
+            )
+            payment.booking.save(update_fields=["hold_expires_at"])
         if not payment.applied_at and payment.status not in ("expired", "reconciliation_required"):
             payment.status = "pending"
-        payment.save(update_fields=["invoice_link_id", "checkout_url", "status", "updated_at"])
+        payment.save(
+            update_fields=["invoice_link_id", "checkout_url", "status", "expires_at", "updated_at"]
+        )
         if payment.booking.status != "pending" or timezone.now() >= payment.expires_at:
             enqueue(payment, "deactivate")
         enqueue(payment, "verify")
@@ -124,6 +141,14 @@ def verify_bank_payment(payment, provider):
         raise ProviderError("bank_invoice_collision")
     if checkout is None:
         raise ProviderError("bank_invoice_not_found", retryable=True)
+    if not payment.invoice_link_id:
+        with transaction.atomic():
+            Resort.objects.select_for_update().get(pk=payment.booking.resort_id)
+            payment.refresh_from_db()
+            if not checkout_matches(payment, checkout):
+                raise ProviderError("bank_invoice_collision")
+            payment.invoice_link_id = checkout.link_id
+            payment.save(update_fields=["invoice_link_id"])
     evidence = provider.lookup_payment(payment.invoice_id)
     apply_transaction(payment.pk, evidence)
 
@@ -143,8 +168,10 @@ def deactivate_bank_link(payment, provider):
         checkout = provider.find_checkout(payment.invoice_id)
         if not checkout or checkout.status == "ACTIVE":
             raise ProviderError("bank_deactivation_unverified", retryable=True)
-    if checkout.status not in ("CHARGED", "CHARGE"):
+    if checkout.status in ("ANNULLED", "CANCELLED", "EXPIRED", "FAILED"):
         PaymentAttempt.objects.filter(pk=payment.pk).update(deactivated_at=timezone.now())
+    elif checkout.status not in ("CHARGED", "CHARGE", "REFUND"):
+        raise ProviderError("bank_deactivation_unverified", retryable=True)
     enqueue(payment, "verify")
 
 
@@ -163,13 +190,15 @@ def execute(job, provider):
 
 
 def run_one(*, provider=None, payment_id=None):
-    # Refuse unconfigured workers before claiming a job, preserving queued work.
-    provider = provider or HalykProvider(configuration())
-    job = claim(payment_id=payment_id)
+    job = claim(payment_id=payment_id, allowed=None if provider else processable_jobs())
     if not job:
         return False
     error = None
     try:
+        payment = PaymentAttempt.objects.get(pk=job.payment_id)
+        provider = provider or provider_for(
+            payment, creating=job.kind == "create" and not payment.creation_started_at
+        )
         execute(job, provider)
     except ProviderError as exc:
         error = exc

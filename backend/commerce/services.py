@@ -78,8 +78,8 @@ def bank_payment_data(payment):
         "bookingId": str(payment.booking_id),
         "status": status,
         "checkoutStatus": payment.status,
-        "paymentMode": "sandbox",
-        "provider": "halyk_epay",
+        "paymentMode": payment.environment,
+        "provider": payment.provider,
         "currency": payment.currency,
         "amount": payment.amount,
         "refundedAmount": refunded,
@@ -246,7 +246,7 @@ def cancellation_preview(booking, *, staff=False, now=None):
         "actorKind": "provider" if staff else "guest",
     }
     if bank:
-        result["mode"] = "sandbox"
+        result["mode"] = bank.environment
     return result
 
 

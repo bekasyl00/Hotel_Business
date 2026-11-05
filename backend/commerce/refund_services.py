@@ -22,7 +22,7 @@ def queue_refund(payment, preview):
     if created:
         if refund.amount == 0:
             refund.status, refund.confirmed_at = "succeeded", timezone.now()
-        elif refund.amount < 10:
+        elif payment.provider == "halyk_epay" and refund.amount < 10:
             refund.status, refund.reconciliation_reason = (
                 "reconciliation_required",
                 "bank_refund_below_minimum",
@@ -47,6 +47,17 @@ def process_refund(payment, provider, *, verify=False):
     if not charge:
         raise ProviderError("refund_charge_missing")
     if not verify and not refund.submitted_at:
+        if payment.provider == "xpayment":
+            verified_charge = provider.lookup_payment(payment.invoice_id)
+            if (
+                not verified_charge
+                or verified_charge.status != "CHARGE"
+                or verified_charge.transaction_id != charge.transaction_id
+                or verified_charge.invoice_id != payment.invoice_id
+                or verified_charge.currency != payment.currency
+                or verified_charge.amount != payment.amount
+            ):
+                raise ProviderError("bank_refund_mismatch")
         with transaction.atomic():
             Resort.objects.select_for_update().get(pk=payment.booking.resort_id)
             refund.refresh_from_db()
@@ -59,7 +70,11 @@ def process_refund(payment, provider, *, verify=False):
         # Mark-before-send: an uncertain call is verified, never blindly repeated.
         provider.request_refund(charge.transaction_id, refund.amount, str(refund.pk))
         return
-    evidence = provider.lookup_payment(payment.invoice_id)
+    evidence = (
+        provider.lookup_refund(payment, refund)
+        if payment.provider == "xpayment"
+        else provider.lookup_payment(payment.invoice_id)
+    )
     if not evidence or evidence.status != "REFUND":
         raise ProviderError("bank_refund_unverified", retryable=True)
     if (

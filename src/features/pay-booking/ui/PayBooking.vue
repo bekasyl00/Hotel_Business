@@ -4,9 +4,13 @@ import { useI18n } from "vue-i18n";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
 import { money } from "@/shared/lib";
+import { isBankProvider, safeCheckoutUrl } from "../model/provider.js";
 const props = defineProps({
   booking: { type: Object, required: true },
   staff: Boolean,
+  provider: { type: String, default: "" },
+  environment: { type: String, default: "" },
+  available: Boolean,
 });
 const emit = defineEmits(["close", "saved"]);
 const { t, locale } = useI18n();
@@ -17,6 +21,20 @@ const payment = ref(null),
 const now = ref(Date.now());
 const prefix = props.staff ? "/payments/staff" : "/payments";
 const requestKey = crypto.randomUUID();
+const provider = computed(
+  () =>
+    payment.value?.provider ||
+    (isBankProvider(props.booking.payment?.provider)
+      ? props.booking.payment.provider
+      : props.provider),
+);
+const environment = computed(
+  () =>
+    payment.value?.environment ||
+    (isBankProvider(props.booking.payment?.provider)
+      ? props.booking.payment.paymentMode
+      : props.environment),
+);
 let stopped = false,
   timer,
   clock,
@@ -26,7 +44,9 @@ const expires = computed(() =>
   Date.parse(payment.value?.expiresAt || props.booking.holdExpiresAt || ""),
 );
 const remaining = computed(() =>
-  Math.max(0, Math.ceil((expires.value - now.value) / 60000)),
+  Number.isFinite(expires.value)
+    ? Math.max(0, Math.ceil((expires.value - now.value) / 60000))
+    : 0,
 );
 const terminal = computed(() =>
   ["succeeded", "expired", "reconciliation_required"].includes(
@@ -35,18 +55,7 @@ const terminal = computed(() =>
 );
 const safeUrl = computed(() => {
   if (!payment.value?.checkoutUrl || remaining.value <= 0) return null;
-  try {
-    const url = new URL(payment.value.checkoutUrl);
-    return url.protocol === "https:" &&
-      url.host === "testepay.homebank.kz" &&
-      /^\/api\/redirect\/invoice-link\/[a-f0-9-]{36}$/i.test(url.pathname) &&
-      !url.search &&
-      !url.hash
-      ? url.href
-      : null;
-  } catch {
-    return null;
-  }
+  return safeCheckoutUrl(provider.value, payment.value.checkoutUrl);
 });
 function schedule() {
   clearTimeout(timer);
@@ -74,6 +83,8 @@ async function read() {
   }
 }
 async function start() {
+  if (!props.available || !isBankProvider(provider.value) || !remaining.value)
+    return;
   busy.value = true;
   error.value = "";
   try {
@@ -118,7 +129,7 @@ onMounted(async () => {
   clock = setInterval(() => {
     now.value = Date.now();
   }, 1000);
-  if (props.booking.payment?.provider === "halyk_epay") {
+  if (isBankProvider(props.booking.payment?.provider)) {
     payment.value = { id: props.booking.payment.id };
     await read();
     if (!terminal.value) await refresh();
@@ -133,13 +144,28 @@ onBeforeUnmount(() => {
 <template>
   <Modal :title="t('common.payment.title')" :busy="busy" @close="emit('close')">
     <div class="bank-payment">
-      <span class="payment-demo-label">{{ t("common.payment.sandbox") }}</span>
+      <span class="payment-demo-label">{{
+        provider === "xpayment"
+          ? t("common.payment.kaspiXPayment")
+          : t("common.payment.halykSandbox")
+      }}</span>
+      <p v-if="environment === 'sandbox'" class="small muted">
+        {{ t("common.payment.sandbox") }}
+      </p>
       <div class="payment-receipt">
         <span>{{ booking.resortName }}</span>
         <h3>{{ booking.roomName }}</h3>
         <strong>{{ money(payment?.amount ?? booking.total) }}</strong>
       </div>
-      <p>{{ t("common.payment.explanation") }}</p>
+      <p>
+        {{
+          t(
+            provider === "xpayment"
+              ? "common.payment.kaspiExplanation"
+              : "common.payment.explanation",
+          )
+        }}
+      </p>
       <p v-if="!terminal" class="bank-hold">
         {{
           remaining > 0
@@ -158,10 +184,18 @@ onBeforeUnmount(() => {
         <button
           v-if="!payment"
           class="primary"
-          :disabled="busy || !remaining"
+          :disabled="busy || !remaining || !available"
           @click="start"
         >
-          {{ busy ? t("common.payment.loading") : t("common.payment.create") }}
+          {{
+            busy
+              ? t("common.payment.loading")
+              : t(
+                  provider === "xpayment"
+                    ? "common.payment.createKaspi"
+                    : "common.payment.create",
+                )
+          }}
         </button>
         <a
           v-if="safeUrl"
@@ -170,7 +204,13 @@ onBeforeUnmount(() => {
           target="_blank"
           rel="noopener noreferrer"
           referrerpolicy="no-referrer"
-          >{{ t("common.payment.open") }}</a
+          >{{
+            t(
+              provider === "xpayment"
+                ? "common.payment.openKaspi"
+                : "common.payment.open",
+            )
+          }}</a
         >
         <button
           v-if="payment && !terminal"

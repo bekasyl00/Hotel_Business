@@ -1,6 +1,8 @@
+import hashlib
 import re
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
+from uuid import UUID
 
 from django.conf import settings
 
@@ -42,6 +44,10 @@ class HalykConfig:
     lookup_grant: str
     username: str = field(repr=False)
     password: str = field(repr=False)
+
+    @property
+    def merchant_scope(self):
+        return hashlib.sha256(("halyk:sandbox:" + self.shop_id).encode()).hexdigest()
 
     @classmethod
     def from_settings(cls, *, require_gate=True):
@@ -88,3 +94,33 @@ class HalykConfig:
             username=settings.HALYK_EPAY_INVOICE_USERNAME,
             password=settings.HALYK_EPAY_INVOICE_PASSWORD,
         )
+
+
+@dataclass(frozen=True)
+class XPaymentConfig:
+    api_key: str = field(repr=False)
+    account_id: str
+    webhook_secret: str = field(repr=False)
+
+    @property
+    def merchant_scope(self):
+        return hashlib.sha256(("xpayment:production:" + self.account_id).encode()).hexdigest()
+
+    @classmethod
+    def from_settings(cls, *, require_gate=True):
+        if require_gate and not settings.XPAYMENT_ENABLED:
+            raise ProviderError("xpayment_disabled")
+        if require_gate and not settings.XPAYMENT_PROTOCOL_VERIFIED:
+            raise ProviderError("xpayment_protocol_not_verified")
+        key = settings.XPAYMENT_API_KEY
+        account = settings.XPAYMENT_ACCOUNT_ID
+        secret = settings.XPAYMENT_WEBHOOK_SECRET
+        if not key or not account or not secret:
+            raise ProviderError("payment_configuration_missing")
+        try:
+            valid_account = str(UUID(account)) == account
+        except (ValueError, TypeError, AttributeError):
+            valid_account = False
+        if not re.fullmatch(r"xdev_[A-Za-z0-9_-]+", key) or not valid_account or len(secret) < 32:
+            raise ProviderError("payment_configuration_invalid")
+        return cls(api_key=key, account_id=account, webhook_secret=secret)

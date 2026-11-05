@@ -84,7 +84,7 @@ function stayLabel(booking) {
           to="/bookings"
           >{{ t("public.manageBooking") }}</RouterLink
         ><span v-if="booking.payment?.refundedAmount" class="small muted"
-          >{{ t("public.demoRefundInGuestBookingHistory") }}
+          >{{ t("public.refunded") }}
           {{ money(booking.payment.refundedAmount) }}</span
         >
       </div>

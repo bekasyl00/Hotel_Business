@@ -8,6 +8,7 @@ const route = useRoute(),
 import { PublicHeader } from "@/widgets/public-header";
 import { PaymentDialog } from "@/widgets/payment-dialog";
 import { ReviewForm } from "@/features/review-form";
+import { isBankProvider } from "@/features/pay-booking";
 import { useBookingStore, dateAfter } from "@/entities/booking";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
@@ -106,7 +107,9 @@ async function cancel() {
     await store.cancel(cancelTarget.value);
     cancelTarget.value = null;
     notice.value = t(
-      "public.bookingCancelledTheDemoRefundResultIsSavedInYourHistory",
+      isDemo
+        ? "public.bookingCancelledTheDemoRefundResultIsSavedInYourHistory"
+        : "common.payment.cancellationSaved",
     );
     await load();
   } catch (e) {
@@ -118,10 +121,9 @@ async function cancel() {
 async function paymentSaved(result) {
   if (!result.failed) {
     paymentTarget.value = null;
-    notice.value =
-      result.payment?.provider === "halyk_epay"
-        ? t("common.payment.states.succeeded")
-        : t("public.demoPaymentSuccessfulNoRealMoneyWasCharged");
+    notice.value = isBankProvider(result.payment?.provider)
+      ? t("common.payment.states.succeeded")
+      : t("public.demoPaymentSuccessfulNoRealMoneyWasCharged");
   }
   await load();
 }
@@ -244,7 +246,7 @@ onMounted(load);
         </p>
         <div v-if="booking.payment" class="payment-state">
           <strong>{{
-            booking.payment.provider === "halyk_epay"
+            isBankProvider(booking.payment.provider)
               ? t(`common.payment.states.${booking.payment.checkoutStatus}`)
               : paymentNames[booking.payment.status] || booking.payment.status
           }}</strong
@@ -252,13 +254,15 @@ onMounted(load);
             >{{ t("public.refunded") }}
             {{ money(booking.payment.refundedAmount) }}</span
           ><span class="small muted">{{
-            booking.payment.provider === "halyk_epay"
-              ? t("common.payment.sandbox")
-              : t("public.kaspiDemoNoRealMoneyIsUsed")
+            booking.payment.provider === "xpayment"
+              ? t("common.payment.kaspiXPayment")
+              : booking.payment.provider === "halyk_epay"
+                ? t("common.payment.sandbox")
+                : t("public.kaspiDemoNoRealMoneyIsUsed")
           }}</span>
           <span
             v-if="
-              booking.payment.provider === 'halyk_epay' &&
+              isBankProvider(booking.payment.provider) &&
               booking.payment.refundStatus
             "
           >
@@ -280,7 +284,7 @@ onMounted(load);
             {{ isDemo ? t("public.payKaspiDemo") : t("common.payment.title") }}
           </button>
           <button
-            v-else-if="booking.payment?.provider === 'halyk_epay'"
+            v-else-if="isBankProvider(booking.payment?.provider)"
             class="secondary"
             @click="paymentTarget = booking"
           >

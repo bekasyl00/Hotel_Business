@@ -15,6 +15,8 @@ from booking.guest_auth import enforce_limit
 from . import payment_services as services
 from .jobs import enqueue
 from .models import PaymentAttempt
+from .provider_config import HalykConfig
+from .providers.base import ProviderError
 
 
 @method_decorator(never_cache, name="dispatch")
@@ -60,8 +62,15 @@ class HalykCallbackView(APIView):
         # The callback is NOT authenticated payment evidence. It can only coalesce
         # a bounded server lookup; amount/status/signatures in the body are ignored.
         if re.fullmatch(r"[0-9]{6,15}", invoice):
+            try:
+                config = HalykConfig.from_settings(require_gate=False)
+            except ProviderError:
+                return JsonResponse({"accepted": True})
             payment = PaymentAttempt.objects.filter(
-                invoice_id=invoice, environment="sandbox"
+                invoice_id=invoice,
+                environment="sandbox",
+                provider="halyk_epay",
+                merchant_scope=config.merchant_scope,
             ).first()
             if payment:
                 enqueue(payment, "verify")

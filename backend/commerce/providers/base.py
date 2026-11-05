@@ -25,6 +25,7 @@ class Checkout:
     currency: str
     url: str
     status: str
+    expires_at: datetime | None = None
 
 
 @dataclass(frozen=True)

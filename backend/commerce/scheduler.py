@@ -10,9 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .jobs import run_one, schedule_due
-from .payment_services import configuration
-from .providers.base import ProviderError
-from .providers.halyk_epay import HalykProvider
+from .payment_services import capabilities
 
 
 @csrf_exempt
@@ -25,13 +23,9 @@ def tick(request):
         return JsonResponse({"message": "Unauthorized"}, status=401)
     start = time.monotonic()
     schedule_due()
-    try:
-        provider = HalykProvider(configuration())
-    except ProviderError:
-        return JsonResponse({"processed": 0, "bankEnabled": False})
     count = 0
     while count < 5 and time.monotonic() - start < 45:
-        if not run_one(provider=provider):
+        if not run_one():
             break
         count += 1
-    return JsonResponse({"processed": count, "bankEnabled": True})
+    return JsonResponse({"processed": count, "bankEnabled": capabilities()["available"]})

@@ -42,7 +42,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/edit-room 'Исходный код'
   }
   features_pay_booking = module 'features/pay-booking' {
-    description 'Компоненты и действия среза features/pay-booking. Файлов: 2'
+    description 'Компоненты и действия среза features/pay-booking. Файлов: 3'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/pay-booking 'Исходный код'
   }
   features_payment_receipt = module 'features/payment-receipt' {
@@ -249,6 +249,7 @@ model {
   pages_my_bookings -> widgets_public_header 'import'
   pages_my_bookings -> widgets_payment_dialog 'import'
   pages_my_bookings -> features_review_form 'import'
+  pages_my_bookings -> features_pay_booking 'import'
   pages_my_bookings -> entities_booking 'import'
   pages_my_bookings -> shared_ui 'import'
   pages_my_bookings -> shared_api 'import'
@@ -293,6 +294,7 @@ model {
   pages_workspace -> features_edit_account 'import'
   pages_workspace -> widgets_payment_dialog 'import'
   pages_workspace -> features_create_booking 'import'
+  pages_workspace -> features_pay_booking 'import'
   pages_workspace -> shared_ui 'import'
   pages_workspace -> shared_api 'import'
   pages_workspace -> shared_lib 'import'
@@ -307,6 +309,8 @@ model {
   widgets_guest_booking_history -> shared_lib 'import'
   widgets_occupancy_board -> entities_booking 'import'
   widgets_occupancy_board -> shared_lib 'import'
+  widgets_occupancy_board -> features_pay_booking 'import'
+  widgets_occupancy_board -> shared_config 'import'
   widgets_occupancy_board -> shared_ui 'import'
   widgets_overview -> shared_lib 'import'
   widgets_overview -> entities_booking 'import'

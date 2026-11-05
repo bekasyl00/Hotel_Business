@@ -1,5 +1,14 @@
 # Проверки
 
+## 06.11.2026 — подготовка XPayment / Kaspi
+
+- Backend: **201 тест** на отдельном реальном PostgreSQL 17 — pass. После уточнения блокировок job и восстановления при закрытом gate повторены **38 payment flow/concurrency тестов** — pass. Из новых проверок: 21 transport-тест адаптера и 16 integration flow-тестов. Проверены закрытые gates, merchant/provider binding, HMAC/dedup, подписанный fake-success без подтверждения, поздние/неверные платежи, восстановление без повторного POST, возврат и разделение финансовых источников.
+- Frontend: **92 теста**, FSD **108 files / 269 imports**; `npm run build`, `npm run build:surfaces`, `npm run arch:check` — pass. RU/KK/EN parity сохранена. Ruff, `makemigrations --check --dry-run`, `git diff --check` — pass. Новая migration `commerce.0004` прошла на тестовой PostgreSQL; cloud schema этой итерацией не менялась.
+- UI проверен на изолированном mock harness: desktop 1440×1000 и mobile 390×844, без горизонтального overflow. Открытие сохранённого XPayment при другом текущем provider, недоступная конфигурация без ссылки, RU/KK/EN. Снимки: `output/xpayment-desktop.png`, `output/xpayment-mobile-en.png`, `output/xpayment-unavailable-mobile-kk.png`. Это не банковские/live-site проверки.
+- Офлайн `check_xpayment`: настройки отсутствуют, оба gate false; секреты не выводятся, сетевых запросов нет. Подготовлены [инструкция подключения](xpayment-integration.md) и `backend/.env.xpayment.example`.
+
+Банковская приёмка XPayment не выполнялась: аккаунт/ключи владельца отсутствуют, создание реальных платежей/возвратов и регистрация подписки не производились. Денежный sandbox в опубликованной документации не найден; mock transport и подписанный webhook-тест не означают оплаты. Флаги включения и проверки протокола закрыты. Реальные чеки, split/выплаты санаториям, нагрузка/SLA остаются работами [единого реестра](production-readiness.md). Деплой этой версии не выполнялся; iPhone-приложения не обновлялись.
+
 ## 05.11.2026 — общий облачный API и Halyk sandbox
 
 - Backend: **164 теста** на отдельном реальном PostgreSQL 17, включая duplicate/concurrent CHARGE, чужой owner/tenant, CSRF/Bearer, forged callback, late/extra/mismatched charge, unknown-create recovery, no network inside SQL transaction, refund intent/verification, lease recovery и schema/provider fixtures. Ruff и migration drift — pass; stage `check --deploy` — 0 issues.

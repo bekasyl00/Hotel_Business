@@ -266,8 +266,10 @@ function download() {
         rowLabel(row),
         ...tableMetrics.value.map((m) => row[m.key] ?? ""),
         data.value?.paymentMode === "sandbox"
-          ? "Halyk sandbox"
-          : t("staff.demo"),
+          ? t("common.payment.halykSandbox")
+          : data.value?.paymentMode === "production"
+            ? t("common.payment.production")
+            : t("staff.demo"),
       ]
         .map(csvCell)
         .join(";"),
@@ -323,7 +325,12 @@ onBeforeUnmount(() => {
                 <option value="demo">
                   {{ t("common.payment.simulator") }}
                 </option>
-                <option value="sandbox">Halyk sandbox</option>
+                <option value="sandbox">
+                  {{ t("common.payment.halykSandbox") }}
+                </option>
+                <option value="production">
+                  {{ t("common.payment.production") }}
+                </option>
               </select>
             </label>
             <label

@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { PayBooking } from "@/features/pay-booking";
+import { PayBooking, isBankProvider } from "@/features/pay-booking";
 import { DemoPayment } from "@/features/demo-payment";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
@@ -29,7 +29,7 @@ onMounted(async () => {
     v-if="
       config?.available &&
       config.provider === 'simulator' &&
-      booking.payment?.provider !== 'halyk_epay'
+      !isBankProvider(booking.payment?.provider)
     "
     v-bind="props"
     @close="emit('close')"
@@ -37,10 +37,13 @@ onMounted(async () => {
   />
   <PayBooking
     v-else-if="
-      (config?.available && config.provider === 'halyk_epay') ||
-      booking.payment?.provider === 'halyk_epay'
+      (config?.available && isBankProvider(config.provider)) ||
+      isBankProvider(booking.payment?.provider)
     "
     v-bind="props"
+    :provider="config?.provider"
+    :environment="config?.environment"
+    :available="Boolean(config?.available)"
     @close="emit('close')"
     @saved="emit('saved', $event)"
   />
@@ -48,7 +51,11 @@ onMounted(async () => {
     <p role="status">
       {{
         error ||
-        (config ? t("common.payment.unavailable") : t("common.payment.loading"))
+        (config?.provider === "xpayment"
+          ? t("common.payment.kaspiUnavailable")
+          : config
+            ? t("common.payment.unavailable")
+            : t("common.payment.loading"))
       }}
     </p>
   </Modal>

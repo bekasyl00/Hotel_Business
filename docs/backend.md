@@ -153,3 +153,11 @@ Migration 0009 adds private `Booking.staff_notes` and permits null protected tar
 ## Общее sandbox окружение, 05.11.2026
 
 Django, Supabase PostgreSQL/private S3 и scheduler подключены. Актуальная конфигурация, ограничения и статус банковской приёмки: [halyk-sandbox.md](halyk-sandbox.md). Более ранние записи о неподключённом runtime ниже/выше относятся к предыдущему этапу. Не считать staging production-ready.
+
+## XPayment / Kaspi: подготовка до регистрации, 06.11.2026
+
+[Настройка XPayment](xpayment-integration.md) описывает серверный ключ устройства, account UUID, webhook secret и условия включения. Провайдер новых попыток выбирается через `PAYMENT_PROVIDER=xpayment`; `XPAYMENT_ENABLED` и `XPAYMENT_PROTOCOL_VERIFIED` по умолчанию false. Опубликованного денежного sandbox не найдено: это подготовка закрытого production-адаптера, а не новый симулятор. Halyk sandbox и исторический demo сохраняются как отдельные источники.
+
+Сохранённая попытка определяет провайдер/окружение/merchant scope для очереди, а не текущий выбор нового checkout. Один банковский attempt на бронь, resort lock, frozen amount, owner/tenant checks и independent server verification остаются общими. XPayment webhook проверяет HMAC исходного тела, долговечно дедуплицирует delivery и лишь ставит сверку; тестовый подписанный callback не подтверждает бронь. Неизвестный исход создания/возврата не разрешает повтор POST без доказанной идемпотентности. Секреты и полные внешние payload не попадают в audit/logs.
+
+Подключение рассчитано на один аккаунт получателя. Реальные multi-resort settlements, split, комиссия банка/платформы и провайдерский чек ещё требуют R01/R16–R19. HTTP 202 возврата фиксирует принятие запроса, а не перевод денег. Регистрация, банковская приёмка и облачный деплой этого расширения не доказываются наличием кода; результаты и ограничения записываются в [verification.md](verification.md).

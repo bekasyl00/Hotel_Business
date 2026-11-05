@@ -2,6 +2,8 @@
 import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { occupancyState } from "@/entities/booking";
+import { isBankProvider } from "@/features/pay-booking";
+import { isDemo } from "@/shared/config";
 import { Modal } from "@/shared/ui";
 import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
 const props = defineProps({
@@ -188,18 +190,37 @@ const actionName = (action) =>
       <template v-else-if="tab === 'payment'"
         ><h3>
           {{
-            booking.payment?.status === "paid"
-              ? t("staff.demoPaid")
-              : booking.payment?.status === "failed"
-                ? t("staff.demoFailed")
-                : booking.payment?.status === "refunded"
-                  ? t("staff.demoRefunded")
-                  : t("staff.board.unpaid")
+            isBankProvider(booking.payment?.provider)
+              ? t(`common.payment.states.${booking.payment.checkoutStatus}`)
+              : booking.payment?.status === "paid"
+                ? t("staff.demoPaid")
+                : booking.payment?.status === "failed"
+                  ? t("staff.demoFailed")
+                  : booking.payment?.status === "refunded"
+                    ? t("staff.demoRefunded")
+                    : t("staff.board.unpaid")
           }}
         </h3>
         <p>{{ t("staff.amount") }}: {{ money(booking.total) }}</p>
+        <p v-if="isBankProvider(booking.payment?.provider)" class="field-help">
+          {{
+            t(
+              booking.payment.provider === "xpayment"
+                ? "common.payment.kaspiXPayment"
+                : "common.payment.halykSandbox",
+            )
+          }}
+        </p>
+        <p
+          v-if="
+            isBankProvider(booking.payment?.provider) &&
+            booking.payment.refundStatus
+          "
+        >
+          {{ t(`common.payment.refunds.${booking.payment.refundStatus}`) }}
+        </p>
         <p v-if="booking.payment?.refundedAmount">
-          {{ t("staff.demoRefund") }}:
+          {{ t("public.refunded") }}:
           {{ money(booking.payment.refundedAmount) }}
         </p>
         <RouterLink
@@ -209,7 +230,13 @@ const actionName = (action) =>
           >{{ t("staff.openReceipt") }}</RouterLink
         >
         <p class="field-help">
-          {{ t("staff.board.demoPaymentHint") }}
+          {{
+            t(
+              isDemo
+                ? "staff.board.demoPaymentHint"
+                : "common.payment.verificationHint",
+            )
+          }}
         </p></template
       >
       <form v-else-if="tab === 'notes'" @submit.prevent="emit('notes', notes)">
@@ -251,7 +278,17 @@ const actionName = (action) =>
         :disabled="busy"
         @click="emit('action', 'pay')"
       >
-        {{ t("staff.demoPayment") }}</button
+        {{ t(isDemo ? "staff.demoPayment" : "common.payment.title") }}</button
+      ><button
+        v-else-if="
+          booking.source === 'staff' &&
+          isBankProvider(booking.payment?.provider)
+        "
+        class="secondary"
+        :disabled="busy"
+        @click="emit('action', 'pay')"
+      >
+        {{ t("common.payment.details") }}</button
       ><button
         v-if="canCheckIn"
         class="primary"

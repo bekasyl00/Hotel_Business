@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Tynys sandbox payments",
-    "version": "1.0.0",
-    "description": "Halyk invoice-link sandbox; not production. Sandbox contacts are fixed fictional non-deliverable values; guests never submit card details to Django."
+    "title": "Tynys payments",
+    "version": "1.1.0",
+    "description": "Halyk sandbox and gated XPayment production integration. XPayment is not an official Kaspi API and has no documented monetary sandbox. Server verification required; no payment credentials or card details enter the frontend."
   },
   "servers": [
     {
@@ -51,7 +51,7 @@
             "description": "Expired, paid, conflict, or idempotency mismatch"
           },
           "503": {
-            "description": "Sandbox is not verified/configured"
+            "description": "Provider disabled, unverified or unconfigured"
           }
         }
       }
@@ -169,7 +169,7 @@
             "description": "Expired, paid, conflict, or idempotency mismatch"
           },
           "503": {
-            "description": "Sandbox is not verified/configured"
+            "description": "Provider disabled, unverified or unconfigured"
           }
         }
       }
@@ -276,6 +276,36 @@
           }
         }
       }
+    },
+    "/payments/providers/xpayment/callback": {
+      "post": {
+        "security": [
+          {
+            "xpaymentSignature": []
+          }
+        ],
+        "description": "HMAC-SHA256 over exact raw body, lowercase hex without prefix. <=16KiB. Durable delivery_id deduplication. Queues independent server lookup; even a signed test webhook never confirms a booking.",
+        "responses": {
+          "200": {
+            "description": "Accepted signal"
+          },
+          "401": {
+            "description": "Invalid signature"
+          },
+          "413": {
+            "description": "Body too large"
+          },
+          "422": {
+            "description": "Invalid event"
+          },
+          "429": {
+            "description": "Rate limited"
+          },
+          "503": {
+            "description": "Webhook not configured"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -343,10 +373,16 @@
             ]
           },
           "provider": {
-            "const": "halyk_epay"
+            "enum": [
+              "halyk_epay",
+              "xpayment"
+            ]
           },
           "environment": {
-            "const": "sandbox"
+            "enum": [
+              "sandbox",
+              "production"
+            ]
           },
           "status": {
             "enum": [
@@ -405,7 +441,32 @@
           "receiptUrl": {
             "type": "null"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "provider": {
+                  "const": "xpayment"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "environment": {
+                  "const": "production"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "environment": {
+                  "const": "sandbox"
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "securitySchemes": {
@@ -423,6 +484,11 @@
         "type": "http",
         "scheme": "bearer",
         "description": "Opaque guest or staff device token, audience-bound."
+      },
+      "xpaymentSignature": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-xPayment-Signature"
       }
     }
   }
