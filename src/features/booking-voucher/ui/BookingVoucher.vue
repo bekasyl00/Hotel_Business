@@ -209,13 +209,7 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <dt>
-              {{
-                t(
-                  voucher.paymentTerms.version === 1
-                    ? "common.voucher.online"
-                    : "common.payment.onlineAmount",
-                )
-              }}
+              {{ t("common.voucher.online") }}
             </dt>
             <dd>
               {{ money(voucher.paymentTerms.onlineAmount) }} ·

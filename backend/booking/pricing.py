@@ -1,6 +1,18 @@
 from datetime import timedelta
 
 
+def room_night_price(room, day, periods=None):
+    """The room-only price for one night; an ending period excludes its end date."""
+    if periods is None:
+        periods = room.price_periods.all()
+    period = next((p for p in periods if p.stay.lower <= day < p.stay.upper), None)
+    return {
+        "roomPrice": period.price if period else room.price,
+        "periodLabel": period.label if period else "",
+        "hasPricePeriod": period is not None,
+    }
+
+
 def quote_stay(room, tariff, start, end, guests, children_ages=None):
     """Called under the resort lock when committing a booking. End is exclusive."""
     periods = list(room.price_periods.all())
@@ -13,14 +25,14 @@ def quote_stay(room, tariff, start, end, guests, children_ages=None):
     lines = []
     for offset in range((end - start).days):
         day = start + timedelta(days=offset)
-        period = next((p for p in periods if p.stay.lower <= day < p.stay.upper), None)
-        room_price = period.price if period else room.price
+        room_line = room_night_price(room, day, periods)
+        room_price = room_line["roomPrice"]
         regular = room_price + supplement * chargeable_guests
         lines.append(
             {
                 "date": day.isoformat(),
                 "roomPrice": room_price,
-                "periodLabel": period.label if period else "",
+                "periodLabel": room_line["periodLabel"],
                 "supplementTotal": supplement * chargeable_guests,
                 "regularNightly": regular,
                 "nightly": (regular * (100 - discount) + 50) // 100,

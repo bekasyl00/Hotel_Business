@@ -286,8 +286,8 @@ async function load(quiet = false) {
       const { paymentReturn, ...query } = route.query;
       await router.replace({ query });
     }
-    accounts.value = data.accounts;
-    audit.value = data.audit;
+    accounts.value = session.isAdmin ? data.accounts : [];
+    audit.value = session.isAdmin ? data.audit : [];
     reviews.value = data.reviews || [];
     if (!catalog.resorts.some((r) => r.id === selected.value))
       selected.value =
@@ -456,7 +456,10 @@ onBeforeUnmount(() => {
         }}
       </div>
       <div
-        v-if="!titles[section] || (section === 'accounts' && !session.isAdmin)"
+        v-if="
+          !titles[section] ||
+          (['accounts', 'history'].includes(section) && !session.isAdmin)
+        "
         class="surface work-empty"
       >
         <h1>{{ t("staff.sectionUnavailable") }}</h1>
@@ -1257,6 +1260,7 @@ onBeforeUnmount(() => {
   >
   <StayCard
     :read-only="session.isAccountant"
+    :can-view-history="session.isAdmin"
     v-if="focusedBooking"
     :booking="focusedBooking"
     :audit="audit"

@@ -11,9 +11,9 @@ export function staffNavigation(role) {
     ["rooms", "▦", "staff.rooms"],
     planner,
     ["reviews", "☆", "staff.reviews"],
-    ["history", "◷", "staff.history"],
     ...(role === "admin"
       ? [
+          ["history", "◷", "staff.history"],
           ["clients", "♧", "staff.directory.clients"],
           ["accounts", "♙", "staff.managers"],
         ]

@@ -369,12 +369,13 @@ class AccountInput(serializers.Serializer):
     password = serializers.CharField(min_length=12, max_length=128, required=False, write_only=True)
 
     def validate_login(self, value):
-        existing = User.objects.filter(email__iexact=value)
+        value = value.strip().lower()
+        existing = User.objects.filter(Q(email__iexact=value) | Q(username__iexact=value))
         if self.instance:
             existing = existing.exclude(pk=self.instance.pk)
         if existing.exists():
             raise serializers.ValidationError("Этот email уже используется.")
-        return value.lower()
+        return value
 
 
 class BookingInput(serializers.Serializer):

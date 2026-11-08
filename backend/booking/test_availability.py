@@ -66,8 +66,8 @@ class AvailabilityCalendarTests(TestCase):
         self.new_room("202", "comfort")
         self.new_room("203", capacity=1)
         self.new_room("204", status="maintenance")
-        # Three queries: resort, matching room IDs, overlapping booking ranges.
-        with self.assertNumQueries(3):
+        # Four bounded reads: resort, eligible rooms, monthly prices, booking ranges.
+        with self.assertNumQueries(4):
             response = self.get()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["totalRooms"], 1)
@@ -81,6 +81,11 @@ class AvailabilityCalendarTests(TestCase):
                 "availableRooms",
                 "departureRooms",
                 "bookable",
+                "price",
+                "regularPrice",
+                "priceKind",
+                "hasPricePeriod",
+                "periodLabel",
             },
         )
         self.assertIn("no-store", response["Cache-Control"])

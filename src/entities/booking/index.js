@@ -1,5 +1,11 @@
 export { useBookingStore } from "./model/store.js";
-export { paymentTerms } from "./model/payment-terms.js";
+export {
+  paymentTerms,
+  customerPrice,
+  customerQuote,
+  customerNightPrice,
+} from "./model/payment-terms.js";
+export { default as CustomerNightPrice } from "./ui/CustomerNightPrice.vue";
 export {
   dateAfter,
   validateSearch,

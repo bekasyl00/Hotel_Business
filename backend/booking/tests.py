@@ -293,6 +293,9 @@ class ApiTests(TestCase):
         )
         self.assertEqual(result.status_code, 201, result.content)
         r = result.json()
+        self.assertEqual(self.client.get("/api/workspace").status_code, 401)
+        self.admin.refresh_from_db()
+        self.staff(self.admin)
         self.assertEqual(
             self.write(
                 "patch", "/api/resorts/" + r["id"], {"version": 1, "status": "published"}

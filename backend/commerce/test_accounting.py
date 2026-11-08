@@ -14,6 +14,7 @@ from booking.test_helpers import unrelated_owner
 from commerce.accounting.rendering import amount_words, pdf_bytes, xlsx_bytes
 from commerce.accounting.services import prepare_after_stay
 from commerce.models import AccountingDocument, DemoPayment
+from commerce.test_document_helpers import complete_roster, document_key
 from commerce.tests import fixture
 
 COMPANY = {
@@ -28,6 +29,7 @@ COMPANY = {
 
 class AccountingTests(TestCase):
     def setUp(self):
+        document_key(self)
         self.resort, self.booking, self.manager = fixture()
         self.accountant = User.objects.create_user(
             username="accountant@example.test",
@@ -57,6 +59,7 @@ class AccountingTests(TestCase):
         self.booking.checked_in_at = timezone.now() - timedelta(days=1)
         self.booking.checked_out_at = timezone.now()
         self.booking.save()
+        complete_roster(self.booking, self.accountant)
 
     def doc(self, kind="act"):
         response = self.write(

@@ -74,6 +74,8 @@ class ReceiptTests(TestCase):
         self.assertEqual(stranger.get(url).status_code, 404)
         self.manager.role = "admin"
         self.manager.save()
+        self.assertEqual(stranger.get(url).status_code, 404)
+        stranger.force_login(self.manager)
         self.assertEqual(stranger.get(url).status_code, 200)
 
     def test_receipt_pdf_attachment_has_embedded_unicode_font(self):

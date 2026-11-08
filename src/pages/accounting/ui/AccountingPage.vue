@@ -4,6 +4,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { DocumentFiles } from "@/shared/ui";
 import { AccountingLedger } from "@/features/accounting-ledger";
+import { DocumentGuests } from "@/features/document-guests";
 import { StaffShell } from "@/widgets/staff-shell";
 import { useSessionStore } from "@/entities/session";
 import { request, requestFile } from "@/shared/api";
@@ -18,7 +19,9 @@ const data = ref(null),
   busy = ref(false),
   company = ref(null),
   companyBusy = ref(false),
-  companyError = ref("");
+  companyError = ref(""),
+  documentBooking = ref(null),
+  documentGuestsBusy = ref(false);
 const today = new Date().toLocaleDateString("en-CA", {
   timeZone: "Asia/Almaty",
 });
@@ -274,6 +277,13 @@ onMounted(() => load());
                   <td>
                     <div class="document-actions">
                       <button
+                        class="secondary"
+                        :disabled="busy || isDemo"
+                        @click="documentBooking = b"
+                      >
+                        {{ t("common.documentGuests.open") }}
+                      </button>
+                      <button
                         v-for="kind in ['act', 'invoice', 'cash_order']"
                         :key="kind"
                         class="secondary"
@@ -376,6 +386,19 @@ onMounted(() => load());
           </p>
         </section>
       </template>
+      <Modal
+        v-if="documentBooking"
+        wide
+        :title="t('common.documentGuests.title')"
+        :busy="documentGuestsBusy"
+        @close="documentBooking = null"
+      >
+        <DocumentGuests
+          :booking-id="documentBooking.id"
+          :guest-name="documentBooking.guest"
+          @busy="documentGuestsBusy = $event"
+        />
+      </Modal>
       <Modal
         v-if="company"
         :title="t('common.accounting.company')"

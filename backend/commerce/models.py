@@ -242,6 +242,17 @@ class PaymentJob(Record):
         indexes = [models.Index(fields=["state", "available_at"])]
 
 
+class DocumentGuestRoster(Record):
+    """Restricted encrypted identity/requisites for preparation of booking documents."""
+
+    booking = models.OneToOneField(
+        Booking, on_delete=models.PROTECT, related_name="document_guest_roster"
+    )
+    ciphertext = models.TextField()
+    updated_by = models.ForeignKey("booking.User", on_delete=models.PROTECT)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
 class AccountingCompany(models.Model):
     resort = models.OneToOneField("booking.Resort", on_delete=models.PROTECT, primary_key=True)
     details = models.JSONField(default=dict)

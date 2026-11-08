@@ -6,7 +6,6 @@ import { useRoute, useRouter } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { MediaGallery } from "@/widgets/media-gallery";
 import { AvailabilityCalendar } from "@/widgets/availability-calendar";
-import { SeasonalPrices } from "@/widgets/seasonal-prices";
 import { BookingEditor } from "@/features/create-booking";
 import {
   dateAfter,
@@ -14,8 +13,12 @@ import {
   nightsBetween,
   quoteStay,
   paymentTerms,
+  customerQuote,
+  customerNightPrice,
+  CustomerNightPrice,
 } from "@/entities/booking";
 import { request } from "@/shared/api";
+import { isDemo } from "@/shared/config";
 import { useGuestAccountStore } from "@/entities/guest-account";
 const guestAccount = useGuestAccountStore();
 import { money, categoryNames, whatsAppUrl, twoGisUrl } from "@/shared/lib";
@@ -51,16 +54,18 @@ const quotedTariffs = computed(() =>
     const quote = room.value ? quoteStay(room.value, offer, dates) : null;
     return {
       ...offer,
-      quote,
-      settlement: quote ? paymentTerms(resort.value, quote.total) : null,
+      quote: customerQuote(resort.value, quote),
+      arrivalPrice: customerNightPrice(resort.value, room.value, offer, dates),
     };
   }),
 );
 const settlement = computed(() =>
   price.value ? paymentTerms(resort.value, price.value.total) : null,
 );
-const nightly = computed(() => price.value?.nightly);
-const originalNight = computed(() => price.value?.regularNightly);
+const displayPrice = computed(() => customerQuote(resort.value, price.value));
+const arrivalPrice = computed(() =>
+  customerNightPrice(resort.value, room.value, tariff.value, dates),
+);
 const nights = computed(
   () => Math.max(0, nightsBetween(dates.start, dates.end)) || 0,
 );
@@ -289,19 +294,12 @@ watch(() => route.params.id, load, { immediate: true });
               :end="dates.end"
               @select="selectCalendarDates"
             />
-            <SeasonalPrices
-              :room="room"
-              :start="dates.start"
-              :end="dates.end"
-              expanded
-            />
             <section class="profile-section">
               <h2>{{ t("public.chooseARate") }}</h2>
               <p class="field-help">
                 {{
                   t("public.thePriceIsPerRoomPerNightForYourSelectedGuestCount")
                 }}
-                {{ t("common.pricing.feeExcludedNightly") }}
               </p>
               <div v-if="!tariffs.length" class="profile-feedback">
                 {{
@@ -329,19 +327,6 @@ watch(() => route.params.id, load, { immediate: true });
                   <div>
                     <div class="section-title-row">
                       <h3>{{ offer.name }}</h3>
-                      <span
-                        v-if="
-                          offer.priceKind === 'discount' &&
-                          offer.discountPercent
-                        "
-                        :class="[
-                          'price-kind',
-                          { discount: offer.priceKind === 'discount' },
-                        ]"
-                        >{{
-                          t("public.discount", [offer.discountPercent])
-                        }}</span
-                      >
                     </div>
                     <p>{{ offer.description }}</p>
                     <ul>
@@ -349,31 +334,12 @@ watch(() => route.params.id, load, { immediate: true });
                         {{ feature }}
                       </li>
                     </ul>
-                    <div class="tariff-price">
-                      <del
-                        v-if="
-                          offer.discountPercent &&
-                          offer.quote?.regularNightly != null
-                        "
-                        >{{ money(offer.quote.regularNightly) }}</del
-                      ><strong>{{
-                        !offer.quote
-                          ? "—"
-                          : offer.quote.nightly == null
-                            ? t("common.pricing.varies")
-                            : money(offer.quote.nightly)
-                      }}</strong
-                      ><small v-if="offer.quote?.nightly != null">
-                        {{ t("public.night") }}</small
-                      >
-                    </div>
+                    <CustomerNightPrice :price="offer.arrivalPrice" />
                     <p v-if="offer.quote" class="field-help">
                       {{
                         t("common.pricing.selectedStayTotal", {
                           nights: offer.quote.nights,
-                          total: money(
-                            offer.settlement?.total ?? offer.quote.total,
-                          ),
+                          total: money(offer.quote.total),
                         })
                       }}
                     </p>
@@ -402,7 +368,7 @@ watch(() => route.params.id, load, { immediate: true });
                   ><span>{{ t("public.lessThan24Hours") }}</span>
                 </div>
               </div>
-              <p class="field-help">
+              <p v-if="isDemo" class="field-help">
                 {{
                   t(
                     "public.kaspiDemoSimulatesPaymentsAndRefundsNoRealMoneyIsCharged",
@@ -414,19 +380,9 @@ watch(() => route.params.id, load, { immediate: true });
           <aside class="profile-aside">
             <form class="stay-summary" @submit.prevent="checkDates">
               <span class="eyebrow">{{ t("public.yourStay") }}</span>
-              <h2>
-                {{
-                  nightly == null ? t("common.pricing.varies") : money(nightly)
-                }}<small> {{ t("public.night") }}</small>
-              </h2>
-              <del
-                v-if="tariff?.discountPercent && originalNight != null"
-                class="muted"
-                >{{ money(originalNight) }}</del
-              >
+              <CustomerNightPrice :price="arrivalPrice" prominent />
               <p class="field-help">
                 {{ t("common.pricing.childrenAtCheckout") }}
-                {{ t("common.pricing.feeExcludedNightly") }}
               </p>
               <div class="stay-date-form compact">
                 <label
@@ -491,10 +447,10 @@ watch(() => route.params.id, load, { immediate: true });
                 ><div class="stay-total">
                   <span
                     >{{ t("common.settlement.total") }} · {{ nights }}
-                    {{ t("public.nights") }}</span
+                    {{ t("public.nightsInBookingEditor") }}</span
                   >
                   <strong>{{
-                    price ? money(settlement?.total ?? price.total) : "—"
+                    displayPrice ? money(displayPrice.total) : "—"
                   }}</strong>
                 </div>
                 <dl v-if="settlement" class="stay-settlement">
@@ -516,7 +472,7 @@ watch(() => route.params.id, load, { immediate: true });
                   {{ t("public.sendRequest") }}
                 </button></template
               >
-              <p class="field-help">
+              <p v-if="isDemo" class="field-help">
                 {{
                   t(
                     "public.managerConfirmationComesFirstThenPaymentOnlySimulatedPaymentsAreAvailableNow",

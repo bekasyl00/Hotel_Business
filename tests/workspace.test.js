@@ -76,6 +76,7 @@ test("manager sees only assigned tenant and cannot mutate foreign records or acc
   );
   assert.ok(data.rooms.every((r) => r.resortId === "altun"));
   assert.equal(data.accounts.length, 0);
+  assert.deepEqual(data.audit, []);
   await assert.rejects(
     api("POST", "/resorts", newResort),
     (e) => e.status === 403,

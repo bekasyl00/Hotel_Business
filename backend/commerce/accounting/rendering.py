@@ -96,10 +96,37 @@ def notice(doc):
 def workbook(doc):
     wb = load_workbook(ROOT / "templates" / f"{doc.kind}.xlsx")
     ws = wb.active
+    buyer = {}
+    if doc.snapshot.get("buyerEncrypted"):
+        from .private_data import unseal
+
+        buyer = unseal(
+            doc.snapshot["buyerEncrypted"], context=f"buyer:{doc.booking_id}:{doc.number}"
+        )
+        # The selected buyer only: other occupants' identities never enter an export.
+        if doc.kind == "invoice":
+            ws["A18"] = "Грузополучатель: {buyer_consignee}"
+            ws["A20"] = "Получатель: {buyer_name_address}"
+            ws["A21"] = "ИИН получателя: {buyer_iin}"
+            ws["A22"] = "ИИК получателя: {buyer_iban}, в банке {buyer_bank}, БИК {buyer_bik}"
+        elif doc.kind == "act":
+            ws["E9"] = "{buyer_details}"
+            ws["AQ9"] = "{buyer_iin}"
     values = {
         **doc.snapshot,
         "notice": notice(doc),
         "amount_words": amount_words(doc.snapshot["amount"]),
+        **({"guest": buyer["fullName"]} if buyer else {}),
+        **{f"buyer_{field}": buyer.get(field, "") for field in ("iin", "iban", "bank", "bik")},
+        "buyer_consignee": ", ".join(
+            buyer.get(field, "") for field in ("fullName", "iin", "address") if buyer.get(field)
+        ),
+        "buyer_name_address": ", ".join(
+            buyer.get(field, "") for field in ("fullName", "address") if buyer.get(field)
+        ),
+        "buyer_details": ", ".join(
+            buyer.get(field, "") for field in ("fullName", "address", "phone") if buyer.get(field)
+        ),
     }
     for row in ws:
         for cell in row:
@@ -146,9 +173,19 @@ def pdf_bytes(doc):
     canvas.setTitle(doc.number)
     canvas.setAuthor("Tynys")
     width, height = size
-    canvas.setFont("TynysNotoBold", 9)
-    canvas.setFillColorRGB(0.55, 0.12, 0.1)
-    canvas.drawString(22, height - 22, notice(doc))
+    header = Paragraph(
+        escape(notice(doc)),
+        ParagraphStyle(
+            "documentNotice",
+            fontName="TynysNotoBold",
+            fontSize=9,
+            leading=12,
+            textColor="#8c1f1a",
+        ),
+    )
+    _, header_height = header.wrap(width - 44, height)
+    header.drawOn(canvas, 22, height - 16 - header_height)
+    table_top = height - 16 - header_height - 12
     columns = [0.0]
     for col in range(1, ws.max_column + 1):
         dim = ws.column_dimensions.get(get_column_letter(col))
@@ -156,8 +193,8 @@ def pdf_bytes(doc):
     rows = [0.0]
     for row in range(1, ws.max_row + 1):
         rows.append(rows[-1] + (ws.row_dimensions[row].height or 15))
-    scale = min((width - 44) / columns[-1], (height - 65) / rows[-1])
-    canvas.translate(22, height - 40)
+    scale = min((width - 44) / columns[-1], (table_top - 25) / rows[-1])
+    canvas.translate(22, table_top)
     canvas.scale(scale, scale)
     merged = {(r.min_row, r.min_col): r for r in ws.merged_cells.ranges}
     for row in ws:

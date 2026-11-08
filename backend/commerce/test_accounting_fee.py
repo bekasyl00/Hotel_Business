@@ -13,11 +13,13 @@ from commerce.accounting.services import snapshot
 from commerce.models import AccountingDocument, DemoPayment, OnsiteSettlement
 from commerce.settlement import freeze_payment_terms
 from commerce.test_accounting import COMPANY
+from commerce.test_document_helpers import complete_roster, document_key
 from commerce.tests import fixture
 
 
 class AccountingFeeTests(TestCase):
     def setUp(self):
+        document_key(self)
         self.resort, self.booking, self.manager = fixture()
         self.resort.commission_percent = Decimal("10")
         self.resort.save()
@@ -103,6 +105,7 @@ class AccountingFeeTests(TestCase):
         self.assertEqual(result["platformFeeRefundedAmount"], 2520)
 
     def test_release_waits_for_onsite_attestation_and_keeps_released_copy_immutable(self):
+        complete_roster(self.booking, self.manager)
         self.paid_fee()
         self.booking.checked_in_at = timezone.now() - timedelta(days=1)
         self.booking.checked_out_at = timezone.now()

@@ -6,6 +6,7 @@ from django.contrib.postgres.constraints import ExclusionConstraint
 from django.contrib.postgres.fields import DateRangeField, RangeOperators
 from django.db import models
 from django.db.models import Q
+from django.utils.crypto import salted_hmac
 
 
 def new_id():
@@ -75,6 +76,15 @@ class User(AbstractUser):
     version = models.PositiveIntegerField(default=1)
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["username"]
+
+    def _get_session_auth_hash(self, secret=None):
+        # Versioned staff changes invalidate browser cookies as well as native credentials.
+        return salted_hmac(
+            "booking.User.get_session_auth_hash",
+            f"{self.password}:{self.version}:{self.email}:{self.role}",
+            secret=secret,
+            algorithm="sha256",
+        ).hexdigest()
 
 
 class Room(Record):

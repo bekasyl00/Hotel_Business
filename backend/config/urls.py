@@ -9,6 +9,7 @@ from booking.media import MediaFile, MediaUpload, ProfileAvatar
 from booking.mobile_auth import MobileAuthView, MobileSessionView
 from booking.staff_mobile_auth import StaffMobileAuthView, StaffMobileSessionView
 from booking.views import Endpoint
+from commerce.accounting.document_guests import DocumentGuestsView
 from commerce.accounting.views import AccountingView, BookingDocumentsView, GuestDocumentsView
 from commerce.payment_views import HalykCallbackView, PaymentView
 from commerce.scheduler import tick
@@ -19,6 +20,7 @@ from commerce.xpayment_webhook import XPaymentCallbackView
 from .health import live, ready
 
 api_patterns = [
+    path("bookings/<str:pk>/document-guests", DocumentGuestsView.as_view()),
     path("bookings/<str:pk>/voucher", VoucherView.as_view()),
     path("bookings/<str:pk>/voucher/pdf", VoucherView.as_view(), {"pdf": True}),
     path("bookings/<str:pk>/onsite-payment", OnsitePaymentView.as_view()),

@@ -114,6 +114,8 @@ def document_data(doc):
 def snapshot(booking, number):
     from commerce.settlement import payment_terms
 
+    from .document_guests import buyer_snapshot
+
     company = AccountingCompany.objects.filter(resort=booking.resort).first()
     details = company.details if company else {}
     total = int(booking.snapshot.get("total", 0))
@@ -174,6 +176,7 @@ def snapshot(booking, number):
         "paymentTerms": terms,
         "checkedOutAt": booking.checked_out_at.isoformat() if booking.checked_out_at else None,
         "companyVersion": company.version if company else 0,
+        **buyer_snapshot(booking, number),
     }
 
 
@@ -247,6 +250,9 @@ def change_document(request, pk, action):
         if doc.state != "draft":
             raise Problem("Опубликованный документ неизменяем; отмените и создайте новый.", 409)
         if action == "release":
+            from .document_guests import require_complete_roster
+
+            require_complete_roster(doc.booking)
             if doc.kind == "cash_order":
                 raise Problem(
                     "ПКО требует подтверждённого учёта наличных; банковская оплата его не заменяет.",

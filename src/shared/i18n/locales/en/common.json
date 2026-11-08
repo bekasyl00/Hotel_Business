@@ -102,13 +102,17 @@
     "breakdown": "Night-by-night price",
     "varies": "Price varies by night",
     "preview": "Estimated price. The server checks current rates on submission and freezes them in the booking.",
-    "baseRoomPrice": "base price / night, excluding tariff; dated prices apply after choosing dates",
+    "baseRoomPrice": "per room per night; the price for your dates is shown below",
     "childrenAtCheckout": "Children’s ages and free child tariffs are applied in the booking form.",
-    "publicPeriodHint": "Room price per night. Dates show the first and last night of each period; selected rate supplements are calculated separately.",
+    "publicPeriodHint": "Room price for one night. Dates show the first and last night of each period. Your total for the selected dates and stay option is shown when booking.",
     "inSelectedStay": "Applies to your dates",
     "outsidePeriods": "Outside these periods: {price} per room per night.",
     "selectedStayTotal": "For {nights} nights: {total}",
-    "feeExcludedNightly": "Nightly prices exclude the platform fee."
+    "averageNight": "per night on average",
+    "nightOnDate": "Night of {date}",
+    "seasonalPrice": "Seasonal price",
+    "beforePrice": "Price before reduction: {price}",
+    "nightToday": "per night · today"
   },
   "checkout": {
     "commissionPercent": "Platform commission, %",
@@ -174,9 +178,9 @@
     "details": "Payment details",
     "openXPaymentSandbox": "Open test checkout",
     "xpaymentSandboxExplanation": "The test link shows the amount and status. Set the test payment result in the XPayment sandbox dashboard. After a successful simulation, the server verifies the payment and automatically confirms the booking.",
-    "onlineAmount": "Pay online",
-    "totalAmount": "Total to pay",
-    "onsiteAmount": "Pay at the sanatorium",
+    "onlineAmount": "Pay now",
+    "totalAmount": "Total price",
+    "onsiteAmount": "At the resort",
     "howItWorks": "How payment works",
     "progressLabel": "Payment steps",
     "refreshRefund": "Check refund",
@@ -196,7 +200,7 @@
       "verifying": "Checking your payment",
       "succeeded": "Payment confirmed"
     },
-    "onlineCommission": "Online booking fee"
+    "onlineCommission": "Online payment"
   },
   "gallery": {
     "previous": "Previous",
@@ -344,11 +348,11 @@
     "moreAboutStay": "More about your stay"
   },
   "settlement": {
-    "total": "Total cost",
-    "online": "Online booking fee",
-    "onsite": "Pay at the property",
-    "feeHelp": "The fee is added to accommodation. Only the fee is paid online; accommodation is paid directly to the property on arrival.",
-    "notConfigured": "Online booking will be available once the property booking fee is configured."
+    "total": "Total price",
+    "online": "Pay now",
+    "onsite": "At the resort",
+    "feeHelp": "Pay the indicated amount now and the rest at the resort. Both amounts are already included in the total price.",
+    "notConfigured": "Online booking for this resort is not available yet."
   },
   "voucher": {
     "open": "Booking voucher",
@@ -360,9 +364,9 @@
     "dates": "Stay dates",
     "checkIn": "Check-in from",
     "guests": "Guests",
-    "total": "Total to pay",
-    "online": "Online booking fee",
-    "onsite": "Pay at the sanatorium",
+    "total": "Total price",
+    "online": "Online payment",
+    "onsite": "At the resort",
     "paid": "paid",
     "unpaid": "unpaid",
     "recordedShort": "received",
@@ -384,5 +388,37 @@
     "record": "Confirm receipt",
     "recorded": "Payment receipt recorded.",
     "retry": "Try again"
+  },
+  "documentGuests": {
+    "title": "Guest details for documents",
+    "open": "Guest details",
+    "hint": "Enter guest details for the invoice, service act and cash order. Customers do not enter these details during booking.",
+    "requiredHint": "Issuing documents requires each guest’s full name and IIN, a selected payer and the payer’s address. Incomplete details can be saved as a draft.",
+    "demoUnavailable": "These details are not saved in demo mode. Enter them only in the connected staff workspace.",
+    "loading": "Loading guest details…",
+    "guest": "Guest {number}",
+    "fullName": "Full name",
+    "iin": "IIN · 12 digits",
+    "address": "Address",
+    "optional": "Phone and bank details · optional",
+    "phone": "Phone",
+    "iban": "IBAN",
+    "bank": "Bank",
+    "bik": "BIC",
+    "buyer": "Payer on documents",
+    "chooseBuyer": "Select a guest",
+    "savedDocumentHint": "Changes apply to new and refreshed drafts. Documents already issued stay unchanged.",
+    "saved": "Details saved.",
+    "save": "Save details",
+    "saving": "Saving…",
+    "reload": "Load current details",
+    "retry": "Retry loading",
+    "conflict": "Another staff member changed these details. Your input remains on screen. Load the current version before saving again.",
+    "invalidGuests": "Enter details for 1 to 4 guests.",
+    "invalidBuyer": "Select a payer from the guest list.",
+    "tooLong": "Check the field lengths for guest {number}.",
+    "invalidIin": "Guest {number}: IIN must contain exactly 12 digits.",
+    "invalidIban": "Guest {number}: IBAN must start with KZ followed by 18 letters or digits.",
+    "invalidBik": "Guest {number}: BIC must contain 8 or 11 letters or digits."
   }
 }

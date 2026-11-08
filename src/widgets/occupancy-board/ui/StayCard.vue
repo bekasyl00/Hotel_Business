@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { occupancyState } from "@/entities/booking";
 import { BookingDocuments } from "@/features/booking-documents";
+import { DocumentGuests } from "@/features/document-guests";
 import { BookingVoucher, canOpenVoucher } from "@/features/booking-voucher";
 import { isBankProvider } from "@/features/pay-booking";
 import { isDemo } from "@/shared/config";
@@ -13,6 +14,7 @@ const props = defineProps({
   audit: Array,
   busy: Boolean,
   readOnly: Boolean,
+  canViewHistory: Boolean,
   canCheckIn: Boolean,
   canPay: Boolean,
   error: String,
@@ -20,15 +22,29 @@ const props = defineProps({
 const emit = defineEmits(["close", "action", "notes", "saved"]);
 const { t } = useI18n();
 const tab = ref("main"),
+  documentGuestsBusy = ref(false),
   notes = ref(props.booking.staffNotes || "");
 const tabs = computed(() =>
   props.readOnly
     ? ["main", "guests", "calculation", "payment"]
-    : ["main", "guests", "calculation", "payment", "notes", "history"],
+    : [
+        "main",
+        "guests",
+        "calculation",
+        "payment",
+        "notes",
+        ...(props.canViewHistory ? ["history"] : []),
+      ],
 );
 const state = computed(() => occupancyState(props.booking));
 const history = computed(() =>
-  props.audit.filter((a) => a.entityId === props.booking.id),
+  (props.audit || []).filter((a) => a.entityId === props.booking.id),
+);
+watch(
+  () => props.canViewHistory,
+  (allowed) => {
+    if (!allowed && tab.value === "history") tab.value = "main";
+  },
 );
 watch(
   () => props.booking.staffNotes,
@@ -53,7 +69,7 @@ const actionName = (action) =>
   <Modal
     wide
     :title="t('staff.board.cardTitle', { room: booking.unit })"
-    :busy="busy"
+    :busy="busy || documentGuestsBusy"
     @close="emit('close')"
   >
     <div class="stay-card-intro">
@@ -71,6 +87,7 @@ const actionName = (action) =>
       <button
         v-for="key in tabs"
         :key="key"
+        :disabled="documentGuestsBusy"
         :aria-current="tab === key ? 'page' : undefined"
         @click="tab = key"
       >
@@ -152,8 +169,13 @@ const actionName = (action) =>
           v-if="booking.guestProfileId && !readOnly"
           :to="`/staff/guests/${booking.guestProfileId}`"
           >{{ t("staff.guestProfile") }}</RouterLink
-        ></template
-      >
+        >
+        <DocumentGuests
+          :booking-id="booking.id"
+          :guest-name="booking.guestLabel"
+          @busy="documentGuestsBusy = $event"
+        />
+      </template>
       <template v-else-if="tab === 'calculation'"
         ><p>{{ t("staff.board.frozenPrice") }}</p>
         <p v-if="booking.tariffName" class="field-help">
@@ -275,7 +297,7 @@ const actionName = (action) =>
             v-model="notes"
             rows="6"
             maxlength="2000"
-            :disabled="busy"
+            :disabled="busy || documentGuestsBusy"
           ></textarea>
         </label>
         <p class="field-help">
@@ -283,12 +305,14 @@ const actionName = (action) =>
         </p>
         <button
           class="primary"
-          :disabled="busy || notes === (booking.staffNotes || '')"
+          :disabled="
+            busy || documentGuestsBusy || notes === (booking.staffNotes || '')
+          "
         >
           {{ t("staff.board.saveNotes") }}
         </button>
       </form>
-      <template v-else
+      <template v-else-if="tab === 'history' && canViewHistory"
         ><p class="field-help">{{ t("staff.board.historyHint") }}</p>
         <ol class="stay-history">
           <li v-for="entry in history" :key="entry.id">
@@ -304,7 +328,7 @@ const actionName = (action) =>
       <button
         v-if="canPay"
         class="primary"
-        :disabled="busy"
+        :disabled="busy || documentGuestsBusy"
         @click="emit('action', 'pay')"
       >
         {{ t(isDemo ? "staff.demoPayment" : "common.payment.title") }}</button
@@ -314,21 +338,21 @@ const actionName = (action) =>
           isBankProvider(booking.payment?.provider)
         "
         class="secondary"
-        :disabled="busy"
+        :disabled="busy || documentGuestsBusy"
         @click="emit('action', 'pay')"
       >
         {{ t("common.payment.details") }}</button
       ><button
         v-if="canCheckIn"
         class="primary"
-        :disabled="busy"
+        :disabled="busy || documentGuestsBusy"
         @click="emit('action', 'check-in')"
       >
         {{ t("staff.checkIn") }}</button
       ><button
         v-if="booking.stayStatus === 'in_house'"
         class="primary"
-        :disabled="busy"
+        :disabled="busy || documentGuestsBusy"
         @click="emit('action', 'check-out')"
       >
         {{ t("staff.checkOut") }}</button
@@ -338,11 +362,15 @@ const actionName = (action) =>
           !booking.checkedInAt
         "
         class="text-button danger"
-        :disabled="busy"
+        :disabled="busy || documentGuestsBusy"
         @click="emit('action', 'cancel')"
       >
         {{ t("staff.cancelBookingTitle") }}</button
-      ><button class="secondary" :disabled="busy" @click="emit('close')">
+      ><button
+        class="secondary"
+        :disabled="busy || documentGuestsBusy"
+        @click="emit('close')"
+      >
         {{ t("staff.close") }}
       </button>
     </div>

@@ -6,10 +6,18 @@ import { useRoute } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { MediaGallery } from "@/widgets/media-gallery";
 import { AvailabilityCalendar } from "@/widgets/availability-calendar";
-import { SeasonalPrices } from "@/widgets/seasonal-prices";
-import { dateAfter, validateSearch, nightsBetween } from "@/entities/booking";
+import {
+  dateAfter,
+  validateSearch,
+  nightsBetween,
+  customerNightPrice,
+  CustomerNightPrice,
+  customerQuote,
+  quoteStay,
+} from "@/entities/booking";
 import { GeoMap } from "@/shared/ui";
 import { request } from "@/shared/api";
+import { isDemo } from "@/shared/config";
 import {
   money,
   dateLabel,
@@ -32,12 +40,18 @@ const dates = reactive({
 });
 const resort = computed(() => data.value?.resort);
 const rooms = computed(() =>
-  (data.value?.rooms || []).filter(
-    (room) =>
-      room.status === "active" &&
-      (roomClass.value === "all" || room.category === roomClass.value) &&
-      (available.value === null || available.value.includes(room.id)),
-  ),
+  (data.value?.rooms || [])
+    .filter(
+      (room) =>
+        room.status === "active" &&
+        (roomClass.value === "all" || room.category === roomClass.value) &&
+        (available.value === null || available.value.includes(room.id)),
+    )
+    .map((room) => ({
+      ...room,
+      displayPrice: customerQuote(resort.value, quoteStay(room, null, dates)),
+      arrivalPrice: customerNightPrice(resort.value, room, null, dates),
+    })),
 );
 const reviews = computed(() => data.value?.reviews || []);
 const rating = computed(() =>
@@ -351,22 +365,20 @@ watch(() => route.params.id, load, { immediate: true });
                     }}
                   </p>
                   <div class="profile-room-footer">
-                    <span
-                      ><strong>{{ money(room.price) }}</strong
-                      ><small>
-                        {{ t("common.pricing.baseRoomPrice") }}</small
-                      ></span
-                    ><RouterLink
+                    <CustomerNightPrice :price="room.arrivalPrice" /><RouterLink
                       class="secondary button-link"
                       :to="roomLink(room)"
                       >{{ t("public.chooseRoom") }}</RouterLink
                     >
                   </div>
-                  <SeasonalPrices
-                    :room="room"
-                    :start="dates.start"
-                    :end="dates.end"
-                  />
+                  <p v-if="room.displayPrice" class="field-help">
+                    {{
+                      t("common.pricing.selectedStayTotal", {
+                        nights: room.displayPrice.nights,
+                        total: money(room.displayPrice.total),
+                      })
+                    }}
+                  </p>
                 </div>
               </article>
             </section>
@@ -465,10 +477,13 @@ watch(() => route.params.id, load, { immediate: true });
                   <li>{{ t("public.24To48Hours70Refund") }}</li>
                   <li>{{ t("public.lessThan24HoursNoRefund") }}</li>
                 </ul>
-                <p class="small muted">
+                <p v-if="isDemo" class="small muted">
                   {{
                     t("public.paymentsAndRefundsCurrentlyWorkInDemoModeOnly")
                   }}
+                </p>
+                <p v-else class="small muted">
+                  {{ t("public.refundOnlineAmountOnly") }}
                 </p>
               </div>
             </div>

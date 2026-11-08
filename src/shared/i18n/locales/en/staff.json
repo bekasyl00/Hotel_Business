@@ -466,6 +466,8 @@
     "cancel": "Cancel",
     "description": "All platform clients, their accounts and booking history.",
     "find": "Search",
-    "lastLogin": "Last sign-in"
+    "lastLogin": "Last sign-in",
+    "email": "Sign-in email",
+    "emailHelp": "An administrator can change this employee’s email. After saving, the employee signs in again with the new address; their profile and resorts stay linked."
   }
 }

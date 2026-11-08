@@ -543,7 +543,7 @@ export function createDemoTransport({
           (item) => user.role === "accountant" || scoped(item),
         ),
         accounts: user.role === "admin" ? db.accounts : [],
-        audit: user.role === "accountant" ? [] : db.audit.filter(scoped),
+        audit: user.role === "admin" ? db.audit.filter(scoped) : [],
         reviews: user.role === "accountant" ? [] : db.reviews.filter(scoped),
       });
     }

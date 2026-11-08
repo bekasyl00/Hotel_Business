@@ -314,7 +314,7 @@
     "unavailable": "Check-in unavailable",
     "freeCount": "Available rooms: {count}",
     "departure": "Check-out available; rooms for the whole stay: {count}",
-    "hint": "Nights for your selected class and capacity. An arrow marks a possible check-out day; that night is not charged. Availability is checked again when booking.",
+    "hint": "Price for a room in the selected class, excluding extra services. ↗ marks a possible departure: that night is not charged. Availability is checked when booking.",
     "month1": "January",
     "month2": "February",
     "month3": "March",
@@ -335,6 +335,16 @@
     "weekday5": "Sat",
     "weekday6": "Sun",
     "roomTitle": "This room’s calendar",
-    "roomHint": "Availability for this room only. An arrow marks a possible check-out day; that night is not charged. Availability is checked again when booking."
-  }
+    "roomHint": "Price and availability for this room, excluding extra services. ↗ marks a possible departure: that night is not charged. Availability is checked when booking.",
+    "nightPrice": "{amount} per night",
+    "classNightPrice": "from {amount} per night",
+    "priceCaption": "Nightly price, ₸",
+    "classPriceCaption": "Lowest nightly price, ₸",
+    "nightOf": "Night of {date}",
+    "discount": "Discount",
+    "seasonal": "Seasonal",
+    "previousPrice": "Price before reduction",
+    "howToRead": "How to read the calendar"
+  },
+  "refundOnlineAmountOnly": "Refunds are calculated from the amount paid online. Accommodation paid at the resort is recorded separately."
 }

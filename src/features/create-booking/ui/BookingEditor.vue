@@ -16,6 +16,7 @@ import {
   quoteStay,
   validateChildren,
   paymentTerms,
+  customerQuote,
 } from "@/entities/booking";
 import { ref } from "vue";
 import { useGuestAccountStore } from "@/entities/guest-account";
@@ -56,6 +57,17 @@ const price = computed(() =>
 const total = computed(() => price.value?.total || 0);
 const settlement = computed(() =>
   price.value ? paymentTerms(props.resort, total.value) : null,
+);
+const displayPrice = computed(() => customerQuote(props.resort, price.value));
+const quotedTariffs = computed(() =>
+  props.tariffs
+    .filter((offer) => offer.status === "active")
+    .map((offer) => ({
+      ...offer,
+      quote: room.value
+        ? customerQuote(props.resort, quoteStay(room.value, offer, form))
+        : null,
+    })),
 );
 const children = ref([]);
 watch(
@@ -330,9 +342,7 @@ watch(
         }}<select v-model="form.tariffId" required>
           <option disabled value="">{{ t("public.noActiveRates") }}</option>
           <option
-            v-for="offer in tariffs.filter(
-              (offer) => offer.status === 'active',
-            )"
+            v-for="offer in quotedTariffs"
             :key="offer.id"
             :value="offer.id"
           >
@@ -342,7 +352,15 @@ watch(
                 ? t("public.discountInBookingEditor", [offer.discountPercent])
                 : ""
             }}
-            · +{{ money(offer.supplement) }} {{ t("public.guestNight") }}
+            {{
+              offer.quote
+                ? " · " +
+                  t("common.pricing.selectedStayTotal", {
+                    nights: offer.quote.nights,
+                    total: money(offer.quote.total),
+                  })
+                : ""
+            }}
           </option>
         </select></label
       >
@@ -359,7 +377,7 @@ watch(
             {{ form.guests }} {{ t("public.guestsInBookingEditor") }}</small
           >
         </div>
-        <strong>{{ price ? money(settlement?.total ?? total) : "—" }}</strong>
+        <strong>{{ displayPrice ? money(displayPrice.total) : "—" }}</strong>
       </div>
       <dl v-if="settlement" class="booking-settlement">
         <div>
@@ -377,10 +395,10 @@ watch(
       <p v-if="tariff?.childrenUnderThreeFree" class="field-help">
         {{ t("common.pricing.freeUnderThree") }}
       </p>
-      <details v-if="price" class="price-breakdown">
+      <details v-if="displayPrice" class="price-breakdown">
         <summary>{{ t("common.pricing.breakdown") }}</summary>
         <dl>
-          <div v-for="line in price.nightlyBreakdown" :key="line.date">
+          <div v-for="line in displayPrice.nightlyBreakdown" :key="line.date">
             <dt>
               {{ line.date }} <small>{{ line.periodLabel }}</small>
             </dt>

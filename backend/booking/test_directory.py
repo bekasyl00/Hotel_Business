@@ -58,6 +58,8 @@ class DirectoryTests(TestCase):
         self.assertEqual(response.status_code, 200, response.content)
         self.manager.refresh_from_db()
         self.assertNotEqual(old_fingerprint, staff_credential_version(self.manager))
+        self.assertEqual(manager_api.get("/api/workspace").status_code, 401)
+        manager_api.force_login(self.manager)
         self.assertEqual(
             [r["id"] for r in manager_api.get("/api/workspace").json()["resorts"]], [other.pk]
         )

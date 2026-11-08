@@ -3,6 +3,7 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from psycopg.types.range import Range
@@ -10,7 +11,42 @@ from rest_framework import serializers
 
 from .errors import Problem
 from .holds import active_inventory
-from .models import Booking, Resort, Room
+from .models import Booking, Resort, Room, RoomPricePeriod
+from .pricing import room_night_price
+
+
+def inclusive_price(amount, percent):
+    """Whole-KZT one-night display; a booking still freezes its entire-stay fee."""
+    if percent is None or percent <= 0:
+        return amount
+    rate_units = int(percent * 100)
+    return amount + (amount * rate_units + 5000) // 10000
+
+
+def available_price(day, available_ids, room_by_id, periods_by_room, percent):
+    candidates = [
+        (room_night_price(room_by_id[pk], day, periods_by_room[pk]), room_by_id[pk])
+        for pk in available_ids
+    ]
+    if not candidates:
+        return {
+            "price": None,
+            "regularPrice": None,
+            "priceKind": None,
+            "hasPricePeriod": False,
+            "periodLabel": "",
+        }
+    line, room = min(candidates, key=lambda item: (item[0]["roomPrice"], item[1].pk))
+    kind = "regular"
+    if line["hasPricePeriod"]:
+        kind = "discount" if line["roomPrice"] < room.price else "seasonal"
+    return {
+        "price": inclusive_price(line["roomPrice"], percent),
+        "regularPrice": inclusive_price(room.price, percent),
+        "priceKind": kind,
+        "hasPricePeriod": line["hasPricePeriod"],
+        "periodLabel": line["periodLabel"],
+    }
 
 
 class CalendarQuery(serializers.Serializer):
@@ -47,7 +83,19 @@ def availability_calendar(params):
     if data.get("roomId"):
         room = get_object_or_404(rooms, pk=data["roomId"])
         rooms = rooms.filter(pk=room.pk)
-    room_ids = set(rooms.filter(capacity__gte=data["guests"]).values_list("id", flat=True))
+    eligible_rooms = list(
+        rooms.filter(capacity__gte=data["guests"])
+        .only("id", "price")
+        .prefetch_related(
+            Prefetch(
+                "price_periods",
+                queryset=RoomPricePeriod.objects.filter(stay__overlap=Range(first, last, "[)")),
+            )
+        )
+    )
+    room_by_id = {room.pk: room for room in eligible_rooms}
+    periods_by_room = {room.pk: list(room.price_periods.all()) for room in eligible_rooms}
+    room_ids = set(room_by_id)
     # A single range query covers both the displayed month and a selected arrival.
     lower = min(first, arrival) if arrival else first
     occupied = list(
@@ -63,6 +111,7 @@ def availability_calendar(params):
         day = first + timedelta(days=offset)
         busy = {room_id for room_id, stay in occupied if stay.lower <= day < stay.upper}
         bookable = today <= day <= horizon and (day != today or can_arrive_today)
+        available_ids = room_ids - busy if bookable else set()
         departures = 0
         if arrival and 0 < (day - arrival).days <= 30:
             blocked = {
@@ -73,9 +122,12 @@ def availability_calendar(params):
         days.append(
             {
                 "date": day.isoformat(),
-                "availableRooms": len(room_ids - busy) if bookable else 0,
+                "availableRooms": len(available_ids),
                 "departureRooms": departures,
                 "bookable": bookable,
+                **available_price(
+                    day, available_ids, room_by_id, periods_by_room, resort.commission_percent
+                ),
             }
         )
     return {

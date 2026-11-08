@@ -13,6 +13,7 @@ function setup() {
         status: "published",
         timeZone: "Asia/Almaty",
         checkInTime: "14:00",
+        commissionPercent: "10",
       },
     ],
     rooms: [
@@ -22,6 +23,7 @@ function setup() {
         category: "standard",
         capacity: 2,
         status: "active",
+        price: 18000,
       },
     ],
     bookings: [],
@@ -68,13 +70,75 @@ test("calendar scopes class, capacity and publication without PII", () => {
   );
   assert.deepEqual(
     Object.keys(day(get(), 12)).sort(),
-    ["date", "availableRooms", "departureRooms", "bookable"].sort(),
+    [
+      "date",
+      "availableRooms",
+      "departureRooms",
+      "bookable",
+      "price",
+      "regularPrice",
+      "priceKind",
+      "hasPricePeriod",
+      "periodLabel",
+    ].sort(),
   );
   db.resorts[0].status = "draft";
   assert.throws(
     () => get(),
     (e) => e.status === 404,
   );
+});
+
+test("calendar prices use the cheapest available room and that same room's baseline", () => {
+  const { db, get, reserve } = setup();
+  db.rooms[0].pricePeriods = [
+    { start: "2027-01-11", end: "2027-01-16", price: 16000, label: "Winter" },
+  ];
+  db.rooms.push({
+    ...db.rooms[0],
+    id: "b",
+    price: 30000,
+    pricePeriods: [
+      { start: "2027-01-12", end: "2027-01-14", price: 22000, label: "Offer" },
+    ],
+  });
+  reserve("a", 12, 14);
+  let current = day(get(), 12);
+  assert.equal(current.availableRooms, 1);
+  assert.equal(current.price, 24200);
+  assert.equal(current.regularPrice, 33000);
+  assert.equal(current.priceKind, "discount");
+  assert.equal(current.hasPricePeriod, true);
+  assert.equal(current.periodLabel, "Offer");
+  current = day(get(), 14);
+  assert.equal(current.price, 17600);
+  assert.equal(current.regularPrice, 19800);
+  assert.equal(current.periodLabel, "Winter");
+  current = day(get({ roomId: "b" }), 14);
+  assert.equal(current.price, 33000);
+  assert.equal(current.priceKind, "regular");
+  assert.equal(current.hasPricePeriod, false);
+  assert.equal(current.periodLabel, "");
+});
+
+test("seasonal increases are not discounts; busy, past and departure-only cells have no nightly price", () => {
+  const { db, get, reserve } = setup();
+  db.rooms[0].pricePeriods = [
+    { start: "2027-01-11", end: "2027-01-13", price: 20000, label: "Peak" },
+  ];
+  assert.equal(day(get(), 11).price, 22000);
+  assert.equal(day(get(), 11).priceKind, "seasonal");
+  db.rooms[0].pricePeriods[0].price = 18000;
+  assert.equal(day(get(), 11).priceKind, "seasonal");
+  reserve("a", 12, 14);
+  const result = get({ arrival: "2027-01-11" });
+  assert.equal(day(result, 12).departureRooms, 1);
+  for (const current of [day(result, 9), day(result, 12), day(result, 13)]) {
+    assert.equal(current.price, null);
+    assert.equal(current.regularPrice, null);
+    assert.equal(current.hasPricePeriod, false);
+    assert.equal(current.priceKind, null);
+  }
 });
 
 test("calendar uses active holds and exclusive checkout", () => {

@@ -10,6 +10,7 @@ environ.Env.read_env(env("DJANGO_ENV_FILE", default=str(BASE_DIR / ".env")))
 if env("PAYMENTS_ENV_FILE", default=""):
     environ.Env.read_env(env("PAYMENTS_ENV_FILE"))
 SECRET_KEY = env("DJANGO_SECRET_KEY")
+DOCUMENT_DATA_ENCRYPTION_KEYS = env.list("DOCUMENT_DATA_ENCRYPTION_KEYS", default=[])
 DEBUG = env("DEBUG")
 GUEST_AUTH_DEMO_OTP = env.bool("GUEST_AUTH_DEMO_OTP", default=False)
 GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION = env.bool(

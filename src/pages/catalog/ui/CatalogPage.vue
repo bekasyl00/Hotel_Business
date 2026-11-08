@@ -14,6 +14,7 @@ import { useResortStore } from "@/entities/resort";
 import { PublicHeader } from "@/widgets/public-header";
 import { GeoMap } from "@/shared/ui";
 import { money } from "@/shared/lib";
+import { customerNightPrice, propertyToday } from "@/entities/booking";
 const catalog = useResortStore(),
   route = useRoute(),
   router = useRouter();
@@ -63,9 +64,17 @@ const filtered = computed(() => {
       const rooms = catalog.rooms.filter(
         (x) => x.resortId === r.id && x.status === "active",
       );
+      const today = propertyToday(r.timeZone || "Asia/Almaty");
+      const prices = rooms
+        .map(
+          (room) =>
+            customerNightPrice(r, room, null, { start: today, guests: 1 })
+              ?.price,
+        )
+        .filter((price) => price != null);
       return {
         ...r,
-        price: rooms.length ? Math.min(...rooms.map((x) => x.price)) : null,
+        price: prices.length ? Math.min(...prices) : null,
         roomCount: rooms.length,
       };
     });
@@ -234,7 +243,7 @@ onBeforeUnmount(() => window.removeEventListener("storage", storageChanged));
                         ? t("public.roomsToBeConfirmed")
                         : t("public.from", [money(r.price)])
                     }}<small v-if="r.price !== null">
-                      {{ t("public.night") }}</small
+                      {{ t("common.pricing.nightToday") }}</small
                     ></strong
                   ><button
                     class="text-button"

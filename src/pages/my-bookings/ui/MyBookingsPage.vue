@@ -245,11 +245,19 @@ onMounted(load);
         </div>
         <dl class="guest-booking-facts">
           <div v-if="booking.paymentTerms?.version === 1">
-            <dt>{{ t("common.payment.onlineCommission") }}</dt>
+            <dt>
+              {{
+                t(
+                  booking.status === "pending"
+                    ? "common.settlement.online"
+                    : "common.voucher.online",
+                )
+              }}
+            </dt>
             <dd>{{ money(booking.paymentTerms.onlineAmount) }}</dd>
           </div>
           <div v-if="booking.paymentTerms?.version === 1">
-            <dt>{{ t("common.payment.onsiteAmount") }}</dt>
+            <dt>{{ t("common.settlement.onsite") }}</dt>
             <dd>{{ money(booking.paymentTerms.onsiteAmount) }}</dd>
           </div>
           <div>

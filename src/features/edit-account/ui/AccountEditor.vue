@@ -1,11 +1,15 @@
 <script setup>
 import { useI18n } from "vue-i18n";
 import { isDemo } from "@/shared/config";
-import { reactive } from "vue";
+import { reactive, useId } from "vue";
 import { Modal } from "@/shared/ui";
 import { useEditor } from "@/shared/api/use-editor.js";
 const { t, locale } = useI18n();
-const props = defineProps({ item: Object, resorts: Array });
+const props = defineProps({
+  item: Object,
+  resorts: { type: Array, default: () => [] },
+});
+const emailHintId = useId();
 const emit = defineEmits(["close", "saved"]);
 const form = reactive({
   password: "",
@@ -28,6 +32,7 @@ const { busy, error, save } = useEditor("accounts", props.item, emit);
       @submit.prevent="
         save({
           ...form,
+          login: form.login.trim().toLowerCase(),
           resortId: undefined,
           resortIds: undefined,
           password: form.password || undefined,
@@ -38,13 +43,22 @@ const { busy, error, save } = useEditor("accounts", props.item, emit);
         >{{ t("staff.nameLabel")
         }}<input v-model="form.name" required maxlength="100" /></label
       ><label
-        >{{ t("staff.login")
+        >{{ t("staff.directory.email")
         }}<input
-          v-model="form.login"
+          v-model.trim="form.login"
+          type="email"
+          inputmode="email"
           required
           maxlength="100"
           placeholder="manager@demo.tynys"
-          autocomplete="off" /></label
+          autocomplete="off"
+          autocapitalize="none"
+          :spellcheck="false"
+          :aria-describedby="emailHintId"
+        />
+        <small :id="emailHintId" class="field-help">{{
+          t("staff.directory.emailHelp")
+        }}</small></label
       ><label
         >{{ t("staff.access")
         }}<select v-model="form.status">

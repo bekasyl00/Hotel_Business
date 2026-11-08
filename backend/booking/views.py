@@ -172,11 +172,6 @@ class Endpoint(APIView):
                 if svc.admin(request.user) or request.user.role == "accountant"
                 else Resort.objects.filter(account=request.user)
             )
-            audit = (
-                Audit.objects.all()
-                if svc.admin(request.user)
-                else Audit.objects.filter(resort__in=resorts)
-            )
             return Response(
                 {
                     "resorts": StaffResortSerializer(resorts_with_reviews(resorts), many=True).data,
@@ -202,9 +197,9 @@ class Endpoint(APIView):
                     ]
                     if svc.admin(request.user)
                     else [],
-                    "audit": []
-                    if request.user.role == "accountant"
-                    else [audit_data(a) for a in audit.order_by("-at")[:500]],
+                    "audit": [audit_data(a) for a in Audit.objects.order_by("-at")[:500]]
+                    if svc.admin(request.user)
+                    else [],
                     "reviews": []
                     if request.user.role == "accountant"
                     else [

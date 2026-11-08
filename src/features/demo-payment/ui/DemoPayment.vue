@@ -1,7 +1,7 @@
 <script setup>
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
-import { ref } from "vue";
+import { computed, ref } from "vue";
 import { Modal } from "@/shared/ui";
 import { PaymentCountdown } from "@/entities/booking";
 import { request } from "@/shared/api";
@@ -11,6 +11,18 @@ const props = defineProps({
   staff: Boolean,
 });
 const emit = defineEmits(["close", "saved"]);
+const totalAmount = computed(
+  () => props.booking.paymentTerms?.total ?? props.booking.total,
+);
+const onlineAmount = computed(
+  () =>
+    props.booking.payment?.amount ??
+    props.booking.paymentTerms?.onlineAmount ??
+    props.booking.total,
+);
+const onsiteAmount = computed(() =>
+  Math.max(0, totalAmount.value - onlineAmount.value),
+);
 const expired = ref(false);
 const busy = ref(false),
   error = ref(""),
@@ -58,10 +70,19 @@ async function pay(outcome) {
       <div class="payment-receipt">
         <span>{{ booking.resortName }}</span>
         <h3>{{ booking.roomName || t("public.room", [booking.unit]) }}</h3>
-        <strong>{{
-          money(booking.paymentTerms?.onlineAmount ?? booking.total)
-        }}</strong>
+        <strong>{{ money(totalAmount) }}</strong>
+        <span class="small">{{ t("common.settlement.total") }}</span>
       </div>
+      <dl v-if="onsiteAmount > 0" class="demo-payment-breakdown">
+        <div>
+          <dt>{{ t("common.settlement.online") }}</dt>
+          <dd>{{ money(onlineAmount) }}</dd>
+        </div>
+        <div>
+          <dt>{{ t("common.settlement.onsite") }}</dt>
+          <dd>{{ money(onsiteAmount) }}</dd>
+        </div>
+      </dl>
       <p>
         {{
           t("public.thisSimulatesAPaymentItDoesNotConnectToKaspiRequestCard")
@@ -98,3 +119,20 @@ async function pay(outcome) {
     </div></Modal
   >
 </template>
+<style scoped>
+.demo-payment-breakdown {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+}
+.demo-payment-breakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.demo-payment-breakdown dd {
+  margin: 0;
+  white-space: nowrap;
+  font-weight: 600;
+}
+</style>

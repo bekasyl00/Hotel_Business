@@ -274,21 +274,15 @@ onBeforeUnmount(() => {
         <span class="small muted"
           >{{ booking.resortName }} · {{ booking.roomName }}</span
         >
-        <strong class="payment-amount">{{ money(amounts.online) }}</strong>
-        <span class="small">{{
-          t(
-            booking.paymentTerms?.version === 1
-              ? "common.payment.onlineCommission"
-              : "common.payment.onlineAmount",
-          )
-        }}</span>
+        <strong class="payment-amount">{{ money(amounts.total) }}</strong>
+        <span class="small">{{ t("common.settlement.total") }}</span>
         <dl v-if="amounts.onsite > 0" class="payment-breakdown">
           <div>
-            <dt>{{ t("common.payment.totalAmount") }}</dt>
-            <dd>{{ money(amounts.total) }}</dd>
+            <dt>{{ t("common.settlement.online") }}</dt>
+            <dd>{{ money(amounts.online) }}</dd>
           </div>
           <div>
-            <dt>{{ t("common.payment.onsiteAmount") }}</dt>
+            <dt>{{ t("common.settlement.onsite") }}</dt>
             <dd>{{ money(amounts.onsite) }}</dd>
           </div>
         </dl>
@@ -387,6 +381,7 @@ onBeforeUnmount(() => {
                   : "common.payment.open",
             )
           }}
+          · {{ money(amounts.online) }}
         </a>
         <button
           v-if="payment && (paymentNeedsPolling(payment) || error)"

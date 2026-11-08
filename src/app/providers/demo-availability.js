@@ -1,4 +1,8 @@
-import { propertyToday, shiftDay } from "../../entities/booking/rules.js";
+import {
+  propertyToday,
+  shiftDay,
+  paymentTerms,
+} from "../../entities/booking/rules.js";
 import { ApiError } from "../../shared/api/index.js";
 
 export function demoAvailability(db, params, now = new Date()) {
@@ -88,6 +92,30 @@ export function demoAvailability(db, params, now = new Date()) {
     );
     const bookable =
       day >= today && day <= horizon && (day !== today || canArriveToday);
+    const priceCandidates = bookable
+      ? rooms
+          .filter((room) => !busy.has(room.id))
+          .map((room) => {
+            const period = (room.pricePeriods || []).find(
+              (item) => item.start <= day && day < item.end,
+            );
+            return { room, period, price: period ? period.price : room.price };
+          })
+          .filter(
+            ({ room, price }) =>
+              Number.isSafeInteger(room.price) &&
+              room.price >= 0 &&
+              Number.isSafeInteger(price) &&
+              price >= 0,
+          )
+          .sort(
+            (a, b) =>
+              a.price - b.price ||
+              String(a.room.id).localeCompare(String(b.room.id)),
+          )
+      : [];
+    const cheapest = priceCandidates[0];
+    const inclusive = (amount) => paymentTerms(resort, amount)?.total ?? amount;
     let departureRooms = 0;
     if (
       arrival &&
@@ -107,6 +135,17 @@ export function demoAvailability(db, params, now = new Date()) {
       availableRooms: bookable ? rooms.length - busy.size : 0,
       departureRooms,
       bookable,
+      price: cheapest ? inclusive(cheapest.price) : null,
+      regularPrice: cheapest ? inclusive(cheapest.room.price) : null,
+      priceKind: !cheapest
+        ? null
+        : cheapest.period
+          ? cheapest.price < cheapest.room.price
+            ? "discount"
+            : "seasonal"
+          : "regular",
+      hasPricePeriod: !!cheapest?.period,
+      periodLabel: cheapest?.period?.label || "",
     });
   }
   return { month, today, timeZone, totalRooms: rooms.length, days };
