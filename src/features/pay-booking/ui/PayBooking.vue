@@ -172,9 +172,11 @@ onBeforeUnmount(() => {
       <p>
         {{
           t(
-            provider === "xpayment"
-              ? "common.payment.kaspiExplanation"
-              : "common.payment.explanation",
+            environment === "sandbox" && provider === "xpayment"
+              ? "common.payment.xpaymentSandboxExplanation"
+              : provider === "xpayment"
+                ? "common.payment.kaspiExplanation"
+                : "common.payment.explanation",
           )
         }}
       </p>

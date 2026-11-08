@@ -133,7 +133,7 @@
     "production": "Real payments",
     "verificationHint": "The booking is confirmed after the server verifies payment. Returning to the site does not confirm payment.",
     "cancellationSaved": "Booking cancelled. Payment details show the refund status when a refund applies.",
-    "sandbox": "Bank sandbox · no real money",
+    "sandbox": "Test payment · no money is charged",
     "explanation": "The amount is fixed in your booking. Payment opens on Halyk’s test page. The server verifies payment before confirming your booking. Official test cards only.",
     "hold": "Your room is held for {minutes} more min.",
     "expired": "The room hold has expired.",
@@ -161,7 +161,8 @@
       "reconciliation_required": "Refund needs bank reconciliation."
     },
     "details": "Payment details",
-    "openXPaymentSandbox": "Open test checkout"
+    "openXPaymentSandbox": "Open test checkout",
+    "xpaymentSandboxExplanation": "Open the XPayment test page and choose a payment outcome. Return here: the server will verify the result and automatically confirm the booking after a successful test payment."
   },
   "gallery": {
     "previous": "Previous",

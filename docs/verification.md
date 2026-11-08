@@ -1,5 +1,13 @@
 # Проверки
 
+## 08.11.2026 — XPayment v2: сквозная песочница
+
+- Начальная полная регрессия: **243 Django tests** на изолированном PostgreSQL 17. После учёта фактических ответов refund повторно прошли **109 commerce tests**. Ruff, migration drift и `git diff --check` — pass. `commerce.0007` применена в Supabase `tynys_stage` (новых таблиц нет).
+- **102 frontend tests**, FSD **123 files / 313 imports**, build, public/staff surfaces и arch:check — pass. RU/KK/EN parity сохранена. Реальный компонент оплаты проверен на локальном изолированном UI harness при 390/1440 px без overflow; это UI-проверка, не банковская операция.
+- Внешний sandbox API v2: создание/GET, paid, declined, failed, expired, cancel, полный и частичный возвраты прошли. Фактические QR_TOKEN_CREATED, `{data,total}` и REFUNDED/PARTIALLY_REFUNDED добавлены в адаптер и регрессию. Запросы выполнялись только тестовым ключом/кассой test.
+- Подписка XPayment создана с разрешения владельца; тестовые уведомления оплаты/возврата доходят до облачного callback. Две вымышленные брони автоматически confirmed после независимого GET, обе видны staff workspace. Отмена через опубликованный HTTPS API рассчитала 100%/70%; сервер независимо подтвердил возвраты **24 000 / 16 800 KZT**, по одному применённому charge/refund, sandbox, все jobs done. Номера освобождены.
+- Реальные денежные операции не выполнялись; production acceptance false. Ключи/секреты только в игнорируемых 0600 файлах и серверных настройках Vercel. Старые опубликованные в чате live-ключи необходимо заменить до реального пилота. Реальные чеки, split, SMS и денежная приёмка остаются открытыми в production-readiness.md. iPhone не пересобирался.
+
 ## 08.11.2026 — обязательный профиль, 15 минут, документы и бухгалтер всей платформы
 
 - **226 Django tests** passed on isolated PostgreSQL 17. Coverage: registered guest ownership/profile contacts, no anonymous creation, frozen retry deadline, child validation/no IIN persistence, global accountant reads with forbidden operational writes, manager document tenancy, expense idempotency/void/version/CSRF/mode isolation, finance sums and XLSX formula escaping. **96 frontend tests** pass; FSD 120 files / 307 imports, migration drift, changed-file Ruff, Django deploy check, build, public/staff route boundaries and architecture validation pass.
