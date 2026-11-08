@@ -228,3 +228,52 @@ class PaymentJob(Record):
             models.UniqueConstraint(fields=["payment", "kind"], name="one_bank_job_kind")
         ]
         indexes = [models.Index(fields=["state", "available_at"])]
+
+
+class AccountingCompany(models.Model):
+    resort = models.OneToOneField("booking.Resort", on_delete=models.PROTECT, primary_key=True)
+    details = models.JSONField(default=dict)
+    version = models.PositiveIntegerField(default=1)
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class AccountingDocument(Record):
+    booking = models.ForeignKey(
+        Booking, on_delete=models.PROTECT, related_name="accounting_documents"
+    )
+    kind = models.CharField(
+        max_length=16, choices=[(k, k) for k in ["invoice", "act", "cash_order"]]
+    )
+    state = models.CharField(
+        max_length=16, default="draft", choices=[(k, k) for k in ["draft", "released", "voided"]]
+    )
+    number = models.CharField(max_length=40)
+    snapshot = models.JSONField(default=dict)
+    created_by = models.ForeignKey("booking.User", on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    released_at = models.DateTimeField(null=True)
+    voided_at = models.DateTimeField(null=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["booking", "kind"],
+                condition=~Q(state="voided"),
+                name="one_active_accounting_document",
+            ),
+        ]
+        indexes = [models.Index(fields=["created_at", "state"])]
+
+
+class AccountingSequence(models.Model):
+    resort = models.ForeignKey("booking.Resort", on_delete=models.PROTECT)
+    year = models.PositiveSmallIntegerField()
+    kind = models.CharField(max_length=16)
+    next_value = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["resort", "year", "kind"], name="accounting_sequence_scope"
+            )
+        ]

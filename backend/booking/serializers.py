@@ -291,6 +291,7 @@ class TariffSerializer(serializers.ModelSerializer):
 
 
 class AccountInput(serializers.Serializer):
+    role = serializers.ChoiceField(choices=["manager", "accountant"], required=False)
     name = serializers.CharField(max_length=100)
     login = serializers.EmailField(max_length=100)
     resortId = serializers.PrimaryKeyRelatedField(
@@ -317,11 +318,51 @@ class BookingInput(serializers.Serializer):
     childrenAges = serializers.ListField(
         child=serializers.IntegerField(min_value=0, max_value=17), max_length=3, default=list
     )
+    childrenBirthDates = serializers.ListField(
+        child=serializers.DateField(), max_length=3, required=False
+    )
+    childrenDatesConfirmed = serializers.BooleanField(required=False)
     guestLabel = serializers.CharField(max_length=80)
     guestPhone = serializers.RegexField(r"^\+?[0-9 ()-]{7,30}$", required=False, allow_blank=True)
     requestId = serializers.UUIDField()
 
+    def to_internal_value(self, data):
+        # Older callers may echo display prices. They are ignored; only server
+        # pricing determines the charge. Identity fields are never accepted.
+        ignored_prices = {"total", "nightly", "regularNightly", "discountPercent"}
+        if not isinstance(data, dict) or set(data) - set(self.fields) - ignored_prices:
+            raise serializers.ValidationError(
+                {"non_field_errors": ["Неизвестные поля бронирования."]}
+            )
+        return super().to_internal_value(data)
+
     def validate(self, data):
+        from django.utils import timezone
+
+        births = data.pop("childrenBirthDates", None)
+        confirmed = data.pop("childrenDatesConfirmed", False)
+        if births is not None:
+            if births and not confirmed:
+                raise serializers.ValidationError("Подтвердите даты рождения детей.")
+            ages = []
+            for birth in births:
+                checkin = data["start"]
+                age = (
+                    checkin.year
+                    - birth.year
+                    - ((checkin.month, checkin.day) < (birth.month, birth.day))
+                )
+                if birth > timezone.localdate() or not 0 <= age < 18:
+                    raise serializers.ValidationError(
+                        "Проверьте дату рождения: ребёнку должно быть меньше 18 лет на дату заезда."
+                    )
+                ages.append(age)
+            if data["childrenAges"] and data["childrenAges"] != ages:
+                raise serializers.ValidationError(
+                    "Возраст не соответствует дате рождения и заезду."
+                )
+            data["childrenAges"] = ages
+
         if len(data["childrenAges"]) >= data["guests"]:
             raise serializers.ValidationError(
                 {"childrenAges": "Нужен хотя бы один взрослый; дети входят в общее число гостей."}

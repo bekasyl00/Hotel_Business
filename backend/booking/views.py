@@ -192,7 +192,7 @@ class Endpoint(APIView):
                     ],
                     "accounts": [
                         account_data(u)
-                        for u in User.objects.filter(role="manager", is_superuser=False)
+                        for u in User.objects.filter(role__in=["manager", "accountant"], is_superuser=False)
                     ]
                     if svc.admin(request.user)
                     else [],

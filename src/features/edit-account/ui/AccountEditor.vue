@@ -9,6 +9,7 @@ const props = defineProps({ item: Object, resorts: Array });
 const emit = defineEmits(["close", "saved"]);
 const form = reactive({
   password: "",
+  role: "manager",
   name: "",
   login: "",
   resortId: props.resorts[0]?.id || "",
@@ -54,6 +55,13 @@ const { busy, error, save } = useEditor("accounts", props.item, emit);
         }}<select v-model="form.status">
           <option value="active">{{ t("staff.active") }}</option>
           <option value="disabled">{{ t("staff.disabled") }}</option>
+        </select></label
+      >
+      <label
+        >{{ t("common.accounting.accessRole")
+        }}<select v-model="form.role">
+          <option value="manager">{{ t("staff.manager") }}</option>
+          <option value="accountant">{{ t("common.accounting.role") }}</option>
         </select></label
       >
       <label v-if="!isDemo"

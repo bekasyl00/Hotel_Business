@@ -8,16 +8,27 @@ const { t } = useI18n();
 const props = defineProps({ section: String });
 const emit = defineEmits(["logout"]);
 const session = useSessionStore();
-const nav = computed(() => [
-  ["overview", "◫", t("staff.overview")],
-  ["analytics", "↗", t("staff.analytics")],
-  ["resorts", "⌖", session.isAdmin ? t("staff.resorts") : t("staff.myResort")],
-  ["rooms", "▦", t("staff.rooms")],
-  ["bookings", "▤", t("staff.board.title")],
-  ["reviews", "☆", t("staff.reviews")],
-  ["history", "◷", t("staff.history")],
-  ...(session.isAdmin ? [["accounts", "♙", t("staff.managers")]] : []),
-]);
+const nav = computed(() =>
+  session.isAccountant
+    ? [["accounting", "₸", t("common.accounting.title")]]
+    : [
+        ...(session.isAdmin
+          ? [["accounting", "₸", t("common.accounting.title")]]
+          : []),
+        ["overview", "◫", t("staff.overview")],
+        ["analytics", "↗", t("staff.analytics")],
+        [
+          "resorts",
+          "⌖",
+          session.isAdmin ? t("staff.resorts") : t("staff.myResort"),
+        ],
+        ["rooms", "▦", t("staff.rooms")],
+        ["bookings", "▤", t("staff.board.title")],
+        ["reviews", "☆", t("staff.reviews")],
+        ["history", "◷", t("staff.history")],
+        ...(session.isAdmin ? [["accounts", "♙", t("staff.managers")]] : []),
+      ],
+);
 </script>
 <template>
   <div class="staff-layout">
@@ -40,7 +51,11 @@ const nav = computed(() => [
         <span class="avatar">{{ session.user?.name[0] }}</span>
         <div>
           <strong>{{
-            session.isAdmin ? t("staff.admin") : t("staff.manager")
+            session.isAdmin
+              ? t("staff.admin")
+              : session.isAccountant
+                ? t("common.accounting.role")
+                : t("staff.manager")
           }}</strong
           ><small>{{ session.user?.login }}</small>
         </div>
@@ -66,12 +81,10 @@ const nav = computed(() => [
           <a v-if="!isStaffApp" :href="publicUrl">{{
             t("staff.openWebsite")
           }}</a>
-          <template v-else
-            ><span v-if="isDemo" class="demo-badge">DEMO</span
-            ><button class="text-button" @click="emit('logout')">
-              {{ t(isStaffApp ? "common.mobile.logout" : "staff.signOut") }}
-            </button></template
-          >
+          <span v-if="isStaffApp && isDemo" class="demo-badge">DEMO</span>
+          <button class="text-button" @click="emit('logout')">
+            {{ t(isStaffApp ? "common.mobile.logout" : "staff.signOut") }}
+          </button>
         </div>
       </header>
       <slot />

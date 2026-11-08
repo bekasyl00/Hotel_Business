@@ -1,5 +1,18 @@
 # Проверки
 
+## 08.11.2026 — бухгалтерия, галерея, детский возраст и публикация
+
+- **217 Django tests** on isolated PostgreSQL 17 passed (booking + commerce). Includes actual checkout creating drafts, idempotency, snapshot immutability, accountant/admin/manager access, tenant/guest ownership, CSRF, password hashing, literal SQL search injection, spreadsheet formula escaping and DOB/age validation. Migration drift, Ruff and `check --deploy` passed.
+- **94 frontend tests**, FSD **113 files / 283 imports**; build, public/staff surfaces, route isolation and LikeC4 validation passed. No native build/sync/install. RU/KK/EN keys/placeholders remain aligned.
+- Local real API multipart upload: two JPEGs + 1.1 MB MP4 attached to both resort and room, persisted and reloaded. Browser observed image 2/3 after navigation/swipe, video readyState 4 / playing / duration 5.055 s, enlarged viewer pauses the inline player. Desktop and 390 px checks have no document overflow. QA video: MDN CC0 flower.mp4, only local fixture.
+- Three XLSX templates sanitized (no source IIN/IBAN/people preserved), rendered PDF pages inspected; Russian amount in words, blank signatures/stamps, draft/unsigned notices. Local browser released act and downloaded protected PDF HTTP 200. These are not registered ESF or bank receipts; PKO release is blocked.
+- Supabase staging migrations booking/0010, commerce/0004 and commerce/0005 applied. Four new tables have RLS enabled, anon/authenticated SELECT denied; owning Django role used because connector DDL role lacked ownership. Existing private schema and data preserved.
+- Vercel **READY**: API `dpl_8PvYBWr44PrDHNPetnmhmdtLGMCy`, staff `dpl_7JoRjXPBYkt6WEyZ91AkxwYduTb3`; public `dpl_HMwFX4dxyeHiYYdtZbPQKwJ5My7z`. Stable addresses: [public](https://vercel-site-puce-two.vercel.app), [accounting](https://tynys-staff.vercel.app/staff/accounting), [Django Admin](https://tynys-api.vercel.app/django-admin/). Artifacts contain only selected sites/API; no env secrets, native app or LikeC4.
+- Published accountant browser login/redirect passed at 1440 and 390 px; RU/KK/EN switched, no pageerror, unauthorized operational route redirects to accounting. Screenshots: output/accounting-live-desktop.png, accounting-live-mobile.png, accounting-live-kk.png, accounting-live-en.png.
+- Live HTTP: health/live, health/ready and catalog 200. Authenticated accountant/accounting 200; workspace and analytics 403; foreign resort and unknown document 404; manager/accounting 403; anonymous/accounting 401. Demo accountant created via admin API, scoped to one resort; password only in ignored mode-0600 backend/.env.stage.accounts. Live public expanded gallery opens and loads at 390 px.
+
+Limits: no real personal data/bank charge used; Halyk/XPayment acceptance gates remain closed, public simulator and demo OTP disabled. Upload cap 4 MB. Full accounting ledger, bank reconciliation acceptance, official ESF/EDS, cash operations, document list beyond latest 200 and government eligibility are not complete. Six-digit hint is optional/unverified; parent confirms DOB, server stores only age at check-in. See production-readiness.md.
+
 ## 06.11.2026 — подготовка XPayment / Kaspi
 
 - Backend: **201 тест** на отдельном реальном PostgreSQL 17 — pass. После уточнения блокировок job и восстановления при закрытом gate повторены **38 payment flow/concurrency тестов** — pass. Из новых проверок: 21 transport-тест адаптера и 16 integration flow-тестов. Проверены закрытые gates, merchant/provider binding, HMAC/dedup, подписанный fake-success без подтверждения, поздние/неверные платежи, восстановление без повторного POST, возврат и разделение финансовых источников.

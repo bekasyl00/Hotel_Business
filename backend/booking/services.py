@@ -65,9 +65,11 @@ def admin(user):
     return user.is_authenticated and (user.is_superuser or user.role == "admin")
 
 
-def require_staff(user, resort_id=None):
+def require_staff(user, resort_id=None, *, roles=("admin", "manager")):
     if not user.is_authenticated:
         raise Problem("Войдите в кабинет сотрудника.", 401)
+    if not user.is_active or (not user.is_superuser and user.role not in roles):
+        raise Problem("Эта операция недоступна вашей роли.", 403)
     if not admin(user) and (
         not user.resort_id or (resort_id and str(user.resort_id) != str(resort_id))
     ):
@@ -138,7 +140,7 @@ def authenticate_staff_credentials(request):
     user = authenticate(request, username=email, password=password)
     if not user:
         raise Problem("Неверный email или пароль.", 401)
-    require_staff(user)
+    require_staff(user, roles=("admin", "manager", "accountant"))
     return user
 
 
@@ -386,7 +388,10 @@ def save_account(request, pk=None):
         raise Problem("Аккаунт не найден.", 404)
     item = (
         get_object_or_404(
-            User.objects.select_for_update(), pk=pk, role="manager", is_superuser=False
+            User.objects.select_for_update(),
+            pk=pk,
+            role__in=["manager", "accountant"],
+            is_superuser=False,
         )
         if pk
         else None
@@ -403,6 +408,7 @@ def save_account(request, pk=None):
     item = item or User()
     item.name, item.email, item.username = data["name"], data["login"], data["login"]
     item.resort, item.is_active = data["resort"], data["status"] == "active"
+    item.role = data.get("role", item.role or "manager")
     if password:
         validate_password(password, item)
         item.set_password(password)
@@ -627,4 +633,8 @@ def change_stay(request, pk, action):
     item.save(update_fields=["checked_in_at", "checked_out_at", "version"])
     after = booking_data(item)
     log_change(request.user, "bookings", item, action, before, after, item.resort_id)
+    if action == "check-out":
+        from commerce.accounting.services import prepare_after_stay
+
+        prepare_after_stay(item, request.user)
     return item

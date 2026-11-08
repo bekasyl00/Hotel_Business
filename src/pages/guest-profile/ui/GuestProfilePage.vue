@@ -2,6 +2,7 @@
 import { reactive, ref, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { PublicHeader } from "@/widgets/public-header";
+import { GuestDocuments } from "@/widgets/guest-documents";
 import { GuestBookingHistory } from "@/widgets/guest-booking-history";
 import { useGuestAccountStore } from "@/entities/guest-account";
 import { useBookingStore } from "@/entities/booking";
@@ -285,7 +286,7 @@ onMounted(load);
             <p class="field-help">
               {{ t("auth.historyCount", { count: data.bookings.length }) }}
             </p>
-            <GuestBookingHistory :bookings="data.bookings" />
+            <GuestBookingHistory :bookings="data.bookings" /><GuestDocuments />
           </section></div
       ></template>
     </main>

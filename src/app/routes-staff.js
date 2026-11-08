@@ -1,4 +1,9 @@
 export const staffRoutes = [
+  {
+    path: "/staff/accounting",
+    component: () => import("@/pages/accounting"),
+    meta: { staff: true, accounting: true },
+  },
   { path: "/staff/tariffs", redirect: "/staff/rooms" },
   { path: "/staff/login", component: () => import("@/pages/login") },
   { path: "/staff", redirect: "/staff/bookings" },

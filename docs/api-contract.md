@@ -198,3 +198,21 @@ With `arrival`, `departureRooms` counts rooms available continuously for `[arriv
 `POST /payments/providers/xpayment/callback` доступен под `/api/v1` и совместимым `/api`. Это endpoint провайдера без пользовательской сессии; он принимает ограниченное тело с `event_version="1"`, `source="xpayment"`, UUID `delivery_id`/`payment_id` и допустимым событием. `X-xPayment-Signature` проверяется как hex HMAC-SHA256 исходных байтов тела с серверным секретом. Повторная доставка дедуплицируется в БД. Callback ставит независимую GET-сверку; данные тела не являются финансовым доказательством, включая подписанный тест из кабинета провайдера.
 
 Завершённый возврат требуется подтвердить отдельно от принятого POST. Неизвестные статусы, чужой аккаунт/заказ, сумма или валюта, поздняя оплата и неясный исход операции не разрешают оформление брони. XPayment не предоставляет документированный receipt API: `receiptUrl` остаётся null, пока настоящий документ не получен поддержанным способом. Подготовка и уточнения контракта — [xpayment-integration.md](xpayment-integration.md).
+
+
+## Accounting and documents (2026-11-08)
+
+All paths use `/api/v1` or legacy `/api`. Staff cookie + CSRF for writes; active admin or scoped accountant. Manager gets 403. Accountant has no workspace/catalog/stay/account mutation privilege. Existing admin-only accounts API accepts `role: manager|accountant`; password hashing and credential-version invalidation remain.
+
+- `GET /accounting?resortId=&start=YYYY-MM-DD&end=YYYY-MM-DD&paymentMode=production|sandbox|demo&search=&page=1`: authorized resorts, period, totals (received/refunded/net), count, page, bookings (50), documents (latest 200), documentCount. Max period 366 days; dates are financial events in Asia/Almaty, booking list uses creation dates. No environment mixing. Net is not profit. Search only filters bookings.
+- `GET /accounting/export`: same booking filters, CSV up to 5000 records, spreadsheet-formula prefixes escaped.
+- `GET/PATCH /accounting/company/:resort`: optimistic `version` (0 creates), supplier, bin, address, iban, bank, bik, director, accountant, vatMode=no_vat|included, vatRate=0..100. VAT treatment is explicitly supplied by accountant, not inferred from booking.
+- `POST /accounting/documents {bookingId,kind:act|invoice|cash_order}`: idempotently returns current nonvoided draft/released document; no duplicate number per scope.
+- `POST /accounting/documents/:id/refresh|release|void {version}`: draft refresh, checked-out/paid/requisites validation before release, immutable released snapshot. PKO release blocked until cash-accounting domain exists.
+- `GET /accounting/documents/:id/pdf|xlsx/download`: authorized attachment, no-store.
+- `GET /my-documents[?bookingId=...]` and `/my-documents/:id/pdf|xlsx/download`: own released website booking only via guest_owner; no phone matching. Voided/draft/foreign documents hidden. Guest list bounded to latest 200.
+
+Accountant reads do not include guest phone/IIN. Audit records document ID/state/version, not company requisites or document contents. Exports are unsigned preparation copies, not bank receipts/registered ESF. Actual checkout prepares invoice+act drafts atomically. Per-resort sequences are year/kind scoped. Current company/requisites affect drafts only. Additional line items, ledger, document pagination beyond 200, delivery notifications and signed archive remain follow-up.
+
+### Child dates
+Booking input accepts optional `childrenBirthDates: [YYYY-MM-DD]` and `childrenDatesConfirmed: true`. Server validates actual calendar dates, birth <= today, completed age 0..17 at check-in, adult/capacity rules and any supplied childrenAges consistency. Dates/confirmation are removed before idempotency fingerprint and persistence; snapshot stores ages only. Optional six-digit hint stays in component memory. Full `iin`/unknown fields are rejected. Legacy display total/nightly/regularNightly/discountPercent are ignored; server pricing remains authoritative. No identity verification is implied.

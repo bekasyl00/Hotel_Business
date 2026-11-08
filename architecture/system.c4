@@ -8,6 +8,7 @@ model {
   guest = actor 'Гость' { description 'Выбирает санаторий на карте, затем даты и номер; создаёт заявку, оплачивает в симуляторе и оставляет отзыв после проживания.' }
   admin = actor 'Администратор' { description 'Создаёт санатории, настраивает каталог, назначает управляющих.' }
   manager = actor 'Управляющий' { description 'Управляет каталогом, заявками, отзывами и историей своего санатория.' }
+  accountant = actor 'Бухгалтер' { description 'Финансовый кабинет своего санатория: поступления, возвраты, реквизиты, подготовка и публикация копий документов. Не управляет размещением и каталогом.' }
   operator = actor 'Оператор платформы' { description 'Активный Django staff-superuser; просматривает общую БД в технической консоли. Обычный администратор/управляющий этого доступа не получает.' }
   native = system 'Тыныс — iOS гостя' { description 'Capacitor 8 + Vue public routes, dist/mobile, kz.tynys.booking. Каталог/карта, брони, профиль; без страниц сотрудников. Native API через HTTPS /api/v1; токены в Keychain, PDF через Share. Default demo; dev-установка/запуск на iPhone 13 проверены, облачный API не подключён.' }
   nativeStaff = system 'Тыныс Команда — iOS сотрудников' { description 'Отдельный Capacitor bundle kz.tynys.staff, dist/mobile-staff. Обзор, брони, аналитика, управление; карточки на телефоне. Staff native credentials и отдельный sandbox. Default demo, данные не синхронизируются с гостевым demo.' }
@@ -21,6 +22,7 @@ model {
     guestProfile = service 'Профиль, аватар и квитанции' { description 'pages/guest-profile, receipt, staff-guest: история и загрузка аватара зарегистрированного гостя; подтверждённый телефон нельзя редактировать без новой проверки. Сотрудник видит гостя своего объекта. PDF по действию пользователя.' }
     analyticsPage = service 'Аналитика сотрудников' { description 'pages/analytics: периоды и сравнение, дни/недели/месяцы, заявки, поступления/возвраты по источникам demo/sandbox/production, отзывы и разрезы.' }
     staffPage = service 'Кабинет сотрудников' { description 'pages/workspace + pages/login: план размещения по номерам/датам, карточка проживания, обзор, каталог, аккаунты, модерация/ответы и история. Тарифы убраны из staff UI; ручная бронь по сезонной цене номера.' }
+    accountingPage = service 'Кабинет бухгалтера' { description 'pages/accounting: scoped реестр с пагинацией, источники demo/sandbox/production, CSV, реквизиты и версии документов. widgets/guest-documents выдаёт собственные опубликованные PDF/XLSX.' }
     occupancy = service 'План размещения' { description 'widgets/occupancy-board + entities/booking/model/occupancy: календарь 7/14/30 дней, поиск, фактические статусы пребывания, read-only финансовый snapshot, staff-only notes. Выезд exclusive; прошедшая дата не означает фактический выезд. Цвета не заменяют серверные статусы.' }
     features = service 'Действия и формы' { description 'Создание брони; редактирование объектов/номеров/аккаунтов; demo-payment и review-form. shared/ui выбирает фото/видео с устройства и отправляет FormData.' }
     gallery = service 'Галерея медиа' { description 'widgets/media-gallery: фотографии, alt-тексты и видео без автозапуска со звуком.' }
@@ -51,9 +53,10 @@ model {
     paymentJobs = service 'Durable payment jobs' { description 'PostgreSQL PaymentJob: lease/skip_locked, coalescing, bounded retry, dead-letter. Провайдер выбирается по сохранённой попытке; смена нового checkout не перенаправляет старые платежи. Create, verify, deactivate, refund/refund_verify. Network вне транзакций; неизвестный POST не повторяется. RefundRequest фиксирует намерение, только независимая сверка завершает возврат.' }
     receipts = service 'Демо-квитанции JSON / PDF' { description 'commerce/receipts.py: исходный снимок при оплате, отдельные сведения возврата, no-store и доступ владельцу/сотруднику. ReportLab + OFL Noto Sans. source=demo; настоящий чек от Kaspi не интегрирован.' }
     analytics = service 'Агрегаты аналитики' { description 'booking/analytics.py: PostgreSQL-агрегаты по датам событий в Asia/Almaty, сравнение периодов, нулевые интервалы, top500 по объектам/номерам. Источники demo/sandbox/production выбираются отдельно; учитываются только applied charge и verified refund. Net-поступления не являются прибылью.' }
+    accounting = service 'Финансовые документы' { description 'commerce/accounting: роль accountant, tenant scope, PostgreSQL sequence под resort lock, snapshots, draft/released/voided. Акт и счёт-фактура автоматически после фактического выезда; PDF/XLSX по очищенным пользовательским шаблонам. Только неподписанные копии; ПКО не публикуется без кассового учёта.' }
     audit = service 'История изменений' { description 'booking Audit: before/after и актор записываются с мутацией в одной транзакции. Нет endpoint изменения журнала; DB-администратор всё ещё может менять БД.' }
   }
-  database = store 'PostgreSQL' { description 'Каталог, web/native identity, guest profile/avatar, MediaAsset, брони/проживания, отзывы, demo-commerce и аудит. GiST запрещает пересечение pending/confirmed; unique защищает оплату. Тесты используют local PostgreSQL; Django подключён TLS verify-full через transaction pooler к отдельной private tynys_stage schema. Старый tynys сохранён. 33 runtime-таблицы, RLS включён, прямые anon/authenticated grants отозваны.' }
+  database = store 'PostgreSQL' { description 'Каталог, web/native identity, guest profile/avatar, MediaAsset, брони/проживания, отзывы, demo-commerce и аудит. GiST запрещает пересечение pending/confirmed; unique защищает оплату. Тесты используют local PostgreSQL; Django подключён TLS verify-full через transaction pooler к отдельной private tynys_stage schema. Старый tynys сохранён. Runtime-таблицы, RLS включён, прямые anon/authenticated grants отозваны.' }
   files = store 'Приватные фото и видео' { description 'Local backend/private-media; Supabase private bucket tynys-private подключён; write/read/delete тестового JPEG проверены. Прямой object key не публикуется. Авторизованная выдача через API; signed S3 URL доступен обладателю до 60с. Vercel sandbox ограничен файлами 4 MB; direct upload, транскодирование и сверка хранилища ещё нужны.' }
   supabase = service 'Supabase sandbox' { description 'Seoul ap-northeast-2, Free/Nano. Django role tynys_stage без superuser/createdb/bypassrls, private schema и S3; credentials только server env. Не инфраструктура для реальных персональных данных. Supabase Auth и прямые клиентские записи не используются.' }
   halyk = service 'Halyk ePay — внешний sandbox' { description 'Общие опубликованные тестовые invoice credentials. OAuth/lookup/create recovery/deactivation проверены. Успешное CHARGE, callback delivery и реальный sandbox refund пока не подтверждены.' }
@@ -61,6 +64,14 @@ model {
   tiles = service 'OpenStreetMap' { description 'Leaflet запрашивает тайлы по HTTPS с attribution. При сбое доступны список и ручной выбор координат.' }
   hosting = service 'Vercel — два сайта' { description 'Public dist/site и staff dist/staff на отдельных проектах. Маршруты выбираются при сборке. LikeC4 не публикуется. /api проксируется в tynys-api.vercel.app; браузерные cookie остаются на origin сайта.' link https://vercel-site-puce-two.vercel.app 'Сайт' }
   staffHosting = service 'Адрес сотрудников' { description 'tynys-staff.vercel.app; отдельный сайт. API-сборка использует ту же Supabase БД через Django; native demo-сборки на iPhone не обновлялись.' link https://tynys-staff.vercel.app 'Кабинет' }
+  accountant -> frontend.accountingPage 'Свой санаторий'
+  admin -> frontend.accountingPage 'Все доступные санатории'
+  frontend.accountingPage -> frontend.transport 'accounting API / authorized downloads'
+  frontend.guestProfile -> backend.accounting 'Только собственные released документы'
+  backend.api -> backend.accounting 'Web cookie + CSRF, проверки роли/объекта'
+  backend.reservations -> backend.accounting 'Черновики при recorded checkout'
+  backend.accounting -> database 'Документы, реквизиты, последовательности'
+  backend.accounting -> backend.audit 'Метаданные операции без реквизитов'
   backend.api -> backend.bankPayments 'Checkout/read/refresh и callback-сигналы'
   backend.bankPayments -> database 'Attempt/event и атомарное подтверждение'
   backend.bankPayments -> backend.paymentJobs 'Устойчивая очередь'
@@ -149,8 +160,8 @@ model {
   backend.media -> database 'Метаданные, владелец и квоты'
   backend.maintenance -> database 'Expired tokens / unreferenced assets'
   backend.maintenance -> files 'Контролируемая очистка'
-  database -> supabase 'Подготовленный вариант; live не проверен'
-  files -> supabase 'S3 драйвер; bucket пока не подключён'
+  database -> supabase 'Private staging schema, TLS и migrations'
+  files -> supabase 'Private bucket tynys-private; stable API references'
   backend.catalog -> backend.audit 'Изменение каталога'
   backend.reservations -> backend.audit 'Переходы брони'
   backend.reviews -> backend.audit 'Отзыв и модерация'
@@ -159,11 +170,12 @@ model {
   hosting -> frontend 'Отдаёт статическую сборку'
 }
 views {
-  view index { title 'Тыныс: роли и платформа' include guest, admin, manager, operator, frontend, native, backend, database, files, tiles, hosting }
+  view index { title 'Тыныс: роли и платформа' include guest, admin, manager, accountant, operator, frontend, native, backend, database, files, tiles, hosting }
   view browser of frontend { title 'Vue / FSD / адаптеры данных' include frontend.*, guest, admin, manager, tiles }
   view api { title 'Общий backend: Web, Native, Django Admin и private media' include frontend.http, native, operator, backend.*, database, files, supabase }
   view mediaFlow { title 'Загрузка и защищённая выдача фото/видео' include guest, manager, frontend.features, frontend.guestProfile, frontend.gallery, backend.api, backend.auth, backend.mobileAuth, backend.media, backend.profiles, backend.maintenance, database, files, supabase }
   view bookingFlow { title 'Заявка, оплата и отмена' include guest, manager, frontend.bookingsPage, frontend.staffPage, backend.reservations, backend.commerce, backend.audit, database }
   view reporting { title 'История, квитанции и аналитика' include guest, manager, admin, frontend.guestProfile, frontend.analyticsPage, backend.profiles, backend.receipts, backend.analytics, database }
+  view accountingFlow { title 'Бухгалтерия и документы' include accountant, admin, guest, frontend.accountingPage, frontend.guestProfile, backend.api, backend.accounting, backend.reservations, backend.audit, database }
   view publication { title 'Статический сайт и отдельно запускаемый API' include hosting, frontend, backend, files, tiles }
 }

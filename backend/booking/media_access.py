@@ -50,7 +50,7 @@ def asset_is_referenced(asset):
 def can_read_asset(request, asset):
     from .services import admin, guest_owner
 
-    staff = request.user.is_authenticated
+    staff = request.user.is_authenticated and (admin(request.user) or request.user.role == "manager")
     if asset.purpose == "avatar":
         if not GuestProfile.objects.filter(pk=asset.profile_id, avatar=asset).exists():
             return False

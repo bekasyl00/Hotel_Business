@@ -9,6 +9,7 @@ from booking.media import MediaFile, MediaUpload, ProfileAvatar
 from booking.mobile_auth import MobileAuthView, MobileSessionView
 from booking.staff_mobile_auth import StaffMobileAuthView, StaffMobileSessionView
 from booking.views import Endpoint
+from commerce.accounting.views import AccountingView, GuestDocumentsView
 from commerce.payment_views import HalykCallbackView, PaymentView
 from commerce.scheduler import tick
 from commerce.views import CancellationPreviewView, DemoPaymentView, ReceiptView
@@ -17,6 +18,22 @@ from commerce.xpayment_webhook import XPaymentCallbackView
 from .health import live, ready
 
 api_patterns = [
+    path("accounting", AccountingView.as_view()),
+    path("accounting/export", AccountingView.as_view(), {"resource": "export"}),
+    path("accounting/company/<str:pk>", AccountingView.as_view(), {"resource": "company"}),
+    path("accounting/documents", AccountingView.as_view(), {"resource": "documents"}),
+    path(
+        "accounting/documents/<str:pk>/<str:format_kind>/download",
+        AccountingView.as_view(),
+        {"resource": "file"},
+    ),
+    path(
+        "accounting/documents/<str:pk>/<str:action>",
+        AccountingView.as_view(),
+        {"resource": "documents"},
+    ),
+    path("my-documents", GuestDocumentsView.as_view()),
+    path("my-documents/<str:pk>/<str:format_kind>/download", GuestDocumentsView.as_view()),
     path("staff-mobile-auth/sessions", StaffMobileSessionView.as_view()),
     path("staff-mobile-auth/sessions/<uuid:pk>", StaffMobileSessionView.as_view()),
     path("staff-mobile-auth/<str:action>", StaffMobileAuthView.as_view()),

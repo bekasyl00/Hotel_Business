@@ -2,7 +2,10 @@ import { defineStore } from "pinia";
 import { request } from "@/shared/api";
 export const useSessionStore = defineStore("session", {
   state: () => ({ user: null, ready: false }),
-  getters: { isAdmin: (s) => s.user?.role === "admin" },
+  getters: {
+    isAdmin: (s) => s.user?.role === "admin",
+    isAccountant: (s) => s.user?.role === "accountant",
+  },
   actions: {
     async restore() {
       this.user = await request("GET", "/auth/session");

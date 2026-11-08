@@ -63,7 +63,9 @@ class User(AbstractUser):
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=100)
     role = models.CharField(
-        max_length=16, default="manager", choices=[("admin", "admin"), ("manager", "manager")]
+        max_length=16,
+        default="manager",
+        choices=[("admin", "admin"), ("manager", "manager"), ("accountant", "accountant")],
     )
     resort = models.ForeignKey(Resort, null=True, blank=True, on_delete=models.PROTECT)
     version = models.PositiveIntegerField(default=1)

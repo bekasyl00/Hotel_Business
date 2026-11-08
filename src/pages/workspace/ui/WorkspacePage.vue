@@ -1002,7 +1002,7 @@ onBeforeUnmount(() => {
                 <table class="workspace-table">
                   <thead>
                     <tr>
-                      <th>{{ t("staff.manager") }}</th>
+                      <th>{{ t("staff.managers") }}</th>
                       <th>{{ t("staff.resort") }}</th>
                       <th>{{ t("staff.access") }}</th>
                       <th>{{ t("staff.action") }}</th>
@@ -1013,6 +1013,11 @@ onBeforeUnmount(() => {
                       <td :data-label="t('staff.manager')">
                         <strong>{{ a.name }}</strong
                         ><small>{{ a.login }}</small>
+                        <small>{{
+                          a.role === "accountant"
+                            ? t("common.accounting.role")
+                            : t("staff.manager")
+                        }}</small>
                       </td>
                       <td :data-label="t('staff.resort')">
                         {{

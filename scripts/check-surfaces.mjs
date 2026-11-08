@@ -6,7 +6,13 @@ const site = await manifest("dist/site");
 const staff = await manifest("dist/staff");
 const includes = (entries, name) =>
   Object.keys(entries).some((key) => key.includes(`src/pages/${name}/`));
-for (const name of ["workspace", "analytics", "staff-guest", "login"]) {
+for (const name of [
+  "workspace",
+  "analytics",
+  "staff-guest",
+  "login",
+  "accounting",
+]) {
   assert.equal(
     includes(site, name),
     false,

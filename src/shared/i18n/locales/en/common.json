@@ -155,5 +155,94 @@
       "reconciliation_required": "Refund needs bank reconciliation."
     },
     "details": "Payment details"
+  },
+  "gallery": {
+    "previous": "Previous",
+    "next": "Next",
+    "open": "All photos and videos"
+  },
+  "accounting": {
+    "eyebrow": "Finance workspace",
+    "title": "Accounting",
+    "role": "Accountant",
+    "accessRole": "Staff role",
+    "description": "Resort receipts, refunds and documents in one workspace.",
+    "company": "Company details",
+    "all": "All permitted resorts",
+    "from": "From",
+    "to": "To",
+    "source": "Payment source",
+    "production": "Bank payments",
+    "demo": "Demonstration",
+    "search": "Guest or booking reference",
+    "apply": "Apply",
+    "scopeHint": "Select a resort to configure its company details. Access is limited to your assigned organization.",
+    "received": "Received",
+    "refunded": "Refunded",
+    "net": "Net receipts",
+    "totalsHint": "Receipts and refunds use financial event dates. These are not profit. Bookings use creation dates.",
+    "bookings": "Bookings and settlements",
+    "export": "Download CSV",
+    "guest": "Guest",
+    "stay": "Stay",
+    "amount": "Amount",
+    "payment": "Payment",
+    "prepare": "Prepare document",
+    "completed": "Stay completed",
+    "notCompleted": "Checkout not recorded",
+    "unpaid": "Unpaid",
+    "empty": "No records in this period.",
+    "documents": "Documents",
+    "documentHint": "Draft service acts and invoices are created after recorded checkout. Reviewed copies can be shared with the guest. These are not signed electronic invoices. A cash order remains a draft: a bank payment is not proof of cash received.",
+    "refresh": "Refresh draft",
+    "release": "Make available to guest",
+    "void": "Void document",
+    "documentLimit": "Showing the first 200 documents. Narrow the period to find others.",
+    "vat": "VAT treatment",
+    "noVat": "Without VAT",
+    "vatIncluded": "VAT included",
+    "vatRate": "VAT rate, %",
+    "companyHint": "Enter verified company details and the applicable tax treatment. Publishing freezes the document. Signatures, digital signing and official electronic invoice registration are separate.",
+    "guestHint": "Prepared documents appear after the stay and accountant review.",
+    "demoHint": "Document preparation and downloads require the Django API.",
+    "kinds": {
+      "invoice": "Invoice",
+      "act": "Service acceptance act",
+      "cash_order": "Cash receipt order"
+    },
+    "states": {
+      "draft": "Draft",
+      "released": "Available to guest",
+      "voided": "Voided"
+    },
+    "fields": {
+      "supplier": "Organization name",
+      "bin": "Organization BIN",
+      "address": "Registered address",
+      "iban": "IBAN",
+      "bank": "Bank",
+      "bik": "BIC",
+      "director": "Director",
+      "accountant": "Accountant / responsible person"
+    },
+    "paymentStatuses": {
+      "paid": "Paid",
+      "pending": "Awaiting payment",
+      "creating": "Creating payment",
+      "failed": "Payment failed",
+      "expired": "Expired",
+      "succeeded": "Paid",
+      "refunded": "Refunded",
+      "partially_refunded": "Partially refunded",
+      "reconciliation_required": "Reconciliation required"
+    }
+  },
+  "children": {
+    "prefix": "Child {number}: first 6 IIN digits — optional",
+    "birth": "Child’s date of birth",
+    "age": "Age at check-in: {age}",
+    "confirm": "I confirm the date against the child’s document",
+    "confirmRequired": "Enter and confirm each child’s date of birth.",
+    "hint": "The first 6 digits are only a hint. Verify the date: IIN may not match it. Full IIN is not collected; only age at check-in is stored. Free eligibility depends on the selected rate."
   }
 }

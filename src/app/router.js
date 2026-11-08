@@ -73,6 +73,9 @@ router.beforeEach(async (to) => {
     return "/staff/login";
   }
   if (!session.user) return "/staff/login";
+  if (session.isAccountant && !to.meta.accounting) return "/staff/accounting";
+  if (to.meta.accounting && !session.isAdmin && !session.isAccountant)
+    return "/staff/bookings";
 });
 router.onError(() => {
   routeLoadFailed.value = true;

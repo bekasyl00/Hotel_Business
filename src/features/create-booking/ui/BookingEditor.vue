@@ -1,4 +1,5 @@
 <script setup>
+import { ageAt, birthHint } from "../model/children.js";
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 import { isDemo, isMobile, isStaffApp } from "@/shared/config";
@@ -41,24 +42,40 @@ const tariff = computed(() =>
   props.tariffs.find((t) => t.id === form.tariffId),
 );
 const price = computed(() =>
-  room.value && (props.staff || tariff.value)
+  room.value &&
+  (props.staff || tariff.value) &&
+  !validateChildren(form.guests, form.childrenAges)
     ? quoteStay(room.value, props.staff ? null : tariff.value, form)
     : null,
 );
 const total = computed(() => price.value?.total || 0);
+const children = ref([]);
+function suggestBirth(child) {
+  const hint = birthHint(child.prefix, form.start);
+  if (hint) child.birth = hint;
+  child.confirmed = false;
+}
+watch(
+  [children, () => form.start],
+  () => {
+    form.childrenAges = children.value.map((c) => ageAt(c.birth, form.start));
+  },
+  { deep: true },
+);
 const childCount = computed({
-  get: () => form.childrenAges.length,
+  get: () => children.value.length,
   set: (value) => {
-    form.childrenAges = Array.from(
+    children.value = Array.from(
       { length: Math.max(0, Math.min(Number(value) || 0, form.guests - 1)) },
-      (_, i) => form.childrenAges[i] ?? null,
+      (_, i) =>
+        children.value[i] ?? { prefix: "", birth: "", confirmed: false },
     );
   },
 });
 watch(
   () => form.guests,
   (value) => {
-    form.childrenAges = form.childrenAges.slice(0, Math.max(0, value - 1));
+    children.value = children.value.slice(0, Math.max(0, value - 1));
   },
 );
 const store = useBookingStore(),
@@ -67,7 +84,9 @@ const store = useBookingStore(),
   consent = ref(false);
 let attempt = null;
 async function save() {
-  error.value = validateChildren(form.guests, form.childrenAges);
+  error.value = children.value.some((c) => !c.confirmed || !c.birth)
+    ? t("common.children.confirmRequired")
+    : validateChildren(form.guests, form.childrenAges);
   if (error.value) return;
   busy.value = true;
   error.value = "";
@@ -76,7 +95,12 @@ async function save() {
     if (attempt?.fingerprint !== fingerprint)
       attempt = { fingerprint, id: crypto.randomUUID() };
     const result = await store.create(
-      { ...form, requestId: attempt.id },
+      {
+        ...form,
+        childrenBirthDates: children.value.map((c) => c.birth),
+        childrenDatesConfirmed: true,
+        requestId: attempt.id,
+      },
       props.staff,
     );
     emit("saved", result);
@@ -194,16 +218,44 @@ watch(
             :max="Math.max(0, form.guests - 1)"
             required
         /></label>
-        <label v-for="(_, index) in form.childrenAges" :key="index"
-          >{{ t("common.pricing.childAge", { n: index + 1 })
-          }}<input
-            v-model.number="form.childrenAges[index]"
-            type="number"
-            min="0"
-            max="17"
-            required
-        /></label>
-        <p class="field-help">{{ t("common.pricing.ageHint") }}</p>
+        <div
+          v-for="(child, index) in children"
+          :key="index"
+          class="child-birth-fields"
+        >
+          <label
+            >{{ t("common.children.prefix", { number: index + 1 })
+            }}<input
+              v-model="child.prefix"
+              inputmode="numeric"
+              maxlength="6"
+              pattern="[0-9]{6}"
+              autocomplete="off"
+              @input="suggestBirth(child)"
+          /></label>
+          <label
+            >{{ t("common.children.birth")
+            }}<input
+              v-model="child.birth"
+              type="date"
+              :max="dateAfter()"
+              required
+              @input="child.confirmed = false"
+          /></label>
+          <p class="field-help">
+            {{
+              t("common.children.age", { age: form.childrenAges[index] ?? "—" })
+            }}
+          </p>
+          <label class="consent-row"
+            ><input v-model="child.confirmed" type="checkbox" required />{{
+              t("common.children.confirm")
+            }}</label
+          >
+        </div>
+        <p v-if="children.length" class="field-help">
+          {{ t("common.children.hint") }}
+        </p>
       </fieldset>
       <label v-if="!staff"
         >{{ t("public.rate")

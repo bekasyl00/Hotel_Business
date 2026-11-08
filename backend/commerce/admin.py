@@ -2,7 +2,43 @@ from django.contrib import admin
 
 from booking.admin import ReadOnlyAdmin, platform_admin_site, record_link, structured_data
 
-from .models import DemoPayment, DemoRefund, PaymentAttempt, PaymentEvent, PaymentJob, RefundRequest
+from .models import (
+    AccountingCompany,
+    AccountingDocument,
+    DemoPayment,
+    DemoRefund,
+    PaymentAttempt,
+    PaymentEvent,
+    PaymentJob,
+    RefundRequest,
+)
+
+
+@admin.register(AccountingDocument, site=platform_admin_site)
+class AccountingDocumentAdmin(ReadOnlyAdmin):
+    fields = (
+        "id",
+        "booking",
+        "kind",
+        "state",
+        "number",
+        "version",
+        "created_at",
+        "released_at",
+        "voided_at",
+    )
+    list_display = ("number", "booking", "kind", "state", "created_at")
+    list_filter = ("kind", "state", "booking__resort")
+    search_fields = ("=id", "number", "=booking__id")
+    workspace_path = "accounting"
+
+
+@admin.register(AccountingCompany, site=platform_admin_site)
+class AccountingCompanyAdmin(ReadOnlyAdmin):
+    fields = ("resort", "version", "updated_at")
+    list_display = ("resort", "version", "updated_at")
+    search_fields = ("resort__name",)
+    workspace_path = "accounting"
 
 
 @admin.register(DemoPayment, site=platform_admin_site)

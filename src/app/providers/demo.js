@@ -229,6 +229,8 @@ export function createDemoTransport({
     const isPublic = (id) => publicResorts.some((r) => r.id === id);
     const authorize = (resortId) => {
       if (!user) fail("Войдите в кабинет сотрудника.", 401);
+      if (!["admin", "manager"].includes(user.role))
+        fail("Эта операция недоступна бухгалтеру.", 403);
       if (user.role !== "admin" && user.resortId !== resortId)
         fail("У вас нет доступа к этому санаторию.", 403);
     };
@@ -436,7 +438,70 @@ export function createDemoTransport({
           .map((r) => r.id),
       };
     }
+    if (pathname === "/accounting" && method === "GET") {
+      if (!user) fail("Войдите в кабинет.", 401);
+      if (!["admin", "accountant"].includes(user.role))
+        fail("Недостаточно прав.", 403);
+      const resorts = db.resorts.filter(
+        (r) => user.role === "admin" || r.id === user.resortId,
+      );
+      const selected = params.get("resortId");
+      if (selected && !resorts.some((r) => r.id === selected))
+        fail("Не найдено.", 404);
+      const allowed = new Set(
+        resorts.filter((r) => !selected || r.id === selected).map((r) => r.id),
+      );
+      const dateStart = params.get("start") || "0000-01-01",
+        dateEnd = params.get("end") || "9999-12-31",
+        search = params.get("search")?.toLowerCase() || "";
+      const list = db.bookings
+        .filter(
+          (b) =>
+            allowed.has(b.resortId) &&
+            (b.createdAt || "").slice(0, 10) >= dateStart &&
+            (b.createdAt || "").slice(0, 10) <= dateEnd &&
+            (!search ||
+              b.guestLabel?.toLowerCase().includes(search) ||
+              b.id.includes(search)),
+        )
+        .map((b) => ({
+          id: b.id,
+          resortId: b.resortId,
+          resort: db.resorts.find((r) => r.id === b.resortId)?.name,
+          guest: b.guestLabel,
+          room: b.roomName,
+          start: b.start,
+          end: b.end,
+          amount: b.total,
+          status: b.status,
+          completed: b.stayStatus === "checked_out",
+          payment: b.payment || null,
+        }));
+      const report = demoAnalytics(
+          db,
+          { ...user, role: user.role === "accountant" ? "manager" : user.role },
+          params,
+        ),
+        page = Math.max(1, Number(params.get("page")) || 1);
+      return clone({
+        resorts: resorts.map((r) => ({ id: r.id, name: r.name })),
+        totals: {
+          received: report.totals.grossReceived,
+          refunded: report.totals.refunds,
+          net: report.totals.netReceived,
+        },
+        bookings: list.slice((page - 1) * 50, page * 50),
+        count: list.length,
+        documents: [],
+        documentCount: 0,
+        page,
+        paymentMode: "demo",
+      });
+    }
+
     if (pathname === "/workspace" && method === "GET") {
+      if (user?.role === "accountant")
+        fail("Откройте бухгалтерский кабинет.", 403);
       if (!user) fail("Войдите в кабинет сотрудника.", 401);
       return clone({
         resorts: db.resorts.filter(
@@ -447,7 +512,9 @@ export function createDemoTransport({
         bookings: db.bookings.filter(scoped),
         accounts:
           user.role === "admin"
-            ? db.accounts.filter((a) => a.role === "manager")
+            ? db.accounts.filter((a) =>
+                ["manager", "accountant"].includes(a.role),
+              )
             : [],
         audit: db.audit.filter(scoped),
         reviews: db.reviews.filter(scoped),
@@ -799,7 +866,10 @@ export function createDemoTransport({
         resortId,
         name: text(payload.name, "Имя", 100),
         login: text(payload.login, "Логин", 100).toLowerCase(),
-        role: "manager",
+        role: choice(payload.role || item?.role || "manager", [
+          "manager",
+          "accountant",
+        ]),
         status: choice(payload.status, ["active", "disabled"]),
       };
       if (
