@@ -8,6 +8,7 @@ import { i18n, syncDocumentLanguage } from "@/shared/i18n";
 import "./styles/catalog.css";
 import "./styles/workspace.css";
 import "./styles/public-profiles.css";
+import "./styles/visual-theme.css";
 if (isDemo) {
   const { createDemoTransport } = await import("./providers/demo.js");
   configureTransport(createDemoTransport());

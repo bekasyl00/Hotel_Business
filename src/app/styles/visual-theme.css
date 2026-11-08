@@ -1,0 +1,1124 @@
+/* Tynys / Sanatorium Garden. Presentation only; booking and payment states keep their colors. */
+:root {
+  --brand: #53694a;
+  --brand-hover: #40553a;
+  --nav: #303e2f;
+  --ink: #30372f;
+  --muted: #666b5e;
+  --line: #dedfd2;
+  --cream: #f4f3ed;
+  --work-bg: #f4f3ec;
+  --accent: #c59b62;
+  --green: var(--brand);
+  --green-dark: #344a35;
+  --lime: #edf0e5;
+  --shadow: 0 12px 36px #3d472e10;
+  --radius-control: 10px;
+  --radius-panel: 18px;
+  color: var(--ink);
+  background: #fbfaf6;
+  font-feature-settings: "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+body {
+  background: #fbfaf6;
+}
+::selection {
+  background: #e3e8d7;
+  color: #303e2f;
+}
+h1,
+h2,
+h3 {
+  text-wrap: balance;
+}
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+button,
+input,
+select,
+textarea {
+  accent-color: var(--brand);
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #9a6634;
+  outline-offset: 3px;
+}
+.brand,
+.staff-brand {
+  letter-spacing: -1.3px;
+}
+.brand img,
+.staff-brand img {
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+}
+.brand-dot {
+  color: #a87a46;
+}
+.primary,
+.work-main .primary,
+.app-dialog .primary,
+.login-box .primary {
+  border-radius: var(--radius-control);
+  background: var(--brand);
+  color: white;
+  font-weight: 700;
+  min-height: 44px;
+  box-shadow: 0 2px 3px #344a3512;
+}
+.primary:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+.secondary {
+  border-radius: var(--radius-control);
+  border-color: var(--line);
+  background: white;
+  color: var(--ink);
+}
+.secondary:hover:not(:disabled) {
+  background: #edf0e4;
+  border-color: #b3bda4;
+}
+.text-button {
+  color: var(--brand);
+}
+.editor-form input:not([type="checkbox"]),
+.editor-form select,
+.editor-form textarea {
+  border-color: #cbd0be;
+  border-radius: var(--radius-control);
+  background: white;
+  color: var(--ink);
+  min-height: 46px;
+}
+.editor-form input:focus,
+.editor-form select:focus,
+.editor-form textarea:focus {
+  border-color: var(--brand);
+}
+.public-site .language-switcher select,
+.staff-layout .language-switcher select,
+.login-page .language-switcher select {
+  border-color: var(--line);
+  background: white;
+  border-radius: 9px;
+  min-height: 40px;
+}
+.demo-badge {
+  background: #fff8ec;
+  color: #79501f;
+  border-color: #e5d7bd;
+  letter-spacing: 0.06em;
+}
+
+/* Discovery: the search remains the main action; illustration is decorative. */
+.public-site {
+  min-height: 100dvh;
+  background: #fbfaf6;
+}
+.public-site .public-header {
+  background: #fff;
+  border-color: var(--line);
+}
+.public-header .public-header-top {
+  max-width: 1440px;
+  margin: auto;
+  padding: 18px 48px;
+  min-height: 88px;
+}
+.public-header-top .brand {
+  color: #344a35;
+  font-size: 29px;
+}
+.public-header-top nav {
+  gap: 26px;
+}
+.public-header-top nav a {
+  color: #616b59;
+}
+.public-header-top nav a[aria-current="page"] {
+  color: var(--brand);
+  box-shadow: inset 0 -2px var(--brand);
+}
+.public-header-top nav a:hover {
+  color: var(--brand);
+}
+.public-header .category-navigation {
+  max-width: 1440px;
+  margin: auto;
+  padding: 0 48px 16px;
+  gap: 10px;
+}
+.category-navigation a {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  min-height: 40px;
+  padding: 8px 18px;
+}
+.category-navigation a.selected {
+  background: #edf0e3;
+  border-color: #b7c2a8;
+  color: #405b36;
+}
+.category-navigation a:hover {
+  border-color: #a1b08e;
+}
+.discovery-page .discovery-search {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 650px);
+  gap: 26px;
+  max-width: 1344px;
+  margin: 28px auto 0;
+  min-height: 338px;
+  padding: 44px 48px;
+  border: 0;
+  border-radius: 24px;
+  color: white;
+  background: #344a35 url("/assets/botanical.svg") right 32px bottom / 440px
+    auto no-repeat;
+  overflow: hidden;
+}
+.discovery-search .eyebrow {
+  color: #d4b78d;
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  margin-bottom: 14px;
+}
+.discovery-page .discovery-search h1 {
+  color: white;
+  font-size: clamp(32px, 3.4vw, 48px);
+  line-height: 1.14;
+  letter-spacing: -1.6px;
+  max-width: 650px;
+}
+.discovery-page .discovery-search p {
+  color: #e2e8d9;
+  font-size: 14px;
+  line-height: 1.7;
+  margin-top: 14px;
+  max-width: 560px;
+}
+.discovery-search .discovery-search-input {
+  width: 100%;
+  max-width: 570px;
+  background: white;
+  border: 2px solid white;
+  padding: 9px 18px;
+  border-radius: 12px;
+  box-shadow: 0 5px 14px #303c2620;
+}
+.discovery-search .discovery-search-input:focus-within {
+  outline: 3px solid #c59b62;
+  outline-offset: 4px;
+}
+.discovery-search-input input {
+  color: var(--ink);
+  min-height: 36px;
+}
+.discovery-page .catalogue-grid-layout {
+  max-width: 1440px;
+  padding: 12px 48px 100px;
+}
+.catalogue-grid-layout .discovery-results {
+  padding: 28px 0;
+}
+.results-heading {
+  margin-bottom: 20px;
+}
+.results-heading strong {
+  font-size: 20px;
+  letter-spacing: -0.5px;
+}
+.discovery-filters {
+  justify-content: flex-end;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 26px;
+}
+.discovery-filters label {
+  flex: 0 1 240px;
+}
+.discovery-filters select {
+  min-height: 44px;
+  font-size: 13px;
+  border-radius: 10px;
+  border-color: var(--line);
+}
+.catalogue-cards {
+  gap: 28px;
+}
+.catalogue-cards .discovery-card {
+  background: white;
+  border-color: var(--line);
+  border-radius: 18px;
+  box-shadow: 0 3px 8px #344a3505;
+  transition:
+    box-shadow 0.2s,
+    border-color 0.2s;
+}
+.catalogue-cards .discovery-card:hover {
+  border-color: #a7b595;
+  box-shadow: 0 12px 30px #344a3512;
+}
+.catalogue-cards .discovery-card-image {
+  height: 240px;
+}
+.discovery-card-image img {
+  transition: transform 0.35s;
+}
+@media (hover: hover) {
+  .discovery-card:hover .discovery-card-image img {
+    transform: scale(1.035);
+  }
+}
+.catalogue-cards .discovery-card-content {
+  padding: 22px;
+  gap: 11px;
+}
+.discovery-card-content h2 {
+  font-size: 21px;
+  letter-spacing: -0.6px;
+}
+.discovery-card-content .card-title-row {
+  margin-bottom: 2px;
+}
+.discovery-card-content .muted {
+  line-height: 1.6;
+}
+.discovery-summary {
+  font-size: 13px;
+}
+.discovery-meta {
+  color: #626f56;
+  gap: 8px;
+  font-size: 11px;
+}
+.discovery-meta > span {
+  background: #f2f3e9;
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+.catalogue-cards .discovery-card-bottom {
+  border-top: 1px solid #eceee3;
+  padding-top: 16px;
+  margin-top: 7px;
+  align-items: center;
+}
+.discovery-card-bottom strong {
+  font-size: 18px;
+  color: #344a35;
+}
+.discovery-card-bottom small {
+  font-size: 11px;
+}
+.discovery-card-bottom .text-button {
+  color: var(--brand);
+  font-size: 12px;
+}
+.public-site .floating-map-button {
+  background: #344a35;
+  box-shadow: 0 8px 30px #303e2f38;
+  border: 2px solid white;
+  min-height: 56px;
+  padding: 12px 25px;
+}
+.public-site .floating-map-button:hover {
+  background: #53694a;
+}
+.floating-map-dialog::backdrop,
+.app-dialog::backdrop {
+  background: #28332394;
+  backdrop-filter: blur(3px);
+}
+
+/* Shared profiles, media, forms and guest account. */
+.public-site .profile-main {
+  max-width: 1280px;
+  padding-top: 30px;
+}
+.profile-heading h1 {
+  color: #344a35;
+  font-size: 38px;
+  letter-spacing: -1.4px;
+}
+.profile-chips span,
+.profile-class {
+  background: #edf0e3;
+  color: #45613c;
+  border-radius: 6px;
+}
+.profile-rating strong {
+  color: #344a35;
+}
+.media-main {
+  border-radius: 20px;
+  background: #e8ebdf;
+}
+.media-thumbnails button {
+  border-radius: 9px;
+}
+.profile-section-nav a {
+  color: #546a45;
+}
+.profile-section h2 {
+  font-size: 24px;
+}
+.profile-section p {
+  line-height: 1.8;
+}
+.profile-room-card {
+  background: white;
+  border-radius: 16px;
+  padding: 18px;
+  border: 1px solid var(--line);
+}
+.profile-room-card > a > img {
+  border-radius: 10px;
+}
+.profile-tariff,
+.stay-summary,
+.guest-booking,
+.guest-contact-panel,
+.receipt-sheet {
+  background: white;
+  border-color: var(--line);
+  border-radius: 16px;
+}
+.stay-summary {
+  box-shadow: var(--shadow);
+}
+.stay-date-form {
+  background: #eff1e7;
+  border-radius: 12px;
+}
+.public-site .guest-auth-main {
+  max-width: 600px;
+}
+.public-site .guest-auth-card {
+  padding: 36px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+}
+.public-site .guest-auth-card h1 {
+  color: #344a35;
+}
+.public-site .guest-auth-card .text-button {
+  color: var(--brand);
+}
+.guest-booking-heading h2 {
+  color: #344a35;
+}
+.guest-booking-total,
+.receipt-total strong {
+  font-variant-numeric: tabular-nums;
+  color: #344a35;
+}
+.app-dialog {
+  border-radius: 20px;
+  box-shadow: 0 24px 100px #28342440;
+}
+
+/* Staff: quiet, compact workspace, with state colors independent of branding. */
+.staff-layout {
+  grid-template-columns: 236px minmax(0, 1fr);
+}
+.staff-layout .staff-sidebar {
+  background: #303e2f;
+  padding: 28px 14px 18px;
+  color: #f3f5e9;
+  overflow-y: auto;
+}
+.staff-sidebar .staff-brand {
+  font-size: 29px;
+  padding: 0 12px;
+}
+.staff-sidebar .sidebar-caption {
+  color: #bac7aa;
+  font-size: 10px;
+  margin: 32px 14px 14px;
+  letter-spacing: 0.09em;
+}
+.staff-sidebar nav {
+  gap: 4px;
+}
+.staff-sidebar nav a {
+  color: #dae2cf;
+  min-height: 44px;
+  padding: 11px 14px;
+  border-radius: 9px;
+  font-size: 12px;
+}
+.staff-sidebar nav a > span {
+  color: #bfceb1;
+}
+.staff-sidebar nav a.selected {
+  background: #53694a;
+  color: white;
+  box-shadow: inset 3px 0 #c59b62;
+}
+.staff-sidebar nav a.selected > span {
+  color: white;
+}
+.staff-sidebar nav a:hover {
+  background: #ffffff12;
+}
+.staff-sidebar nav a.selected:hover {
+  background: #647b56;
+}
+.staff-sidebar .sidebar-footer {
+  margin-top: auto;
+  padding-top: 20px;
+}
+.staff-sidebar .sidebar-footer small {
+  color: #bac7aa;
+}
+.staff-sidebar .avatar {
+  background: #4b5c40;
+  color: white;
+}
+.staff-sidebar .logout-button {
+  color: #dae2cf;
+}
+.staff-layout .staff-topbar {
+  padding: 16px 32px;
+  min-height: 76px;
+  border-color: var(--line);
+}
+.staff-layout .work-main,
+.staff-layout .accounting-page {
+  padding: 30px 32px 48px;
+}
+.staff-layout .work-title {
+  margin-bottom: 24px;
+}
+.staff-layout .work-title h1,
+.staff-layout .accounting-heading h1 {
+  font-size: 30px;
+  color: #344a35;
+  letter-spacing: -1px;
+}
+.staff-layout .demo-strip {
+  color: #606a57;
+  margin-bottom: 22px;
+}
+.staff-layout .demo-dot {
+  background: #a57b43;
+}
+.staff-layout .surface,
+.staff-layout .board-panel,
+.staff-layout .finance-table,
+.staff-layout .analytics-report {
+  border-color: var(--line);
+  border-radius: 14px;
+  box-shadow: 0 2px 5px #303e2f04;
+}
+.staff-layout .surface-heading {
+  padding: 20px 24px;
+}
+.staff-layout .metrics article,
+.staff-layout .board-summary > div,
+.staff-layout .finance-totals article {
+  border-color: var(--line);
+  border-radius: 14px;
+  padding: 20px;
+  background: white;
+}
+.staff-layout .metrics article:first-child {
+  background: #edf0e3;
+  border-color: #cad4b9;
+}
+.staff-layout .metrics article:first-child span,
+.staff-layout .metrics article:first-child small {
+  color: #536c43;
+}
+.staff-layout .metrics strong,
+.staff-layout .board-summary strong,
+.staff-layout .finance-totals strong {
+  color: #344a35;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.staff-layout .metrics span,
+.staff-layout .board-summary span,
+.staff-layout .board-summary small {
+  color: var(--muted);
+}
+.staff-layout .finance-totals article {
+  border-top: 3px solid #b8c5a7;
+}
+.staff-layout .finance-totals article:first-child {
+  border-top-color: #53694a;
+}
+.staff-layout .accounting-heading p {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.staff-layout th {
+  background: #f5f5ed;
+  color: #606f53;
+  font-weight: 700;
+}
+.staff-layout td,
+.staff-layout th {
+  border-bottom-color: #e9ecdf;
+}
+.staff-layout tbody tr:hover {
+  background: #f3f5eb;
+}
+.staff-layout .board-head {
+  background: #f4f5ed;
+}
+.staff-layout .board-toolbar {
+  padding: 16px 18px;
+}
+.staff-layout .board-legend button[aria-pressed="true"] {
+  background: #eff1e7;
+  color: #3b4f31;
+  border-color: #cbd3bf;
+}
+.staff-layout .board-hint {
+  color: #5e7051;
+}
+.staff-layout .analytics-kpi.selected {
+  background: #edf0e4;
+  border-bottom-color: #53694a;
+}
+.staff-layout .analytics-filters {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 20px;
+}
+.staff-layout .analytics-kpi strong {
+  color: #344a35;
+}
+.staff-layout .analytics-payment-note {
+  background: #fff7ea;
+  color: #775728;
+}
+.staff-layout .document-card {
+  border-color: var(--line);
+  border-radius: 12px;
+}
+
+/* Staff sign-in uses the same botanical identity. */
+.login-page .login-story {
+  background: #344a35;
+  padding: 48px 56px;
+  color: white;
+}
+.login-page .login-story::after {
+  width: 340px;
+  height: 255px;
+  bottom: -30px;
+  right: -70px;
+  background: url("/assets/botanical.svg") center / contain no-repeat;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  opacity: 0.5;
+}
+.login-story > * {
+  position: relative;
+  z-index: 1;
+}
+.login-page .login-story h1 {
+  font-size: clamp(36px, 4vw, 58px);
+  line-height: 1.16;
+}
+.login-page .login-story p {
+  color: #dde7d2;
+  max-width: 440px;
+}
+.login-page .login-story .eyebrow {
+  color: #d4b78d;
+}
+.login-page .login-bottom {
+  color: #c1cfb3;
+}
+.login-page .login-panel {
+  background: #fbfaf6;
+}
+.login-page .login-box {
+  max-width: 420px;
+}
+.login-page .login-box h2 {
+  color: #344a35;
+  font-size: 34px;
+  letter-spacing: -1px;
+}
+.login-page .role-explanation {
+  border-left-color: #b18b55;
+}
+
+@media (max-width: 1380px) {
+  .discovery-page .discovery-search {
+    margin-inline: 32px;
+    background-size: 360px auto;
+    grid-template-columns: minmax(0, 60%);
+    padding: 38px;
+  }
+  .discovery-page .discovery-search h1 {
+    font-size: 40px;
+  }
+}
+@media (max-width: 1150px) {
+  .staff-layout {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+  .staff-layout .staff-topbar {
+    padding-inline: 24px;
+  }
+  .staff-layout .work-main,
+  .staff-layout .accounting-page {
+    padding-inline: 24px;
+  }
+  .public-header .public-header-top,
+  .public-header .category-navigation {
+    padding-inline: 28px;
+  }
+  .public-header-top nav {
+    gap: 18px;
+  }
+  .discovery-page .catalogue-grid-layout {
+    padding-inline: 32px;
+  }
+  .catalogue-cards .discovery-card-image {
+    height: 220px;
+  }
+}
+@media (max-width: 800px) {
+  .public-header .public-header-top {
+    padding: 14px 20px;
+    min-height: 74px;
+  }
+  .public-header .category-navigation {
+    padding: 0 20px 14px;
+  }
+  .discovery-page .discovery-search {
+    margin: 20px 20px 0;
+    padding: 30px;
+    grid-template-columns: minmax(0, 1fr);
+    background-image: none;
+    min-height: 270px;
+    border-radius: 20px;
+  }
+  .discovery-page .discovery-search h1 {
+    font-size: 36px;
+    max-width: 600px;
+  }
+  .discovery-page .catalogue-grid-layout {
+    padding-inline: 20px;
+  }
+  .public-site .profile-main {
+    padding-top: 20px;
+  }
+  .profile-heading h1 {
+    font-size: 30px;
+  }
+}
+@media (max-width: 760px) {
+  .staff-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .staff-layout .staff-sidebar {
+    position: static;
+    height: auto;
+    padding: 16px;
+    overflow: visible;
+  }
+  .staff-sidebar .staff-brand {
+    font-size: 25px;
+    padding: 0;
+  }
+  .staff-sidebar .staff-brand img {
+    width: 34px;
+    height: 34px;
+  }
+  .staff-sidebar nav {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 6px;
+    padding: 12px 0 2px;
+  }
+  .staff-sidebar nav a {
+    flex: 0 0 auto;
+    min-height: 44px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .staff-sidebar nav a > span {
+    font-size: 18px;
+  }
+  .staff-sidebar nav a.selected {
+    box-shadow: inset 0 -2px #c59b62;
+  }
+  .staff-layout .staff-topbar {
+    padding: 12px 16px;
+    min-height: 64px;
+  }
+  .staff-layout .work-main,
+  .staff-layout .accounting-page {
+    padding: 22px 16px 40px;
+  }
+  .staff-layout .work-title h1,
+  .staff-layout .accounting-heading h1 {
+    font-size: 26px;
+  }
+  .staff-layout .board-summary > div {
+    padding: 14px;
+  }
+  .staff-layout .finance-totals article {
+    padding: 18px;
+  }
+  .staff-layout .metrics strong {
+    font-size: 28px;
+  }
+  .login-page .login-story {
+    padding: 24px;
+  }
+  .login-page .login-panel {
+    padding: 32px 22px;
+  }
+}
+@media (max-width: 550px) {
+  .public-header .public-header-top {
+    gap: 10px;
+    padding: 14px 16px 6px;
+  }
+  .public-header-top .brand {
+    font-size: 26px;
+  }
+  .public-header-top .brand img {
+    width: 36px;
+    height: 36px;
+  }
+  .public-header-top .language-switcher {
+    margin-left: auto;
+    max-width: 122px;
+  }
+  .public-header-top nav {
+    width: 100%;
+    order: 3;
+    justify-content: flex-start;
+    gap: 20px;
+    overflow-x: auto;
+  }
+  .public-header-top nav a {
+    min-height: 44px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .public-header-top .demo-badge {
+    margin-left: 0;
+    font-size: 8px;
+  }
+  .public-header .category-navigation {
+    padding: 6px 16px 14px;
+    gap: 8px;
+  }
+  .category-navigation a {
+    min-height: 40px;
+    padding: 9px 14px;
+    font-size: 11px;
+  }
+  .discovery-page .discovery-search {
+    margin: 16px 16px 0;
+    padding: 26px 22px;
+    gap: 22px;
+    min-height: auto;
+    border-radius: 18px;
+  }
+  .discovery-search .eyebrow {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+  }
+  .discovery-page .discovery-search h1 {
+    font-size: 32px;
+    letter-spacing: -1px;
+  }
+  .discovery-page .discovery-search p {
+    font-size: 12px;
+    margin-top: 12px;
+  }
+  .discovery-search .discovery-search-input {
+    padding: 6px 12px;
+    gap: 8px;
+  }
+  .discovery-search-input input {
+    font-size: 12px;
+  }
+  .discovery-page .catalogue-grid-layout {
+    padding-inline: 16px;
+  }
+  .catalogue-grid-layout .discovery-results {
+    padding-top: 24px;
+  }
+  .results-heading {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .results-heading strong {
+    font-size: 18px;
+  }
+  .results-heading .small {
+    font-size: 11px;
+  }
+  .discovery-filters {
+    gap: 8px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+  }
+  .discovery-filters label {
+    flex: 1;
+  }
+  .discovery-filters select {
+    font-size: 12px;
+    padding-inline: 10px;
+  }
+  .catalogue-cards {
+    gap: 20px;
+  }
+  .catalogue-cards .discovery-card-image {
+    height: 225px;
+  }
+  .catalogue-cards .discovery-card-content {
+    padding: 20px;
+  }
+  .catalogue-cards .discovery-card-bottom {
+    flex-direction: row;
+    gap: 8px;
+  }
+  .discovery-card-content h2 {
+    font-size: 21px;
+  }
+  .discovery-card-bottom strong {
+    font-size: 17px;
+  }
+  .public-site .profile-main {
+    padding-inline: 16px;
+  }
+  .profile-room-card {
+    padding: 14px;
+  }
+  .public-site .guest-auth-card {
+    padding: 24px;
+  }
+  .public-site .guest-auth-card h1 {
+    font-size: 28px;
+  }
+  .public-site .floating-map-button {
+    bottom: max(18px, env(safe-area-inset-bottom));
+    font-size: 13px;
+    min-height: 50px;
+  }
+  .app-dialog {
+    border-radius: 16px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+@media print {
+  body,
+  .public-site {
+    background: white;
+  }
+  .receipt-sheet {
+    box-shadow: none;
+  }
+}
+@media (min-width: 801px) {
+  .discovery-page .discovery-search {
+    min-height: 292px;
+    padding-block: 34px;
+    background-size: 385px auto;
+  }
+  .catalogue-grid-layout .discovery-results {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 480px);
+    column-gap: 24px;
+  }
+  .discovery-results > * {
+    grid-column: 1 / -1;
+  }
+  .discovery-results > .results-heading {
+    grid-column: 1;
+    margin-bottom: 24px;
+  }
+  .discovery-results > .discovery-filters {
+    grid-column: 2;
+    padding: 0;
+    border: 0;
+    margin-bottom: 24px;
+  }
+}
+.staff-layout .board-view-toggle button[aria-pressed="true"],
+.staff-layout .board-date.today {
+  background: #53694a;
+  color: white;
+  border-color: #53694a;
+}
+.staff-layout .board-date.today small {
+  color: #edf3e5;
+}
+.staff-layout .board-cells button.today {
+  background: #f3f6ec;
+  border-left-color: #8caa71;
+}
+.staff-layout .board-cells button:not(:disabled):hover {
+  background: #eaf0df;
+}
+.staff-layout .accounting-page .finance-table th {
+  background: #f5f5ed;
+  color: #606f53;
+}
+.staff-layout .accounting-page .finance-totals article {
+  border-color: var(--line);
+  border-top-color: #b8c5a7;
+}
+.staff-layout .accounting-page .finance-totals article:first-child {
+  border-top-color: #53694a;
+}
+
+.staff-layout .board-date:not(.today) small,
+.staff-layout .board-footer {
+  color: #566b61;
+}
+.public-site .gallery-arrow,
+.public-site .gallery-expand {
+  background: #303e2fe8;
+}
+.gallery-viewer {
+  background: #263422;
+}
+.public-site .guest-auth-card .demo-note {
+  background: #fff7ea;
+  color: #75572c;
+}
+.finance-table:focus-visible {
+  outline: 3px solid #9a6634;
+  outline-offset: 3px;
+}
+.public-site .media-gallery .gallery-arrow,
+.public-site .media-gallery .gallery-expand {
+  background: #303e2fe8;
+}
+.staff-layout .analytics-chart [stroke="#245c4a"] {
+  stroke: #53694a;
+}
+.staff-layout .analytics-chart [fill="#245c4a"] {
+  fill: #53694a;
+}
+
+/* Sanatorium identity: warm stone, foliage, natural light. */
+.discovery-page .discovery-search {
+  background-color: #f0efe3;
+  border: 1px solid #e1e2d3;
+  color: #344a35;
+}
+.discovery-search .eyebrow {
+  color: #7c623d;
+}
+.discovery-page .discovery-search h1 {
+  color: #344a35;
+  font-weight: 650;
+  letter-spacing: -1.8px;
+}
+.discovery-page .discovery-search p {
+  color: #626951;
+}
+.discovery-search .discovery-search-input {
+  border-color: #d6dbc9;
+  box-shadow: 0 3px 10px #3c492108;
+}
+.public-site .public-header {
+  background: #fffefb;
+}
+.staff-layout .staff-sidebar {
+  background: #eceee3;
+  color: #344a35;
+  border-right: 1px solid #dce1d1;
+}
+.staff-sidebar .staff-brand {
+  color: #344a35;
+}
+.staff-sidebar .sidebar-caption {
+  color: #59674c;
+}
+.staff-sidebar nav a {
+  color: #4f5f45;
+}
+.staff-sidebar nav a > span {
+  color: #5c6e4f;
+}
+.staff-sidebar nav a:hover {
+  background: #dfe5d3;
+  color: #344a35;
+}
+.staff-sidebar nav a.selected {
+  background: #53694a;
+  color: white;
+  box-shadow: none;
+}
+.staff-sidebar nav a.selected > span {
+  color: white;
+}
+.staff-sidebar nav a.selected:hover {
+  background: #40553a;
+}
+.staff-sidebar .sidebar-footer {
+  border-top-color: #d1d9c6;
+}
+.staff-sidebar .sidebar-footer small,
+.staff-sidebar .logout-button {
+  color: #58684b;
+}
+.login-page .login-story .staff-brand img {
+  background: #f5f3e8;
+  border-radius: 50%;
+  padding: 4px;
+}
+@media (max-width: 550px) {
+  .discovery-page .discovery-search h1 {
+    letter-spacing: -1px;
+  }
+}
+
+.catalogue-cards .discovery-card-image {
+  position: relative;
+}
+.catalogue-image-note {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: #fffef2f0;
+  color: #46523b;
+  font-size: 10px;
+  line-height: 1.4;
+}
