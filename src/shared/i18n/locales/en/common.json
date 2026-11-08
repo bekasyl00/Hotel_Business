@@ -118,7 +118,7 @@
     "loginRequired": "Sign in or register to book.",
     "profileContact": "Profile contact: {name} · {phone}",
     "timeLeft": "Time left to pay",
-    "holdHint": "You have 15 minutes to pay for a new booking. Refreshing the page does not extend the deadline.",
+    "holdHint": "You have up to 15 minutes to pay. The payment link or check-in time may shorten this window. Follow the timer; refreshing the page does not extend it.",
     "timeExpired": "Payment time has expired. Check the status; select an available room to try again.",
     "accountHistory": "Bookings belonging to your account appear here."
   },
@@ -162,7 +162,7 @@
     },
     "details": "Payment details",
     "openXPaymentSandbox": "Open test checkout",
-    "xpaymentSandboxExplanation": "Open the XPayment test page and choose a payment outcome. Return here: the server will verify the result and automatically confirm the booking after a successful test payment."
+    "xpaymentSandboxExplanation": "The test link shows the amount and status. Set the test payment result in the XPayment sandbox dashboard. After a successful simulation, the server verifies the payment and automatically confirms the booking."
   },
   "gallery": {
     "previous": "Previous",
