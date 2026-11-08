@@ -25,6 +25,8 @@ PAYMENT_STATUSES = {
     "PENDING": "ACTIVE",
     "PROCESSING": "ACTIVE",
     "COMPLETED": "CHARGE",
+    "REFUNDED": "REFUND",
+    "PARTIALLY_REFUNDED": "REFUND",
     "FAILED": "FAILED",
     "EXPIRED": "EXPIRED",
     "CANCELLED": "CANCELLED",
@@ -174,10 +176,10 @@ class XPaymentProvider:
             actual_order = identifier(row["merchant_order_id"])
             if (
                 identifier(row["user_id"]) != self.config.account_id
+                or row.get("environment", "production") != self.config.environment
                 or (order_id is not None and actual_order != order_id)
                 or (payment_id is not None and actual_id != payment_id)
                 or row["currency"] != "KZT"
-                or row.get("environment", "production") != self.config.environment
                 or (
                     self.config.api_version == "v2"
                     and (
@@ -212,10 +214,20 @@ class XPaymentProvider:
             payment_id=payment_id,
         )
 
-    def _one_page(self, response):
+    def _one_page(self, response, *, allow_total=False):
         if not isinstance(response, dict) or not isinstance(response.get("data"), list):
             raise ProviderError("bank_response_invalid")
-        if response.get("has_more") is not False or response.get("next_cursor", "") != "":
+        # The live per-payment refund endpoint returns {data, total}, although
+        # its OpenAPI currently describes the paginated list envelope.
+        complete_total = (
+            allow_total
+            and "has_more" not in response
+            and type(response.get("total")) is int
+            and response["total"] == len(response["data"])
+        )
+        if (response.get("has_more") is not False and not complete_total) or response.get(
+            "next_cursor", ""
+        ) != "":
             raise ProviderError("bank_invoice_collision")
         if len(response["data"]) > 1:
             raise ProviderError("bank_invoice_collision")
@@ -318,6 +330,7 @@ class XPaymentProvider:
             if (
                 identifier(row["user_id"]) != self.config.account_id
                 or identifier(row["payment_id"]) != charge.transaction_id
+                or row.get("environment", "production") != self.config.environment
                 or row["reason"] != reason
                 or money(row["amount"]) != amount
                 or amount > charge.amount
@@ -334,19 +347,22 @@ class XPaymentProvider:
 
     def _refunds(self, charge):
         return self._one_page(
-            self._request("GET", self.api + "/payments/" + charge.transaction_id + "/refunds")
+            self._request("GET", self.api + "/payments/" + charge.transaction_id + "/refunds"),
+            allow_total=True,
         )
 
     def request_refund(self, transaction_id, amount, external_id):
         amount = money(amount)
         reason = "tynys-refund:" + identifier(external_id)
         charge = self._get_payment(transaction_id)
-        if charge.status != "CHARGE" or amount > charge.amount:
+        if charge.status not in ("CHARGE", "REFUND") or amount > charge.amount:
             raise ProviderError("bank_refund_mismatch")
         rows = self._refunds(charge)
         if rows:
             self._refund(rows[0], charge, amount=amount, reason=reason)
             return
+        if charge.status != "CHARGE":
+            raise ProviderError("bank_refund_mismatch")
         row = self._request(
             "POST",
             self.api + "/payments/" + charge.transaction_id + "/refund",
@@ -360,7 +376,7 @@ class XPaymentProvider:
 
     def lookup_refund(self, payment, refund):
         charge = self._find_payment(payment.invoice_id)
-        if charge is None or charge.status != "CHARGE":
+        if charge is None or charge.status not in ("CHARGE", "REFUND"):
             raise ProviderError("bank_refund_unverified", retryable=True)
         if (
             charge.amount != money(payment.amount)

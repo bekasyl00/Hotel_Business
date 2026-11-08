@@ -6,7 +6,16 @@ from django.test import SimpleTestCase, override_settings
 from .provider_config import XPaymentConfig
 from .providers.base import ProviderError
 from .providers.xpayment import XPaymentProvider
-from .test_xpayment_provider import ACCOUNT, ORDER, PAYMENT, link_row, page, payment_row
+from .test_xpayment_provider import (
+    ACCOUNT,
+    INTENT,
+    ORDER,
+    PAYMENT,
+    link_row,
+    page,
+    payment_row,
+    refund_row,
+)
 
 
 class XPaymentV2Tests(SimpleTestCase):
@@ -156,3 +165,44 @@ class XPaymentV2Tests(SimpleTestCase):
                 with self.assertRaises(ProviderError):
                     self.provider._request("GET", url)
             send.assert_not_called()
+
+    def test_observed_refund_total_envelope_requires_complete_results(self):
+        self.assertEqual(self.provider._one_page({"data": [], "total": 0}, allow_total=True), [])
+        for row in [
+            {"data": [], "total": 1},
+            {"data": [], "total": False},
+            {"data": [], "total": 0, "has_more": True},
+            {"data": [], "total": 0, "next_cursor": "more"},
+            {"data": []},
+        ]:
+            with self.subTest(row=row), self.assertRaises(ProviderError):
+                self.provider._one_page(row, allow_total=True)
+        with self.assertRaises(ProviderError):
+            self.provider._one_page({"data": [], "total": 0})
+
+    def test_refunded_payment_never_becomes_new_charge_or_duplicate_refund(self):
+        from types import SimpleNamespace
+
+        for status, amount in [("REFUNDED", 12000), ("PARTIALLY_REFUNDED", 8400)]:
+            row = payment_row(device_name="MainCashier", status=status)
+            refunds = {"data": [refund_row(amount=amount)], "total": 1}
+            self.assertEqual(self.provider._payment(row).status, "REFUND")
+            with patch.object(self.provider, "_request", side_effect=[row, refunds]) as request:
+                self.provider.request_refund(PAYMENT, amount, INTENT)
+                self.assertTrue(all(call.args[0] == "GET" for call in request.call_args_list))
+            with patch.object(self.provider, "_request", side_effect=[page(row), row, refunds]):
+                fact = self.provider.lookup_refund(
+                    SimpleNamespace(
+                        invoice_id=ORDER, amount=12000, currency="KZT", invoice_link_id=PAYMENT
+                    ),
+                    SimpleNamespace(pk=INTENT, amount=amount),
+                )
+            self.assertEqual(fact.refunded_amount, amount)
+            self.assertEqual(fact.original_amount, 12000)
+            self.assertEqual(fact.amount, 12000 - amount)
+            with patch.object(
+                self.provider, "_request", side_effect=[row, {"data": [], "total": 0}]
+            ) as request:
+                with self.assertRaises(ProviderError):
+                    self.provider.request_refund(PAYMENT, amount, INTENT)
+                self.assertTrue(all(call.args[0] == "GET" for call in request.call_args_list))
