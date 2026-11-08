@@ -260,3 +260,12 @@ Vercel сообщает READY. Прямой адрес https://vercel-site-puce-
 - Only API/public/staff website artifacts published. LikeC4 and iPhone binaries are not deployed. SMS and real bank acceptance gates stay unchanged; this delivery does not claim production capacity or completion of the platform.
 
 Final Vercel READY deployments: api `dpl_D3wdzXCCivx8P9opFkVuwfLiWQb5`, staff `dpl_7YCCnWXveNYpwHAgUkwTsLXsJY3z`, site `dpl_5ZyR5jy3CuXHhYhxA9oDvjsgzDki`. Public alias: https://vercel-site-puce-two.vercel.app; staff: https://tynys-staff.vercel.app; API: https://tynys-api.vercel.app. Final read-only browser smoke passed with zero page errors; no native sync/install.
+
+## 08.11.2026 — публикация санаторного оформления
+
+- Код: merge `4e7afc6`, сохранены изменения `af66ac4` и дизайн `58c08f7`. GitHub: `codex/platform-foundation`.
+- 101 frontend test, FSD 123 files / 313 imports, build, API build:surfaces и arch:check — pass. Backend код в этой поставке не менялся; повторные backend-тесты не запускались.
+- Public: `dpl_EaV2KQhuR7ZVB3ZyExCyDMp1QHer` — READY; https://vercel-site-puce-two.vercel.app.
+- Staff: `dpl_9WAsXwqVu2NCRh7aqmMMxPYcXgof` — READY; https://tynys-staff.vercel.app.
+- Независимый браузер: опубликованные JS entrypoints соответствуют локальным артефактам, SHA-256 логотипов совпадает. Проверены каталог/API, вход тестового admin, workspace, уникальная навигация с клиентами, бухгалтерия, карта/Escape/focus, guest login и profile reload. 1440×1000 и 390×844: без переполнения документа и JS page errors. Использованы только существующие вымышленные QA-аккаунты; деловые записи не изменялись.
+- Артефакты проверки: `output/design-release/live.json` и PNG в той же папке. Существующий API https://tynys-api.vercel.app сохранён. LikeC4 и iPhone приложения не опубликованы; платёжные и SMS gates не менялись.
