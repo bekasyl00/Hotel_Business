@@ -336,11 +336,19 @@ class GuestProfileAdmin(ReadOnlyAdmin):
 
 @admin.register(GuestAccount, site=platform_admin_site)
 class GuestAccountAdmin(ReadOnlyAdmin):
-    list_display = ("phone", "profile_link", "is_active", "created_at")
+    list_display = ("phone", "profile_link", "is_active", "phone_verified_at", "created_at")
     list_filter = ("is_active",)
     search_fields = ("phone", "profile__name", "=id")
     list_select_related = ("profile",)
-    fields = ("id", "phone", "profile_link", "is_active", "created_at", "version")
+    fields = (
+        "id",
+        "phone",
+        "profile_link",
+        "is_active",
+        "phone_verified_at",
+        "created_at",
+        "version",
+    )
     date_hierarchy = "created_at"
     ordering = ("-created_at",)
     workspace_path = "bookings"

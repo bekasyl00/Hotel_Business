@@ -1,5 +1,16 @@
 # Проверки
 
+## 08.11.2026 — переход к реальной кассе и регистрация без SMS
+
+- Владелец явно выбрал Altyn Bulak / Көктерек. Backend ограничивает новые production attempts списком `altun,kokterek`; frontend показывает доступность по тому же списку. Existing attempts/verify/refund сохраняются; отозванный объект не запускает новый create job.
+- Реальный API вернул `environment=live`, что первоначально было отвергнуто. Существующий неоплаченный счёт восстановлен GET, отменён и проверен; слепого повторного POST не было. После исправления получена настоящая `qr.kaspi.kz` ссылка. Владелец самостоятельно оплатил **100 KZT**, независимый GET подтвердил **CHARGE** 08.11.2026 21:41:41 Asia/Almaty, аккаунт/кассу/заказ/сумму/валюту. Счёт вне бронирования; владелец запретил возврат. Real refund не проверен и не заявляется.
+- Production webhook создан с отдельным секретом, лишняя первоначальная подписка без секрета удалена с разрешения владельца. В конце настройки остаётся одна подписанная production подписка. Секреты не находятся в Git/frontend; настраиваются только для Django/Vercel.
+- `booking.0012_guest_phone_verification` применена в Supabase `tynys_stage`. Временный direct register — отдельный server flag, без DEBUG/демо-OTP. Старые и новые временные номера не считаются подтверждёнными. Reset без challenge не разрешён.
+- Полная регрессия **260 Django tests** на отдельном PostgreSQL 17 прошла; затем **58 targeted payment tests** после normalizer live, включая чужую среду, webhook-only trigger, allowed scope/revocation/recovery. Auth coverage: duplicate/concurrent register, CSRF, no-reset bypass, password hashing и owner isolation.
+- **111 frontend tests**, FSD **124 files / 315 imports**, build/build:surfaces/arch:check — pass. Local PNG QR генерируется локально без внешнего сервиса: allowed production390px → ссылка+QR, excluded390px без действия оплаты, existing sandbox1440px сохраняет тестовый режим; overflow отсутствует. Production dependencies audit: 0 vulnerabilities.
+- Реальный компонент регистрации проверен на local fixture при 390/1440 px: no overflow; submit отправляет только name/password/phone и переходит в профиль, SMS-поля отсутствуют. Recovery в KK закрыт с объяснением. Это UI fixture, не доказательство deployed регистрации.
+
+
 ## 08.11.2026 — XPayment v2: сквозная песочница
 
 - Начальная полная регрессия: **243 Django tests** на изолированном PostgreSQL 17. После учёта фактических ответов refund повторно прошли **109 commerce tests**. Ruff, migration drift и `git diff --check` — pass. `commerce.0007` применена в Supabase `tynys_stage` (новых таблиц нет).

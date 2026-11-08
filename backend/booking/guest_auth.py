@@ -39,6 +39,8 @@ def demo_enabled():
 class DemoCodeDelivery:
     """Delivery seam: a future verified SMS provider must replace this implementation."""
 
+    verifies_phone = False
+
     def send_code(self, phone, code):
         return {"mode": "demo", "demoCode": code}
 
@@ -46,7 +48,7 @@ class DemoCodeDelivery:
 def code_delivery():
     if not demo_enabled():
         raise Problem(
-            "Отправка SMS пока не подключена. Регистрация и восстановление недоступны.",
+            "Подтверждение номера по SMS пока недоступно.",
             503,
             "sms_unavailable",
         )
@@ -111,9 +113,23 @@ def session_data(request, account=None):
     account = account or current_account(request)
     return {
         "authenticated": bool(account),
-        "account": {"id": account.pk, "phone": account.phone} if account else None,
+        "account": {
+            "id": account.pk,
+            "phone": account.phone,
+            "phoneVerified": account.phone_verified_at is not None,
+        }
+        if account
+        else None,
         "profile": guest_profile_data(account.profile) if account else None,
         "mode": "demo" if demo_enabled() else "disabled",
+        "registrationMode": (
+            "password"
+            if settings.GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION
+            else "challenge"
+            if demo_enabled()
+            else "disabled"
+        ),
+        "passwordResetAvailable": demo_enabled(),
     }
 
 
@@ -239,10 +255,67 @@ def locked_challenge(request, data, purpose):
     return challenge, None
 
 
+def create_registered_profile(owner, phone, name, password, *, phone_verified=False):
+    """Caller locks the phone; profile lock also prevents cross-phone adoption races."""
+    profile, _ = GuestProfile.objects.get_or_create(owner=owner, defaults={"name": "", "phone": ""})
+    profile = GuestProfile.objects.select_for_update().get(pk=profile.pk)
+    if GuestAccount.objects.filter(profile=profile).exists():
+        return None
+    new_owner = secrets.token_hex(32)
+    Booking.objects.filter(guest_profile=profile, source="website", owner=owner).update(
+        owner=new_owner
+    )
+    profile.owner, profile.name, profile.phone = new_owner, name.strip(), phone
+    profile.version += 1
+    profile.save()
+    account = GuestAccount.objects.create(
+        phone=phone,
+        password=make_password(password),
+        profile=profile,
+        phone_verified_at=timezone.now() if phone_verified else None,
+    )
+    audit(account, "register")
+    return account
+
+
+def register_without_sms(request):
+    """Temporary opt-in path: phone is an unverified login identifier, never reset proof."""
+    from .services import guest_owner
+
+    data = payload(request, ["phone", "name", "password"])
+    phone, password = normalize_phone(data["phone"]), password_value(data["password"])
+    name = data["name"]
+    if not isinstance(name, str) or not 1 <= len(name.strip()) <= 80:
+        raise Problem("Укажите имя длиной до 80 символов.", 422, "name_invalid")
+    if current_account(request):
+        raise Problem(
+            "Сначала выйдите из текущего гостевого аккаунта.", 409, "already_authenticated"
+        )
+    enforce_limit(request, "guest-register", phone, phone_limit=5, ip_limit=20, minutes=60)
+    owner = guest_owner(request)
+    with transaction.atomic():
+        phone_key = digest("guest-challenge:" + phone)
+        LoginAttempt.objects.get_or_create(key=phone_key, defaults={"since": timezone.now()})
+        LoginAttempt.objects.select_for_update().get(pk=phone_key)
+        if GuestAccount.objects.filter(phone=phone).exists():
+            raise Problem(
+                "Не удалось создать аккаунт. Попробуйте войти.", 409, "registration_failed"
+            )
+        account = create_registered_profile(owner, phone, name, password)
+        if not account:
+            raise Problem(
+                "Не удалось создать аккаунт. Попробуйте войти.", 409, "registration_failed"
+            )
+    return establish_session(request, account)
+
+
 def register(request):
     from .services import guest_owner
 
-    code_delivery()
+    if settings.GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION and isinstance(request.data, dict):
+        if "phone" in request.data:
+            return register_without_sms(request)
+    delivery = code_delivery()
     data = payload(request, ["challengeId", "code", "name", "password"])
     password = password_value(data["password"])
     name = data["name"]
@@ -265,28 +338,15 @@ def register(request):
             ):
                 error = invalid_code()
             else:
-                profile, _ = GuestProfile.objects.get_or_create(
-                    owner=owner, defaults={"name": "", "phone": ""}
+                account = create_registered_profile(
+                    owner,
+                    challenge.phone,
+                    name,
+                    password,
+                    phone_verified=delivery.verifies_phone,
                 )
-                profile = GuestProfile.objects.select_for_update().get(pk=profile.pk)
-                if GuestAccount.objects.filter(profile=profile).exists():
+                if not account:
                     error = invalid_code()
-                else:
-                    new_owner = secrets.token_hex(32)
-                    Booking.objects.filter(
-                        guest_profile=profile, source="website", owner=owner
-                    ).update(owner=new_owner)
-                    profile.owner, profile.name, profile.phone = (
-                        new_owner,
-                        name.strip(),
-                        challenge.phone,
-                    )
-                    profile.version += 1
-                    profile.save()
-                    account = GuestAccount.objects.create(
-                        phone=challenge.phone, password=make_password(password), profile=profile
-                    )
-                    audit(account, "register")
     if error:
         raise error
     return establish_session(request, account)

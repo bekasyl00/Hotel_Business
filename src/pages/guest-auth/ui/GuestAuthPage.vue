@@ -1,5 +1,12 @@
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+  ref,
+  watch,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { PublicHeader } from "@/widgets/public-header";
@@ -37,6 +44,26 @@ const action = computed(() => route.meta.authAction || "login"),
     ),
   );
 const webOnly = computed(() => isMobile && !isDemo && action.value !== "login");
+const configurationReady = ref(isDemo || account.ready);
+const registrationMode = computed(
+  () =>
+    account.session?.registrationMode || (isDemo ? "challenge" : "disabled"),
+);
+const simpleRegistration = computed(
+  () => action.value === "register" && registrationMode.value === "password",
+);
+const registrationUnavailable = computed(
+  () =>
+    configurationReady.value &&
+    action.value === "register" &&
+    registrationMode.value === "disabled",
+);
+const resetUnavailable = computed(
+  () =>
+    configurationReady.value &&
+    action.value === "reset" &&
+    !(account.session?.passwordResetAvailable ?? isDemo),
+);
 const form = reactive({
   phone: "",
   name: "",
@@ -56,6 +83,16 @@ const remaining = computed(() =>
 );
 let generation = 0;
 const timer = setInterval(() => (clock.value = Date.now()), 1000);
+async function loadConfiguration() {
+  try {
+    await account.restore();
+    configurationReady.value = true;
+    error.value = "";
+  } catch (e) {
+    error.value = e.message;
+  }
+}
+onMounted(loadConfiguration);
 onBeforeUnmount(() => {
   generation++;
   clearInterval(timer);
@@ -100,7 +137,13 @@ async function sendCode() {
   }
 }
 async function submit() {
-  if (action.value !== "login" && !challenge.value) {
+  if (action.value !== "login" && !configurationReady.value) return;
+  if (registrationUnavailable.value || resetUnavailable.value) return;
+  if (
+    action.value !== "login" &&
+    !simpleRegistration.value &&
+    !challenge.value
+  ) {
     await sendCode();
     return;
   }
@@ -117,11 +160,13 @@ async function submit() {
     else {
       if (form.password !== form.confirm)
         throw new Error(t("auth.passwordMismatch"));
-      const payload = {
-        challengeId: challenge.value.challengeId,
-        code: form.code,
-        password: form.password,
-      };
+      const payload = simpleRegistration.value
+        ? { phone: normalizedPhone(), password: form.password }
+        : {
+            challengeId: challenge.value.challengeId,
+            code: form.code,
+            password: form.password,
+          };
       if (action.value === "register")
         await account.register({ ...payload, name: form.name.trim() });
       else {
@@ -163,7 +208,20 @@ async function submit() {
         <p v-if="webOnly" class="profile-feedback" role="status">
           {{ t("common.mobile.webAuth") }}
         </p>
+        <p v-else-if="resetUnavailable" class="profile-feedback" role="status">
+          {{ t("auth.resetUnavailable") }}
+        </p>
+        <p
+          v-else-if="registrationUnavailable"
+          class="profile-feedback"
+          role="status"
+        >
+          {{ t("auth.unavailable") }}
+        </p>
         <form v-else class="editor-form" @submit.prevent="submit">
+          <p v-if="simpleRegistration" class="field-help" role="status">
+            {{ t("auth.temporaryRegistration") }}
+          </p>
           <label
             >{{ t("auth.phone")
             }}<input
@@ -219,7 +277,8 @@ async function submit() {
               }}
             </button></template
           >
-          <label v-if="action === 'register' && challenge"
+          <label
+            v-if="action === 'register' && (challenge || simpleRegistration)"
             >{{ t("auth.name")
             }}<input
               v-model="form.name"
@@ -227,7 +286,7 @@ async function submit() {
               maxlength="80"
               :autocomplete="isDemo ? 'off' : 'name'"
           /></label>
-          <template v-if="action === 'login' || challenge"
+          <template v-if="action === 'login' || challenge || simpleRegistration"
             ><label
               >{{ t(action === "reset" ? "auth.newPassword" : "auth.password")
               }}<input
@@ -271,13 +330,24 @@ async function submit() {
           <p v-if="notice" class="success-notice" role="status">
             {{ t(notice) }}
           </p>
-          <button class="primary" :disabled="busy">
+          <button
+            v-if="!configurationReady && action !== 'login' && error"
+            class="secondary"
+            type="button"
+            @click="loadConfiguration"
+          >
+            {{ t("auth.retry") }}
+          </button>
+          <button
+            class="primary"
+            :disabled="busy || (!configurationReady && action !== 'login')"
+          >
             {{
-              busy
+              busy || (!configurationReady && action !== "login")
                 ? t("auth.busy")
                 : action === "login"
                   ? t("auth.signIn")
-                  : !challenge
+                  : !challenge && !simpleRegistration
                     ? t("auth.sendCode")
                     : action === "register"
                       ? t("auth.signUp")

@@ -16,6 +16,7 @@ from uuid import UUID
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from ..provider_config import xpayment_response_environment
 from .base import Checkout, ProviderError, Transaction
 
 API = "https://api.xpayment.kz/v1"
@@ -176,7 +177,8 @@ class XPaymentProvider:
             actual_order = identifier(row["merchant_order_id"])
             if (
                 identifier(row["user_id"]) != self.config.account_id
-                or row.get("environment", "production") != self.config.environment
+                or xpayment_response_environment(row.get("environment", "production"))
+                != self.config.environment
                 or (order_id is not None and actual_order != order_id)
                 or (payment_id is not None and actual_id != payment_id)
                 or row["currency"] != "KZT"
@@ -283,7 +285,10 @@ class XPaymentProvider:
             ):
                 raise ProviderError("bank_response_invalid")
             payment_id = identifier(row["payment_id"])
-            if row.get("environment", "production") != self.config.environment:
+            if (
+                xpayment_response_environment(row.get("environment", "production"))
+                != self.config.environment
+            ):
                 raise ProviderError("bank_payment_mismatch")
             url = checkout_url(row["qr_token"], environment=self.config.environment)
             expiry = aware_datetime(row["expire_date"])
@@ -330,7 +335,8 @@ class XPaymentProvider:
             if (
                 identifier(row["user_id"]) != self.config.account_id
                 or identifier(row["payment_id"]) != charge.transaction_id
-                or row.get("environment", "production") != self.config.environment
+                or xpayment_response_environment(row.get("environment", "production"))
+                != self.config.environment
                 or row["reason"] != reason
                 or money(row["amount"]) != amount
                 or amount > charge.amount

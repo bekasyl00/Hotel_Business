@@ -48,13 +48,13 @@ Domain records have string id and integer version. Catalogue/account/booking/rev
 
 ## Guest phone registration, login and password reset
 
-Guest authentication is separate from staff `/auth/*`; a GuestAccount never grants staff permissions. Session response is `{authenticated,account:{id,phone}|null,profile:{id,name,phone,avatarUrl,version,createdAt,updatedAt}|null,mode:"demo"|"disabled"}`. `avatarUrl` is a stable authorized file URL or null. Responses are no-store and contain no opaque owner, password or OTP hashes.
+Guest authentication is separate from staff `/auth/*`; a GuestAccount never grants staff permissions. Session response is `{authenticated,account:{id,phone,phoneVerified}|null,profile:{id,name,phone,avatarUrl,version,createdAt,updatedAt}|null,mode:"demo"|"disabled",registrationMode:"password"|"challenge"|"disabled",passwordResetAvailable:boolean}`. `phoneVerified` is true only for a recorded genuine verification; demo OTP and temporary registration leave it false. `avatarUrl` is a stable authorized file URL or null. Responses are no-store and contain no opaque owner, password or OTP hashes.
 
 | Method / path | Input or result |
 | --- | --- |
 | GET /guest-auth/session | Current guest session response (anonymous uses false/null/null) |
 | POST /guest-auth/challenges | `{phone,purpose:"register"\|"reset"}` → `{challengeId,expiresAt,retryAfterSeconds:60,mode:"demo",demoCode,message}` |
-| POST /guest-auth/register | `{challengeId,code,name,password}` → authenticated session, 201 |
+| POST /guest-auth/register | `{challengeId,code,name,password}`; when temporary mode is explicitly enabled, `{phone,name,password}` → authenticated session, 201 |
 | POST /guest-auth/login | `{phone,password}` → authenticated session, 200 |
 | POST /guest-auth/reset | `{challengeId,code,password}` → `{ok:true,mode:"demo"}`; revokes old guest sessions, does not sign in |
 | POST /guest-auth/logout | `{}` → anonymous session response; rotates session/CSRF, preserves independent staff identity |
@@ -63,7 +63,9 @@ Phone is normalized to Kazakhstan mobile format `+77` followed by nine digits; s
 
 Machine error codes: `phone_invalid`, `weak_password`, `name_invalid`, `invalid_request`, `invalid_credentials`, `invalid_code`, `code_expired`, `resend_cooldown`, `rate_limited`, `sms_unavailable`, `already_authenticated`, `phone_change_requires_verification`, `method_not_allowed`, `not_found`. Reset/challenge responses use generic messages for existing and unknown phones; reset of an unknown phone does not create an account. See [backend.md](backend.md#guest-phone-authentication-api) for exact rate limits and delivery integration seam.
 
-**OTP is explicitly DEMO**: code exposure requires both DEBUG=True and GUEST_AUTH_DEMO_OTP=True. Otherwise registration/reset, including code redemption, return503 `sms_unavailable`; password login for existing accounts remains available. No SMS is sent, and this flow is not proof of phone possession. Real SMS integration remains required before enabling public registration in production.
+**OTP is explicitly DEMO**: code exposure requires both DEBUG=True and GUEST_AUTH_DEMO_OTP=True. Otherwise challenge creation/redemption and reset return503 `sms_unavailable`; password login remains available. No SMS is sent, and demo codes do not prove phone possession.
+
+**Temporary registration without SMS (owner decision 08.11.2026):** server-only `GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION=True` enables the strict `{phone,name,password}` registration body independently of DEBUG. Default is false. The session advertises `registrationMode=password`; passwords retain 8–128 characters and normal hashing, CSRF and per-phone/IP rate limits. The phone is an unverified login identifier, never recovery proof. Existing phone/profile identities cannot be replaced or merged; phone/profile locks and unique constraints enforce one identity under concurrent signup. Session/owner rotation and adoption of only the current browser profile remain the same as challenge registration. Turning the flag off leaves existing password logins working and restores challenge-only registration. Reset is never bypassed: `passwordResetAvailable=false` hides its form until a real provider is connected (local DEBUG demo still supports its separate test reset flow). No fixed code, public OTP or SMS simulation is enabled in production. `booking.0012` adds nullable `GuestAccount.phone_verified_at`, preserving all old accounts as unverified; no past demo proof is promoted to actual verification.
 
 Registration adopts only this browser's anonymous profile/website history, rotating opaque ownership so the old anonymous cookie loses access. Login to an existing account never merges this browser's unrelated history by phone. Password reset invalidates all guest session versions across devices, including receipt/payment/review/booking ownership checks. Guest logout/account switching drops the previous guest identity. New anonymous booking is forbidden (401 guest_login_required). Legacy anonymous history remains readable/adoptable and cannot be recovered by phone alone.
 

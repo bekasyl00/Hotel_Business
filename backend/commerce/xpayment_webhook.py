@@ -20,7 +20,7 @@ from booking.models import Resort
 
 from .jobs import enqueue
 from .models import PaymentAttempt, WebhookDelivery
-from .provider_config import XPaymentConfig
+from .provider_config import XPaymentConfig, xpayment_response_environment
 from .providers.base import ProviderError
 
 EVENTS = {
@@ -80,7 +80,10 @@ class XPaymentCallbackView(APIView):
             or not canonical_uuid(data.get("delivery_id"))
         ):
             raise Problem("Invalid event.", 422)
-        if data.get("environment", "production") != config.environment:
+        if (
+            xpayment_response_environment(data.get("environment", "production"))
+            != config.environment
+        ):
             raise Problem("Invalid payment environment.", 422)
         payments = PaymentAttempt.objects.filter(
             provider="xpayment",

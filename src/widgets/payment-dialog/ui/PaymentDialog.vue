@@ -1,7 +1,11 @@
 <script setup>
-import { onMounted, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { PayBooking, isBankProvider } from "@/features/pay-booking";
+import {
+  PayBooking,
+  isBankProvider,
+  bankCheckoutAccess,
+} from "@/features/pay-booking";
 import { DemoPayment } from "@/features/demo-payment";
 import { Modal } from "@/shared/ui";
 import { PaymentCountdown } from "@/entities/booking";
@@ -15,6 +19,9 @@ const emit = defineEmits(["close", "saved"]);
 const { t } = useI18n();
 const config = ref(null),
   error = ref("");
+const bankAccess = computed(() =>
+  bankCheckoutAccess(config.value, props.booking),
+);
 onMounted(async () => {
   try {
     config.value = isDemo
@@ -37,14 +44,11 @@ onMounted(async () => {
     @saved="emit('saved', $event)"
   />
   <PayBooking
-    v-else-if="
-      (config?.available && isBankProvider(config.provider)) ||
-      isBankProvider(booking.payment?.provider)
-    "
+    v-else-if="bankAccess.canView"
     v-bind="props"
     :provider="config?.provider"
     :environment="config?.environment"
-    :available="Boolean(config?.available)"
+    :available="bankAccess.canCreate"
     @close="emit('close')"
     @saved="emit('saved', $event)"
   />
@@ -53,11 +57,13 @@ onMounted(async () => {
     <p role="status">
       {{
         error ||
-        (config?.provider === "xpayment"
-          ? t("common.payment.kaspiUnavailable")
-          : config
-            ? t("common.payment.unavailable")
-            : t("common.payment.loading"))
+        (bankAccess.resortUnavailable
+          ? t("common.payment.resortUnavailable")
+          : config?.provider === "xpayment"
+            ? t("common.payment.kaspiUnavailable")
+            : config
+              ? t("common.payment.unavailable")
+              : t("common.payment.loading"))
       }}
     </p>
   </Modal>

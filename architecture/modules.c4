@@ -50,7 +50,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/edit-room 'Исходный код'
   }
   features_pay_booking = module 'features/pay-booking' {
-    description 'Компоненты и действия среза features/pay-booking. Файлов: 3'
+    description 'Компоненты и действия среза features/pay-booking. Файлов: 4'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/pay-booking 'Исходный код'
   }
   features_payment_receipt = module 'features/payment-receipt' {

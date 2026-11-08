@@ -153,7 +153,14 @@ onMounted(load);
               }}
             </p>
             <p v-if="account.authenticated">
-              {{ account.session.account.phone }} · {{ t("auth.verified") }}
+              {{ account.session.account.phone }} ·
+              {{
+                t(
+                  account.session.account.phoneVerified
+                    ? "auth.verified"
+                    : "auth.unverified",
+                )
+              }}
             </p>
           </div>
           <div class="profile-account-actions">

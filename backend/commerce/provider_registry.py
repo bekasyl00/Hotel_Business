@@ -55,6 +55,12 @@ def processable_jobs():
             payment__environment=environment,
             payment__merchant_scope=config.merchant_scope,
         )
+        if name == "xpayment" and environment == "production":
+            scope &= (
+                ~Q(kind="create")
+                | Q(payment__creation_started_at__isnull=False)
+                | Q(payment__booking__resort_id__in=settings.XPAYMENT_PRODUCTION_RESORT_IDS)
+            )
         try:
             configuration(name)
         except ProviderError:

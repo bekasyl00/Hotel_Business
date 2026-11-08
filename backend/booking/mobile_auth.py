@@ -41,7 +41,11 @@ def tokens(device, now):
         "expiresIn": int((device.access_expires_at - now).total_seconds()),
         "refreshExpiresAt": device.expires_at.isoformat(),
         "deviceId": str(device.pk),
-        "account": {"id": device.account_id, "phone": device.account.phone},
+        "account": {
+            "id": device.account_id,
+            "phone": device.account.phone,
+            "phoneVerified": device.account.phone_verified_at is not None,
+        },
         "profile": guest_profile_data(device.account.profile),
     }
 

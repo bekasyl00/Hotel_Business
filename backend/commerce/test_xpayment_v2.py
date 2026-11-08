@@ -64,6 +64,79 @@ class XPaymentV2Tests(SimpleTestCase):
             with self.subTest(device=device), self.assertRaises(ProviderError):
                 self.provider._payment(payment_row(device_name=device))
 
+    def test_observed_live_alias_accepts_real_create_and_independent_lookup(self):
+        from types import SimpleNamespace
+
+        row = payment_row(device_name="MainCashier", environment="live")
+        with patch.object(
+            self.provider, "_request", side_effect=[link_row(environment="live"), row]
+        ) as request:
+            checkout = self.provider.create_checkout(
+                SimpleNamespace(invoice_id=ORDER, amount=12000, currency="KZT")
+            )
+        self.assertEqual(checkout.link_id, PAYMENT)
+        self.assertTrue(checkout.url.startswith("https://qr.kaspi.kz/"))
+        self.assertEqual(request.call_args_list[1].args[0], "GET")
+        row = {**row, "status": "COMPLETED"}
+        with patch.object(self.provider, "_request", side_effect=[page(row), row]):
+            fact = self.provider.lookup_payment(ORDER)
+        self.assertEqual(fact.status, "CHARGE")
+        self.assertEqual(fact.amount, 12000)
+        self.assertEqual(self.config.environment, "production")
+
+    def test_live_alias_refund_requires_independent_exact_amount_verification(self):
+        from types import SimpleNamespace
+
+        row = payment_row(
+            device_name="MainCashier", environment="live", status="PARTIALLY_REFUNDED"
+        )
+        refunds = {"data": [refund_row(environment="live")], "total": 1}
+        with patch.object(self.provider, "_request", side_effect=[page(row), row, refunds]):
+            fact = self.provider.lookup_refund(
+                SimpleNamespace(
+                    invoice_id=ORDER, amount=12000, currency="KZT", invoice_link_id=PAYMENT
+                ),
+                SimpleNamespace(pk=INTENT, amount=8400),
+            )
+        self.assertEqual(fact.status, "REFUND")
+        self.assertEqual(fact.refunded_amount, 8400)
+        self.assertEqual(fact.amount, 3600)
+
+    def test_response_environment_alias_is_strict_and_never_crosses_sandbox(self):
+        from types import SimpleNamespace
+
+        sandbox = XPaymentProvider(
+            replace(
+                self.config, environment="sandbox", device_name="test", api_key="xapi_test_fixture"
+            )
+        )
+        for provider, rejected in [
+            (self.provider, ["sandbox", "LIVE", "live ", "test", None, {}, []]),
+            (sandbox, ["live", "production", "Sandbox", None, {}, []]),
+        ]:
+            valid_row = payment_row(
+                device_name=provider.config.device_name, environment=provider.config.environment
+            )
+            charge = provider._payment(valid_row)
+            for value in rejected:
+                with self.subTest(environment=provider.config.environment, rejected=value):
+                    with self.assertRaises(ProviderError):
+                        provider._payment({**valid_row, "environment": value})
+                    with (
+                        patch.object(provider, "_request", return_value=link_row(environment=value)),
+                        self.assertRaises(ProviderError),
+                    ):
+                        provider.create_checkout(
+                            SimpleNamespace(invoice_id=ORDER, amount=12000, currency="KZT")
+                        )
+                    with self.assertRaises(ProviderError):
+                        provider._refund(
+                            refund_row(environment=value),
+                            charge,
+                            amount=8400,
+                            reason="tynys-refund:" + INTENT,
+                        )
+
     def test_observed_sandbox_qr_status_url_and_environment(self):
         from types import SimpleNamespace
 
@@ -105,6 +178,7 @@ class XPaymentV2Tests(SimpleTestCase):
             {"api_key": "xapi_test_fixture"},
             {"api_version": "v3"},
             {"environment": "test"},
+            {"environment": "live"},
             {"device_name": ""},
             {"device_name": "wrong/name"},
             {"device_name": "test"},

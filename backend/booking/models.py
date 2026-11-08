@@ -169,6 +169,7 @@ class GuestAccount(Record):
     profile = models.OneToOneField(GuestProfile, on_delete=models.PROTECT, related_name="account")
     auth_version = models.PositiveIntegerField(default=1)
     is_active = models.BooleanField(default=True)
+    phone_verified_at = models.DateTimeField(null=True, blank=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
 

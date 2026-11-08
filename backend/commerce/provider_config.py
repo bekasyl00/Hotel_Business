@@ -9,6 +9,13 @@ from django.conf import settings
 from .providers.base import ProviderError
 
 
+def xpayment_response_environment(value):
+    """Normalize provider response aliases, never configuration or stored history."""
+    if not isinstance(value, str):
+        return None
+    return {"live": "production", "production": "production", "sandbox": "sandbox"}.get(value)
+
+
 def origin(value):
     try:
         parsed = urlsplit(value)

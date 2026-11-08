@@ -28,15 +28,28 @@ def capabilities():
             "available": settings.PAYMENTS_ALLOW_SIMULATOR,
         }
     environment = environment_for(provider)
+    production_scope = (
+        {"productionResortIds": settings.XPAYMENT_PRODUCTION_RESORT_IDS}
+        if provider == "xpayment" and environment == "production"
+        else {}
+    )
     try:
         configuration()
-        return {"provider": provider, "environment": environment, "available": True}
+        if production_scope and not production_scope["productionResortIds"]:
+            raise ProviderError("xpayment_production_resorts_missing")
+        return {
+            "provider": provider,
+            "environment": environment,
+            "available": True,
+            **production_scope,
+        }
     except ProviderError as exc:
         return {
             "provider": provider,
             "environment": environment,
             "available": False,
             "reason": exc.code,
+            **production_scope,
         }
 
 
@@ -125,6 +138,16 @@ def create_checkout(request, *, staff=False):
             if previous.actor_binding != binding:
                 raise Problem("Платёж уже создан другим сотрудником.", 409)
             return previous
+        if (
+            settings.PAYMENT_PROVIDER == "xpayment"
+            and environment_for("xpayment") == "production"
+            and str(booking.resort_id) not in settings.XPAYMENT_PRODUCTION_RESORT_IDS
+        ):
+            raise Problem(
+                "Оплата этого санатория пока не подключена.",
+                409,
+                "payment_resort_not_enabled",
+            )
         try:
             config = configuration()
         except ProviderError as exc:

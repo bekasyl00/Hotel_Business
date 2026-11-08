@@ -39,9 +39,14 @@ XPAYMENT = {
 
 @override_settings(**XPAYMENT)
 class XPaymentFlowTests(TestCase):
-    setUp = bank_tests.BankTests.setUp
     create = bank_tests.BankTests.create
     payment = bank_tests.BankTests.payment
+
+    def setUp(self):
+        bank_tests.BankTests.setUp(self)
+        scope = self.settings(XPAYMENT_PRODUCTION_RESORT_IDS=[str(self.resort.pk)])
+        scope.enable()
+        self.addCleanup(scope.disable)
 
     def linked(self):
         p = self.payment()
@@ -67,6 +72,99 @@ class XPaymentFlowTests(TestCase):
                 self.assertEqual(self.create().status_code, 503)
                 remote.assert_not_called()
         self.assertFalse(PaymentAttempt.objects.exists())
+
+    def test_production_scope_advertises_and_allows_only_named_resort(self):
+        config = self.client.get("/api/payments/config").json()
+        self.assertTrue(config["available"])
+        self.assertEqual(config["productionResortIds"], [str(self.resort.pk)])
+        with patch.object(XPaymentProvider, "_request") as remote:
+            p = self.payment()
+            self.assertEqual(p.booking.resort_id, self.resort.pk)
+            self.assertEqual(p.environment, "production")
+            self.assertEqual(p.jobs.filter(kind="create").count(), 1)
+            remote.assert_not_called()
+
+    def test_unlisted_or_empty_production_scope_creates_no_attempt_or_job(self):
+        from .models import PaymentJob
+
+        for allowed in ([], [str(uuid.uuid4())]):
+            with (
+                self.subTest(allowed=allowed),
+                self.settings(XPAYMENT_PRODUCTION_RESORT_IDS=allowed),
+                patch.object(XPaymentProvider, "_request") as remote,
+            ):
+                config = self.client.get("/api/payments/config").json()
+                self.assertEqual(config["productionResortIds"], allowed)
+                self.assertEqual(config["available"], bool(allowed))
+                if not allowed:
+                    self.assertEqual(config["reason"], "xpayment_production_resorts_missing")
+                response = self.create()
+                self.assertEqual(response.status_code, 409)
+                self.assertEqual(response.json()["code"], "payment_resort_not_enabled")
+                remote.assert_not_called()
+                self.assertFalse(PaymentAttempt.objects.exists())
+                self.assertFalse(PaymentJob.objects.exists())
+
+    def test_scope_removal_preserves_existing_attempt_and_settlement(self):
+        p = self.linked()
+        with self.settings(XPAYMENT_PRODUCTION_RESORT_IDS=[]):
+            self.assertFalse(self.client.get("/api/payments/config").json()["available"])
+            self.assertEqual(self.create().json()["id"], p.pk)
+            self.assertIsInstance(provider_for(p), XPaymentProvider)
+            apply_transaction(p.pk, self.fact(p))
+            p.booking.refresh_from_db()
+            self.assertEqual(p.booking.status, "confirmed")
+            self.assertEqual(PaymentAttempt.objects.count(), 1)
+
+    def test_scope_removal_skips_unstarted_create_but_preserves_started_recovery(self):
+        p = self.payment()
+        with (
+            self.settings(XPAYMENT_PRODUCTION_RESORT_IDS=[]),
+            patch.object(XPaymentProvider, "_request") as remote,
+        ):
+            self.assertFalse(run_one(payment_id=p.pk))
+            remote.assert_not_called()
+            self.assertEqual(p.jobs.get(kind="create").attempts, 0)
+            p.creation_started_at = timezone.now()
+            p.save(update_fields=["creation_started_at"])
+            link = replace(checkout(p), url="https://qr.kaspi.kz/123456789")
+            with (
+                patch.object(XPaymentProvider, "find_checkout", return_value=link),
+                patch.object(XPaymentProvider, "create_checkout") as create,
+            ):
+                self.assertTrue(run_one(payment_id=p.pk))
+                create.assert_not_called()
+            p.refresh_from_db()
+            self.assertEqual(p.invoice_link_id, link.link_id)
+            self.assertEqual(p.jobs.get(kind="create").state, "done")
+
+    def test_scope_removal_keeps_verify_jobs_for_existing_provider_links(self):
+        p = self.linked()
+        p.jobs.filter(kind="create").update(state="done")
+        enqueue(p, "verify")
+        link = replace(checkout(p), link_id=p.invoice_link_id)
+        with (
+            self.settings(XPAYMENT_PRODUCTION_RESORT_IDS=[]),
+            patch.object(XPaymentProvider, "find_checkout", return_value=link),
+            patch.object(XPaymentProvider, "lookup_payment", return_value=self.fact(p)),
+            patch.object(XPaymentProvider, "_request") as remote,
+        ):
+            self.assertTrue(run_one(payment_id=p.pk))
+            remote.assert_not_called()
+        p.booking.refresh_from_db()
+        self.assertEqual(p.booking.status, "confirmed")
+
+    @override_settings(
+        XPAYMENT_ENV="sandbox",
+        XPAYMENT_API_KEY="xdev_test_fixture_only",
+        XPAYMENT_SANDBOX_PROTOCOL_VERIFIED=True,
+    )
+    def test_empty_production_scope_does_not_restrict_sandbox(self):
+        with self.settings(XPAYMENT_PRODUCTION_RESORT_IDS=[]):
+            config = self.client.get("/api/payments/config").json()
+            self.assertTrue(config["available"])
+            self.assertNotIn("productionResortIds", config)
+            self.assertEqual(self.payment().environment, "sandbox")
 
     def test_freezes_provider_and_preserves_existing_payment_after_switch(self):
         p = self.payment()
@@ -108,6 +206,7 @@ class XPaymentFlowTests(TestCase):
         self.assertIsInstance(provider_for(p), XPaymentProvider)
         self.assertEqual(self.webhook(p).status_code, 422)
         self.assertEqual(self.webhook(p, environment="production").status_code, 422)
+        self.assertEqual(self.webhook(p, environment="live").status_code, 422)
         self.assertEqual(self.webhook(p, environment="sandbox").status_code, 200)
         apply_transaction(p.pk, self.fact(p))
         p.booking.refresh_from_db()
@@ -240,6 +339,29 @@ class XPaymentFlowTests(TestCase):
         p.booking.refresh_from_db()
         self.assertEqual(p.booking.status, "pending")
         self.assertFalse(PaymentEvent.objects.exists())
+
+    def test_signed_live_webhook_only_queues_independent_production_reconciliation(self):
+        p = self.linked()
+        p.jobs.filter(kind="create").update(state="done")
+        delivery = str(uuid.uuid4())
+        with patch.object(XPaymentProvider, "_request") as remote:
+            self.assertEqual(self.webhook(p, environment="live", delivery=delivery).status_code, 200)
+            self.assertEqual(self.webhook(p, environment="live", delivery=delivery).status_code, 200)
+            remote.assert_not_called()
+        self.assertEqual(WebhookDelivery.objects.count(), 1)
+        self.assertFalse(PaymentEvent.objects.exists())
+        p.booking.refresh_from_db()
+        self.assertEqual(p.booking.status, "pending")
+        link = replace(checkout(p), link_id=p.invoice_link_id)
+        with (
+            patch.object(XPaymentProvider, "find_checkout", return_value=link),
+            patch.object(XPaymentProvider, "lookup_payment", return_value=self.fact(p)) as lookup,
+        ):
+            self.assertTrue(run_one(payment_id=p.pk))
+            lookup.assert_called_once_with(p.invoice_id)
+        p.booking.refresh_from_db()
+        self.assertEqual(p.booking.status, "confirmed")
+        self.assertEqual(PaymentEvent.objects.get(applied=True).environment, "production")
 
     def test_bad_signature_or_reference_never_enqueues(self):
         p = self.linked()

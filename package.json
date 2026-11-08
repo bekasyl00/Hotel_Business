@@ -46,6 +46,7 @@
     "jspdf": "^4.2.1",
     "leaflet": "1.9.4",
     "pinia": "^3.0.4",
+    "qrcode": "1.5.4",
     "vue": "^3.5.44",
     "vue-i18n": "11.4.16",
     "vue-router": "^4.6.4"
@@ -56,8 +57,8 @@
     "axe-core": "^4.14.0",
     "likec4": "1.60.0",
     "prettier": "^3.9.10",
-    "vite": "^7.3.7",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vite": "^7.3.7"
   },
   "private": true,
   "overrides": {

@@ -3,7 +3,90 @@ import assert from "node:assert/strict";
 import {
   isBankProvider,
   safeCheckoutUrl,
+  bankCheckoutAccess,
 } from "../src/features/pay-booking/model/provider.js";
+
+const production = {
+  provider: "xpayment",
+  environment: "production",
+  available: true,
+  productionResortIds: ["altun", "kokterek"],
+};
+
+test("new production checkout is restricted to the advertised resort IDs", () => {
+  for (const resortId of production.productionResortIds)
+    assert.deepEqual(bankCheckoutAccess(production, { resortId }), {
+      canCreate: true,
+      canView: true,
+      resortUnavailable: false,
+    });
+  for (const resortId of ["other", "ALTUN", "altun ", undefined, null])
+    assert.deepEqual(bankCheckoutAccess(production, { resortId }), {
+      canCreate: false,
+      canView: false,
+      resortUnavailable: true,
+    });
+});
+
+test("missing or malformed production scope fails closed", () => {
+  for (const productionResortIds of [undefined, null, [], "altun,kokterek", {}])
+    assert.deepEqual(
+      bankCheckoutAccess(
+        { ...production, productionResortIds },
+        { resortId: "altun" },
+      ),
+      { canCreate: false, canView: false, resortUnavailable: true },
+    );
+  for (const config of [
+    null,
+    { ...production, available: false },
+    { ...production, available: "true" },
+    { ...production, environment: "unknown" },
+  ]) {
+    const access = bankCheckoutAccess(config, { resortId: "altun" });
+    assert.equal(access.canCreate, false);
+    assert.equal(access.canView, false);
+  }
+});
+
+test("existing bank attempts remain viewable when scope or configuration changes", () => {
+  for (const provider of ["xpayment", "halyk_epay"])
+    for (const config of [
+      null,
+      production,
+      { ...production, available: false },
+    ]) {
+      const access = bankCheckoutAccess(config, {
+        resortId: "other",
+        payment: { id: "saved-attempt", provider },
+      });
+      assert.equal(access.canCreate, false);
+      assert.equal(access.canView, true);
+    }
+  assert.equal(
+    bankCheckoutAccess(production, {
+      resortId: "other",
+      payment: { provider: "simulator" },
+    }).canView,
+    false,
+  );
+});
+
+test("production resort restrictions do not affect sandbox providers", () => {
+  for (const provider of ["xpayment", "halyk_epay"])
+    assert.deepEqual(
+      bankCheckoutAccess(
+        {
+          provider,
+          environment: "sandbox",
+          available: true,
+          productionResortIds: [],
+        },
+        { resortId: "other" },
+      ),
+      { canCreate: true, canView: true, resortUnavailable: false },
+    );
+});
 
 test("checkout URLs remain bound to their saved provider", () => {
   const halyk =

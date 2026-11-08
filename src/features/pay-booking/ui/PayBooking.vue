@@ -1,11 +1,12 @@
 <script setup>
-import { computed, onMounted, onBeforeUnmount, ref } from "vue";
+import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { Modal } from "@/shared/ui";
 import { PaymentCountdown } from "@/entities/booking";
 import { request } from "@/shared/api";
 import { money } from "@/shared/lib";
 import { isBankProvider, safeCheckoutUrl } from "../model/provider.js";
+import { createPaymentQrRenderer } from "../model/qr.js";
 const props = defineProps({
   booking: { type: Object, required: true },
   staff: Boolean,
@@ -61,13 +62,30 @@ const terminal = computed(() =>
   ),
 );
 const safeUrl = computed(() => {
-  if (!payment.value?.checkoutUrl || remaining.value <= 0) return null;
+  if (terminal.value || !payment.value?.checkoutUrl || remaining.value <= 0)
+    return null;
   return safeCheckoutUrl(
     provider.value,
     payment.value.checkoutUrl,
     environment.value,
   );
 });
+const qr = ref({ status: "idle", src: "" });
+const qrRenderer = createPaymentQrRenderer((value) => {
+  qr.value = value;
+});
+watch(
+  [safeUrl, provider, environment, expires],
+  ([url, paymentProvider, paymentEnvironment, expiresAt]) => {
+    void qrRenderer.update({
+      provider: paymentProvider,
+      environment: paymentEnvironment,
+      url,
+      expiresAt,
+    });
+  },
+  { immediate: true },
+);
 function schedule() {
   clearTimeout(timer);
   if (stopped || terminal.value || !payment.value || polls >= 35) {
@@ -148,6 +166,7 @@ onMounted(async () => {
 });
 onBeforeUnmount(() => {
   stopped = true;
+  qrRenderer.dispose();
   clearTimeout(timer);
   clearInterval(clock);
 });
@@ -163,6 +182,9 @@ onBeforeUnmount(() => {
       }}</span>
       <p v-if="environment === 'sandbox'" class="small muted">
         {{ t("common.payment.sandbox") }}
+      </p>
+      <p v-else-if="environment === 'production'" class="small muted">
+        {{ t("common.payment.production") }}
       </p>
       <div class="payment-receipt">
         <span>{{ booking.resortName }}</span>
@@ -237,6 +259,32 @@ onBeforeUnmount(() => {
           {{ t("common.payment.refresh") }}
         </button>
       </div>
+      <div
+        v-if="
+          safeUrl && provider === 'xpayment' && environment === 'production'
+        "
+        class="payment-qr"
+      >
+        <strong>{{ t("common.payment.qrTitle") }}</strong>
+        <p class="small">{{ t("common.payment.qrInstructions") }}</p>
+        <img
+          v-if="qr.status === 'ready'"
+          :src="qr.src"
+          :alt="t('common.payment.qrAlt')"
+          width="256"
+          height="256"
+        />
+        <p
+          v-else-if="qr.status === 'loading'"
+          class="small muted"
+          role="status"
+        >
+          {{ t("common.payment.qrLoading") }}
+        </p>
+        <p v-else-if="qr.status === 'error'" class="form-error" role="alert">
+          {{ t("common.payment.qrUnavailable") }}
+        </p>
+      </div>
       <p v-if="paused" class="small muted">{{ t("common.payment.paused") }}</p>
       <p class="small muted">{{ t("common.payment.noReceipt") }}</p>
     </div>
@@ -267,5 +315,20 @@ onBeforeUnmount(() => {
 .payment-actions > * {
   flex: 1;
   min-height: 44px;
+}
+.payment-qr {
+  display: grid;
+  justify-items: center;
+  gap: 0.6rem;
+  padding: 1rem;
+  border: 1px solid var(--line, #dce4df);
+  border-radius: 16px;
+  text-align: center;
+}
+.payment-qr img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  background: #fff;
 }
 </style>
