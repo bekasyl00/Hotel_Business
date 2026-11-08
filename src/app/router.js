@@ -77,9 +77,12 @@ router.beforeEach(async (to) => {
   if (!session.user) return "/staff/login";
   if (
     session.isAccountant &&
-    !["/staff/accounting", "/staff/bookings", "/staff/analytics"].includes(
-      to.path,
-    )
+    ![
+      "/staff/accounting",
+      "/staff/bookings",
+      "/staff/analytics",
+      "/staff/profile",
+    ].includes(to.path)
   )
     return "/staff/accounting";
   if (to.meta.admin && !session.isAdmin) return "/staff/bookings";

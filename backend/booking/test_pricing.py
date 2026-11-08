@@ -64,10 +64,10 @@ class PricingTests(TestCase):
         self.tariff.supplement = 101
         self.tariff.price_kind = "discount"
         self.tariff.discount_percent = 10
-        self.tariff.children_under_three_free = True
+        self.tariff.children_under_two_free = True
         self.tariff.save()
         self.assertEqual(self.save_periods(self.periods()).status_code, 200)
-        response = self.book([2])
+        response = self.book([1])
         self.assertEqual(response.status_code, 201, response.content)
         data = response.json()
         self.assertEqual(data["total"], 54368)
@@ -80,7 +80,7 @@ class PricingTests(TestCase):
         booking = Booking.objects.get(pk=data["id"])
         frozen = booking.snapshot.copy()
         RoomPricePeriod.objects.filter(room=self.room).update(price=999999)
-        self.tariff.children_under_three_free = False
+        self.tariff.children_under_two_free = False
         self.tariff.save()
         booking.refresh_from_db()
         self.assertEqual(booking.snapshot, frozen)
@@ -147,10 +147,10 @@ class PricingTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse(room.price_periods.exists())
 
-    def test_age_three_is_paid_and_missing_ages_preserves_old_clients(self):
-        self.tariff.children_under_three_free = True
+    def test_age_two_is_paid_and_missing_ages_preserves_old_clients(self):
+        self.tariff.children_under_two_free = True
         self.tariff.save()
-        response = self.book([3])
+        response = self.book([2])
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["freeChildren"], 0)
         self.assertEqual(response.json()["total"], 108000)
@@ -160,8 +160,67 @@ class PricingTests(TestCase):
         self.assertEqual(response.json()["total"], 108000)
 
     def test_invalid_children_cannot_reduce_charges(self):
-        for ages in [[-1], [18], [0, 0], ["bad"]]:
+        for ages in [[-1], [14], [18], [0, 0], ["bad"]]:
             self.assertEqual(self.book(ages).status_code, 422)
+        self.assertFalse(Booking.objects.exists())
+
+    def test_child_policy_can_be_changed_without_rewriting_tariff_or_booking(self):
+        original_name = self.tariff.name
+        original_supplement = self.tariff.supplement
+        response = self.write(
+            "patch",
+            f"/api/tariffs/{self.tariff.pk}",
+            {
+                "version": self.tariff.version,
+                "childrenUnderTwoFree": True,
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(response.json()["childrenUnderTwoFree"])
+        self.assertEqual(response.json()["name"], original_name)
+        self.assertEqual(response.json()["supplement"], original_supplement)
+        stale = self.write(
+            "patch",
+            f"/api/tariffs/{self.tariff.pk}",
+            {
+                "version": self.tariff.version,
+                "childrenUnderTwoFree": False,
+            },
+        )
+        self.assertEqual(stale.status_code, 409)
+        response = self.book([1])
+        self.assertEqual(response.status_code, 201, response.content)
+        booking = Booking.objects.get(pk=response.json()["id"])
+        legacy = {
+            **booking.snapshot,
+            "pricingVersion": 2,
+            "childrenUnderThreeFree": True,
+            "childrenAges": [2],
+        }
+        legacy.pop("childrenUnderTwoFree", None)
+        booking.snapshot = legacy
+        booking.save(update_fields=["snapshot"])
+        self.tariff.refresh_from_db()
+        self.tariff.children_under_two_free = False
+        self.tariff.save()
+        booking.refresh_from_db()
+        self.assertEqual(booking.snapshot, legacy)
+
+    def test_children_beyond_room_capacity_are_rejected(self):
+        response = self.write(
+            "post",
+            "/api/bookings",
+            {
+                "roomId": self.room.pk,
+                "start": str(self.start),
+                "end": str(self.start + timedelta(days=1)),
+                "guests": 3,
+                "childrenAges": [1, 5],
+                "guestLabel": "Fictional parent",
+                "requestId": str(uuid.uuid4()),
+            },
+        )
+        self.assertEqual(response.status_code, 422, response.content)
         self.assertFalse(Booking.objects.exists())
 
     def test_invalid_periods_and_partial_patch_preserves_calendar(self):

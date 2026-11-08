@@ -66,6 +66,40 @@ test("invalid child ages cannot create a demo booking or change the audit", asyn
   assert.deepEqual(after.bookings, before.bookings);
   assert.deepEqual(after.audit, before.audit);
 });
+test("staff can update the opt-in child policy with a versioned partial tariff patch", async () => {
+  const { api } = await setup();
+  await api("POST", "/auth/login", { accountId: "manager-altun" });
+  const before = (await api("GET", "/workspace")).tariffs.find(
+    (tariff) => tariff.id === "altun-meals",
+  );
+  const result = await api("PATCH", `/tariffs/${before.id}`, {
+    version: before.version,
+    childrenUnderTwoFree: true,
+  });
+  assert.equal(result.childrenUnderTwoFree, true);
+  for (const field of [
+    "name",
+    "description",
+    "supplement",
+    "features",
+    "status",
+  ])
+    assert.deepEqual(result[field], before[field]);
+  await assert.rejects(
+    api("PATCH", `/tariffs/${before.id}`, {
+      version: before.version,
+      childrenUnderTwoFree: false,
+    }),
+    (error) => error.status === 409,
+  );
+  await assert.rejects(
+    api("PATCH", "/tariffs/arasan-meals", {
+      version: 1,
+      childrenUnderTwoFree: true,
+    }),
+    (error) => error.status === 403,
+  );
+});
 test("manager sees only assigned tenant and cannot mutate foreign records or accounts", async () => {
   const { api } = await setup();
   await api("POST", "/auth/login", { accountId: "manager-altun" });

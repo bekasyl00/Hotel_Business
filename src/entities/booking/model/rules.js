@@ -73,7 +73,7 @@ export function validateChildren(guests, childrenAges = []) {
   return !Array.isArray(childrenAges) ||
     childrenAges.length >= guests ||
     childrenAges.length > 3 ||
-    childrenAges.some((age) => !Number.isInteger(age) || age < 0 || age > 17)
+    childrenAges.some((age) => !Number.isInteger(age) || age < 0 || age > 13)
     ? t("common.pricing.invalidChildren")
     : "";
 }
@@ -95,8 +95,10 @@ export function quoteStay(room, tariff, search) {
   )
     return null;
   const childrenAges = search.childrenAges || [];
-  const freeChildren = tariff.childrenUnderThreeFree
-    ? childrenAges.filter((age) => age < 3).length
+  const childrenFree =
+    tariff.childrenUnderTwoFree ?? tariff.childrenUnderThreeFree ?? false;
+  const freeChildren = childrenFree
+    ? childrenAges.filter((age) => age < 2).length
     : 0;
   const chargeableGuests = search.guests - freeChildren;
   const discountPercent =
@@ -127,9 +129,9 @@ export function quoteStay(room, tariff, search) {
       ? nightlyBreakdown[0][key]
       : null;
   return {
-    pricingVersion: 2,
+    pricingVersion: 3,
     childrenAges: [...childrenAges],
-    childrenUnderThreeFree: !!tariff.childrenUnderThreeFree,
+    childrenUnderTwoFree: !!childrenFree,
     freeChildren,
     chargeableGuests,
     priceKind: tariff.priceKind || "regular",

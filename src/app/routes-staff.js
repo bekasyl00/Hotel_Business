@@ -1,5 +1,10 @@
 export const staffRoutes = [
   {
+    path: "/staff/profile",
+    component: () => import("@/pages/staff-profile"),
+    meta: { staff: true },
+  },
+  {
     path: "/staff/:section(history|accounts)",
     component: () => import("@/pages/workspace"),
     meta: { staff: true, admin: true },

@@ -1,5 +1,12 @@
 # Проверки
 
+## 09.11.2026 — QR приёма, цена класса, дети и профиль сотрудника
+
+- QR кодируется локально и успешно прочитан из отрендеренного PDF (одна A4 страница); в QR нет ФИО/ИИН/телефона. Проверки backend: роли/tenant, guest denial, CSRF, подпись, отменённый/выбывший/будущий билет, stale version, rollback onsite при ошибке check-in и повторный приём без дубликатов. Scanner unit checks: позднее разрешение камеры после закрытия, остановка перед decode callback, отказ камеры. Физическая камера телефона не тестировалась.
+- Реальные Vue-компоненты на вымышленных fixtures: 390/1440 RU/KK/EN. Приём сначала показывает детали, требует receipt acknowledgment, затем accepted. Два ребёнка остаются двумя, число гостей3; capacity2 запрещает submit с объяснением, capacity4 выбирается с notice. Возраст1 получает opt-in exemption, возраст8 оплачивается; staff toggle сохраняется. Массовая цена9000 применена к2номерам и сразу появилась в календаре как9900 inclusive на15–19ноября; 20-го возврат к26400. Профиль/issuer save и409 с сохранением ввода проверены; horizontal overflow отсутствует.
+- Во время review исправлены ошибки strict validation неизвестных полей (422 вместо500), позднего ответа arrival после смены страницы и stale admin name без profileVersion. Child migration0014 сохраняет старое SQL имя столбца (sqlmigrate: no-op), чтобы избежать окна несовместимости старого runtime.0015 добавляет профильные поля, без изменения security version.
+- **323 Django tests** на отдельном PostgreSQL17 и **157 frontend tests** прошли. FSD149files/384imports, build, API build:surfaces, arch:check, Ruff, migration drift и check --deploy проходят. Production npm audit:0 vulnerabilities. Supabase booking0014/0015 применены; iPhone/Android не пересобирались. Опубликованная проверка фиксируется после деплоя.
+
 ## 08.11.2026 — документы гостей, доступ сотрудников и цены в календаре
 
 - **297 Django tests** на отдельном PostgreSQL17: pass; migration drift no changes, Ruff и `check --deploy`: pass. Включены 19 calendar/pricing tests, 4query bound, 22 role/email/native checks, encryption/ownership/CSRF/version/immutable document snapshots. Сначала два старых теста ожидали действующую сессию после смены роли/ownership; исправлены на ожидаемый отзыв и повторный вход без ослабления auth. Финальная полная регрессия прошла.

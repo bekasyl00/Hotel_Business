@@ -67,6 +67,9 @@ class Resort(Record):
 class User(AbstractUser):
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=100)
+    job_title = models.CharField(max_length=100, blank=True)
+    contact_phone = models.CharField(max_length=16, blank=True)
+    profile_version = models.PositiveIntegerField(default=1)
     role = models.CharField(
         max_length=16,
         default="manager",
@@ -142,7 +145,9 @@ class Tariff(Record):
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500, blank=True)
     supplement = models.PositiveIntegerField(default=0)
-    children_under_three_free = models.BooleanField(default=False)
+    children_under_two_free = models.BooleanField(
+        default=False, db_column="children_under_three_free"
+    )
     features = models.JSONField(default=list)
     price_kind = models.CharField(
         max_length=16, default="regular", choices=[("regular", "regular"), ("discount", "discount")]

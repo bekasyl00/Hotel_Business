@@ -311,8 +311,8 @@ class RoomSerializer(serializers.ModelSerializer):
 
 
 class TariffSerializer(serializers.ModelSerializer):
-    childrenUnderThreeFree = serializers.BooleanField(
-        source="children_under_three_free", required=False
+    childrenUnderTwoFree = serializers.BooleanField(
+        source="children_under_two_free", required=False
     )
     resortId = serializers.PrimaryKeyRelatedField(source="resort", queryset=Resort.objects.all())
     features = FeatureList()
@@ -346,7 +346,7 @@ class TariffSerializer(serializers.ModelSerializer):
             "name",
             "description",
             "supplement",
-            "childrenUnderThreeFree",
+            "childrenUnderTwoFree",
             "features",
             "status",
             "priceKind",
@@ -356,6 +356,7 @@ class TariffSerializer(serializers.ModelSerializer):
 
 
 class AccountInput(serializers.Serializer):
+    profileVersion = serializers.IntegerField(min_value=1, required=False)
     role = serializers.ChoiceField(choices=["manager", "accountant"], required=False)
     name = serializers.CharField(max_length=100)
     login = serializers.EmailField(max_length=100)
@@ -385,7 +386,7 @@ class BookingInput(serializers.Serializer):
     end = serializers.DateField()
     guests = serializers.IntegerField(min_value=1, max_value=4)
     childrenAges = serializers.ListField(
-        child=serializers.IntegerField(min_value=0, max_value=17), max_length=3, default=list
+        child=serializers.IntegerField(min_value=0, max_value=13), max_length=3, default=list
     )
     childrenBirthDates = serializers.ListField(
         child=serializers.DateField(), max_length=3, required=False
@@ -421,9 +422,9 @@ class BookingInput(serializers.Serializer):
                     - birth.year
                     - ((checkin.month, checkin.day) < (birth.month, birth.day))
                 )
-                if birth > timezone.localdate() or not 0 <= age < 18:
+                if birth > timezone.localdate() or not 0 <= age < 14:
                     raise serializers.ValidationError(
-                        "Проверьте дату рождения: ребёнку должно быть меньше 18 лет на дату заезда."
+                        "Проверьте дату рождения: ребёнку должно быть меньше 14 лет на дату заезда."
                     )
                 ages.append(age)
             if data["childrenAges"] and data["childrenAges"] != ages:
@@ -505,6 +506,7 @@ def account_data(user):
         "resortIds": list(user.managed_resorts.order_by("id").values_list("id", flat=True)),
         "status": "active" if user.is_active else "disabled",
         "version": user.version,
+        "profileVersion": user.profile_version,
         "createdAt": user.date_joined.isoformat(),
         "lastLogin": user.last_login.isoformat() if user.last_login else None,
     }

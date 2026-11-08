@@ -32,6 +32,7 @@ const { busy, error, save } = useEditor("accounts", props.item, emit);
       @submit.prevent="
         save({
           ...form,
+          profileVersion: item ? (form.profileVersion ?? 1) : undefined,
           login: form.login.trim().toLowerCase(),
           resortId: undefined,
           resortIds: undefined,

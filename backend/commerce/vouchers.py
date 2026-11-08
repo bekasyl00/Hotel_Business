@@ -40,6 +40,8 @@ def owned_booking(request, pk):
 
 
 def voucher_data(booking):
+    from .arrivals import ticket_code
+
     payment = booking_payment_data(booking)
     if not payment or payment.get("status") not in ("paid", "refunded", "partially_refunded"):
         raise Problem("Билет появится после подтверждения онлайн-оплаты.", 409)
@@ -47,6 +49,7 @@ def voucher_data(booking):
     return {
         "number": "TYNYS-" + booking.pk.upper(),
         "bookingId": booking.pk,
+        "scanCode": ticket_code(booking),
         "guestName": booking.guest_label,
         "resortName": booking.snapshot.get("resortName", booking.resort.name),
         "roomName": booking.snapshot.get("roomName", booking.room.title),
@@ -130,6 +133,8 @@ def record_onsite(request, pk):
 
 
 def voucher_pdf(data):
+    from reportlab.graphics.barcode.qr import QrCodeWidget
+    from reportlab.graphics.shapes import Drawing
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle
@@ -190,13 +195,30 @@ def voucher_pdf(data):
         Spacer(1, 14),
         para(data["number"]),
         para(state),
-        Spacer(1, 18),
+        Spacer(1, 10),
         table,
-        Spacer(1, 18),
+        Spacer(1, 10),
         para(
             "Предъявите билет сотруднику санатория. Актуальный статус проверяется в кабинете сотрудника по номеру бронирования. Это подтверждение бронирования, не банковский или фискальный чек."
         ),
     ]
+    if data.get("scanCode"):
+        qr = QrCodeWidget(data["scanCode"])
+        bounds = qr.getBounds()
+        size = 116
+        drawing = Drawing(
+            size,
+            size,
+            transform=[size / (bounds[2] - bounds[0]), 0, 0, size / (bounds[3] - bounds[1]), 0, 0],
+        )
+        drawing.add(qr)
+        story.extend(
+            [
+                Spacer(1, 8),
+                drawing,
+                para("QR для сотрудника: проверка билета и подтверждение заезда."),
+            ]
+        )
     if data["paymentMode"] != "production":
         story.insert(0, para("ДЕМОНСТРАЦИЯ — без реальных денежных операций"))
     doc.build(story)

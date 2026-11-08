@@ -270,3 +270,35 @@ Email для входа редактируется в «Сотрудники →
 Раскрывающийся список периодов на клиентских профилях удалён. Дни календаря показывают конечную цену номера, сезонный маркер и доступность; выбранная ночь раскрывает компактное сравнение. Для класса сервер выбирает минимальную цену только среди свободных номеров нужной вместимости; исходная цена относится к тому же номеру. Конкретный номер сохраняет отдельный календарь. Занятые/прошедшие дни и доступная только для выезда дата не выдают цену продаваемой ночи.
 
 Только фактическое снижение цены даёт зачёркнутую исходную сумму/цвет скидки. Повышение и равная сезонная цена отмечены как сезон, без ложной скидки. Календарь показывает room-only цену до выбора дополнений тарифа; полный итог выбранного срока и pay-now/onsite рассчитываются отдельно, с единственным округлением онлайн-суммы за весь заказ. Каталог без дат использует сегодня в часовом поясе санатория. Эти отображения не переписывают price snapshots существующих броней.
+
+
+## 2026-11-09 — QR arrival, class prices and staff document profile
+
+Owner requested a ticket QR on the website/PDF after successful booking payment. The global staff scan button resolves a protected booking code and first shows guest/stay/online/onsite amounts. Explicit staff acknowledgment records actual onsite collection and check-in in one transaction; QR alone neither confirms payment nor bypasses tenant/role checks. Manual reception uses the same workflow from the planner. No real collection is executed by the browser; this is a staff attestation.
+
+A class price action applies a period atomically to the previewed current rooms of one class, retaining per-room periods and existing booked snapshots. Overlaps or changed membership/versions reject the whole batch; future rooms are not silently included. Customer calendars and quotes read these same periods.
+
+Children are now under14; free per-guest supplement is only for under2 when enabled by the property. Room capacity always includes children and requires an adult; the base room price is retained. Desired child count is no longer silently clamped. Staff can enable the existing child benefit through the room workspace. Existing frozen booking prices/ages are not rewritten.
+
+Staff self profile contains professional name/job/contact details, with email/access controlled by admin. Company issuer fields are scoped to the employee's resorts (accountant/admin platform-wide); released document snapshots remain immutable. Separate profile_version avoids revoking sessions when ordinary contact details change. iPhone/Android builds remain deferred.
+
+
+## 2026-11-09 — одна сезонная цена для всех номеров класса
+
+В «Номера» добавлен отдельный диалог «Цена для всего класса». Сотрудник выбирает класс, видит число и список затрагиваемых номеров, задаёт период и стоимость проживания за ночь. Одна операция копирует период во все существующие номера класса выбранного санатория, включая временно закрытые на обслуживание. Новые номера автоматически ничего не наследуют; это явно указано в форме.
+
+Выбрано явное массовое применение существующего RoomPricePeriod вместо второго конкурирующего уровня правил. Индивидуальные периоды сохраняются. Любое пересечение, предел периодов или устаревшая версия/состав класса отклоняет всю операцию без частичных изменений. Resort lock, точный список версий, транзакция и exclusion constraint защищают одновременные записи. После успешного применения каждый период можно исправить или удалить через редактор конкретного номера; массовая операция не скрыто перезаписывает исключения. Календарь и новые расчёты сразу используют сохранённые периоды; прежние цены бронирований неизменны. Новая миграция для этой функции не требуется.
+
+## 2026-11-09 — количество детей и льгота до двух лет
+
+Детская категория нового оформления — младше 14 лет на дату заезда. Гости от 14 лет учитываются в общем количестве без детских полей; среди гостей нужен взрослый. Бесплатной может быть только тарифная доплата ребёнка младше 2 лет при уже существующем opt-in санатория. С 2 лет доплата полная; цена номера не отменяется. Сотрудник управляет этим флагом через «Номера → Условия для детей», выбирая существующий вариант проживания, без восстановления отдельного раздела тарифов.
+
+Ввод количества больше не сокращает детей до вместимости текущего номера. Желаемый состав сохраняется, общее число увеличивается до children+1. При наличии подходящего номера в переданном списке он выбирается с уведомлением (предпочтительно тот же класс); иначе оформление блокируется понятным сообщением о вместимости и ссылкой поиска другого номера. Уменьшение общего числа гостей не удаляет ранее введённых детей. Ограничение одной брони — 4 гостя, включая не менее одного взрослого.
+
+`booking.0014_children_under_two_free` меняет имя поля модели/API, но оставляет SQL-столбец `children_under_three_free` через explicit db_column, чтобы старый runtime продолжал читать схему во время rollout. Флаг сохраняется. Новые price snapshots версии 3 содержат childrenUnderTwoFree; исторические snapshots версии 2/under-three не пересчитываются. Checkout ИИН по-прежнему только в памяти компонента, не в запросе/хранилище/логах; передаётся временная дата, сервер сохраняет возраст. Это расчёт заявленного возраста, не проверка личности или государственной льготы.
+
+## 2026-11-09 — собственный профиль сотрудника и реквизиты документов
+
+`/staff/profile` доступен всем сотрудникам через общий StaffShell, включая мобильную ширину. ФИО, должность и рабочий телефон — собственные контактные поля, отдельно от email и роли доступа, которые меняет администратор. `booking.0015_staff_profile` добавляет User.job_title/contact_phone/profile_version; саморедактирование проверяет profile_version и accountVersion, но не меняет security version и не отзывает действующие сессии. Admin/self изменения имени обнаруживают конфликт версии. Контакты не копируются в audit.
+
+Для трёх существующих шаблонов используется прежняя AccountingCompany, без второй копии реквизитов. Общая форма CompanyDetails доступна в профиле и бухгалтерии. Новый staff-profile/company endpoint разрешает manager только собственные объекты, admin/accountant все; блокировки, версии, валидация БИН/IBAN/НДС и metadata-only audit сохранены. Прав подготовки/публикации документов у manager не прибавилось. Должность не является системной ролью; имя сотрудника не назначает его автоматически руководителем или бухгалтером. Ранее выпущенные документы неизменны. ИИН сотрудника не запрашивается.

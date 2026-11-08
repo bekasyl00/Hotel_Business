@@ -4,13 +4,16 @@ from django.urls import include, path, re_path
 from django.views.generic import RedirectView
 
 from booking.admin import platform_admin_site
+from booking.class_pricing import ClassPricingView
 from booking.guest_auth import GuestAuthView
 from booking.media import MediaFile, MediaUpload, ProfileAvatar
 from booking.mobile_auth import MobileAuthView, MobileSessionView
 from booking.staff_mobile_auth import StaffMobileAuthView, StaffMobileSessionView
+from booking.staff_profile import StaffCompanyView, StaffProfileView
 from booking.views import Endpoint
 from commerce.accounting.document_guests import DocumentGuestsView
 from commerce.accounting.views import AccountingView, BookingDocumentsView, GuestDocumentsView
+from commerce.arrivals import ArrivalAcceptView, ArrivalResolveView
 from commerce.payment_views import HalykCallbackView, PaymentView
 from commerce.scheduler import tick
 from commerce.views import CancellationPreviewView, DemoPaymentView, ReceiptView
@@ -20,6 +23,11 @@ from commerce.xpayment_webhook import XPaymentCallbackView
 from .health import live, ready
 
 api_patterns = [
+    path("staff-profile", StaffProfileView.as_view()),
+    path("staff-profile/company/<str:resort_id>", StaffCompanyView.as_view()),
+    path("staff/arrivals/resolve", ArrivalResolveView.as_view()),
+    path("bookings/<str:pk>/accept-arrival", ArrivalAcceptView.as_view()),
+    path("resorts/<str:pk>/class-pricing", ClassPricingView.as_view()),
     path("bookings/<str:pk>/document-guests", DocumentGuestsView.as_view()),
     path("bookings/<str:pk>/voucher", VoucherView.as_view()),
     path("bookings/<str:pk>/voucher/pdf", VoucherView.as_view(), {"pdf": True}),

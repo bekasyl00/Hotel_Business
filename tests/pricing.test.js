@@ -15,13 +15,13 @@ const tariff = {
   supplement: 101,
   priceKind: "discount",
   discountPercent: 10,
-  childrenUnderThreeFree: true,
+  childrenUnderTwoFree: true,
 };
 const search = {
   start: "2027-01-31",
   end: "2027-02-04",
   guests: 2,
-  childrenAges: [2],
+  childrenAges: [1],
 };
 test("nightly seasonal and child quote matches server contract across month boundaries", () => {
   const result = quoteStay(room, tariff, search);
@@ -37,10 +37,10 @@ test("nightly seasonal and child quote matches server contract across month boun
   assert.equal(result.total, 54368);
   room.pricePeriods[0].price = 20001;
 });
-test("free child tariff is opt-in and ends at age three; room always payable", () => {
+test("free child tariff is opt-in and ends at age two; room always payable", () => {
   for (const [t, s] of [
-    [{ ...tariff, childrenUnderThreeFree: false }, search],
-    [tariff, { ...search, childrenAges: [3] }],
+    [{ ...tariff, childrenUnderTwoFree: false }, search],
+    [tariff, { ...search, childrenAges: [2] }],
     [tariff, { ...search, childrenAges: [] }],
   ]) {
     assert.equal(quoteStay(room, t, s).total, 54732);
@@ -48,11 +48,50 @@ test("free child tariff is opt-in and ends at age three; room always payable", (
   assert.equal(
     quoteStay(
       { price: 18000 },
-      { supplement: 4500, childrenUnderThreeFree: true },
+      { supplement: 4500, childrenUnderTwoFree: true },
       { ...search, start: "2027-01-01", end: "2027-01-02" },
     ).total,
     22500,
   );
+});
+test("only ages zero and one get the configured exemption; older children remain paying guests", () => {
+  for (const [age, total, freeChildren] of [
+    [0, 11000, 1],
+    [1, 11000, 1],
+    [2, 12000, 0],
+    [13, 12000, 0],
+  ]) {
+    const result = quoteStay(
+      { price: 10000 },
+      { supplement: 1000, childrenUnderTwoFree: true },
+      {
+        start: "2027-01-01",
+        end: "2027-01-02",
+        guests: 2,
+        childrenAges: [age],
+      },
+    );
+    assert.equal(result.total, total);
+    assert.equal(result.freeChildren, freeChildren);
+    assert.equal(result.pricingVersion, 3);
+    assert.equal(result.childrenUnderTwoFree, true);
+    assert.equal(result.childrenUnderThreeFree, undefined);
+  }
+  const oldSnapshot = {
+    pricingVersion: 2,
+    total: 11000,
+    childrenAges: [2],
+    childrenUnderThreeFree: true,
+    freeChildren: 1,
+  };
+  const before = structuredClone(oldSnapshot);
+  const result = quoteStay(
+    { price: 10000 },
+    { supplement: 1000, childrenUnderThreeFree: true },
+    { start: "2027-01-01", end: "2027-01-02", guests: 2, childrenAges: [2] },
+  );
+  assert.equal(result.total, 12000);
+  assert.deepEqual(oldSnapshot, before);
 });
 test("period validation accepts adjoining dates and rejects overlap, invalid dates or prices", () => {
   assert.equal(
@@ -72,7 +111,7 @@ test("period validation accepts adjoining dates and rejects overlap, invalid dat
   assert.ok(validatePricePeriods(Array(61).fill(room.pricePeriods[0])));
 });
 test("child composition requires an adult and complete integer ages", () => {
-  for (const ages of [[null], [-1], [18], [0, 0], ["2"]])
+  for (const ages of [[null], [-1], [14], [18], [0, 0], ["2"]])
     assert.ok(validateChildren(2, ages));
   assert.equal(validateChildren(2, [0]), "");
   assert.equal(

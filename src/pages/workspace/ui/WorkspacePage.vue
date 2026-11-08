@@ -9,6 +9,8 @@ import { StaffShell } from "@/widgets/staff-shell";
 import { Overview } from "@/widgets/overview";
 import { ResortEditor } from "@/features/edit-resort";
 import { RoomEditor } from "@/features/edit-room";
+import { ClassPricingEditor } from "@/features/class-pricing";
+import { ChildPolicyEditor } from "@/features/edit-child-policy";
 import { OccupancyBoard, StayCard } from "@/widgets/occupancy-board";
 import { AccountEditor } from "@/features/edit-account";
 import { PaymentDialog } from "@/widgets/payment-dialog";
@@ -546,6 +548,24 @@ onBeforeUnmount(() => {
                 ☷ {{ t("staff.board.list") }}
               </button>
             </div>
+            <button
+              v-if="section === 'rooms' && current && !session.isAccountant"
+              type="button"
+              class="secondary"
+              :disabled="current.status === 'archived'"
+              @click="open('class-pricing')"
+            >
+              {{ t("common.classPricing.open") }}
+            </button>
+            <button
+              v-if="section === 'rooms' && current && !session.isAccountant"
+              type="button"
+              class="secondary"
+              :disabled="current.status === 'archived'"
+              @click="open('child-policy')"
+            >
+              {{ t("common.children.settingsTitle") }}
+            </button>
           </div>
           <Overview
             v-if="section === 'overview'"
@@ -1284,6 +1304,20 @@ onBeforeUnmount(() => {
     v-if="editor?.kind === 'rooms'"
     :item="editor.item"
     :resort-id="selected"
+    @close="editor = null"
+    @saved="saved"
+  />
+  <ClassPricingEditor
+    v-if="editor?.kind === 'class-pricing' && current"
+    :key="current.id"
+    :resort="current"
+    @close="editor = null"
+    @saved="saved"
+  />
+  <ChildPolicyEditor
+    v-if="editor?.kind === 'child-policy' && current"
+    :key="current.id"
+    :tariffs="scopedTariffs"
     @close="editor = null"
     @saved="saved"
   />

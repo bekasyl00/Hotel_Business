@@ -30,6 +30,8 @@ import {
 import { ApiError } from "../../shared/api/index.js";
 import { demoAnalytics } from "./demo-analytics.js";
 import { demoAvailability } from "./demo-availability.js";
+import { demoClassPricing } from "./demo-class-pricing.js";
+import { demoStaffProfile } from "./demo-staff-profile.js";
 import { upgradeGuests, demoGuestRequest } from "./demo-guests.js";
 import { createDemoMediaStore, demoMediaRequest } from "./demo-media.js";
 export const DATABASE_KEY = "tynys:workspace:v2";
@@ -387,6 +389,25 @@ export function createDemoTransport({
       version,
     });
     if (expansion.handled) return clone(expansion.value);
+    const classPricing = demoClassPricing({
+      db,
+      method,
+      pathname,
+      params,
+      payload,
+      authorize,
+      commit,
+    });
+    if (classPricing.handled) return clone(classPricing.value);
+    const staffProfile = demoStaffProfile({
+      db,
+      user,
+      method,
+      pathname,
+      payload,
+      commit,
+    });
+    if (staffProfile.handled) return clone(staffProfile.value);
     if (pathname === "/analytics" && method === "GET")
       return clone(
         demoAnalytics(
@@ -767,6 +788,7 @@ export function createDemoTransport({
       if (!resort || resort.status === "archived")
         fail("Выберите действующий санаторий.");
     }
+    if (entity === "tariffs" && item) payload = { ...item, ...payload };
     let fields;
     if (entity === "resorts") {
       if (
@@ -921,10 +943,13 @@ export function createDemoTransport({
         name: text(payload.name, "Название", 80),
         description: text(payload.description, "Описание", 400, false),
         supplement: number(payload.supplement, "Доплата", 0, 10000000, true),
-        childrenUnderThreeFree:
-          payload.childrenUnderThreeFree ??
-          item?.childrenUnderThreeFree ??
-          false,
+        childrenUnderTwoFree: choice(
+          payload.childrenUnderTwoFree ??
+            item?.childrenUnderTwoFree ??
+            item?.childrenUnderThreeFree ??
+            false,
+          [true, false],
+        ),
         priceKind: choice(payload.priceKind || item?.priceKind || "regular", [
           "regular",
           "discount",
@@ -945,6 +970,13 @@ export function createDemoTransport({
     if (entity === "accounts") {
       if (item?.role === "admin")
         fail("Администратор недоступен для изменения.", 403);
+      const accountName = text(payload.name, "Имя", 100);
+      if (
+        item &&
+        (payload.profileVersion !== undefined || item.name !== accountName) &&
+        payload.profileVersion !== (item.profileVersion || 1)
+      )
+        fail("Профиль сотрудника уже изменён. Обновите страницу.", 409);
       if (
         payload.role === "accountant" &&
         db.resorts.some((r) => r.accountId === id)
@@ -952,7 +984,10 @@ export function createDemoTransport({
         fail("Сначала передайте санатории другому аккаунту.", 409);
       fields = {
         resortId,
-        name: text(payload.name, "Имя", 100),
+        profileVersion: item
+          ? (item.profileVersion || 1) + (item.name !== accountName ? 1 : 0)
+          : 1,
+        name: accountName,
         login: text(payload.login, "Логин", 100).toLowerCase(),
         role: choice(payload.role || item?.role || "manager", [
           "manager",

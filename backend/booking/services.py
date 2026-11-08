@@ -467,10 +467,17 @@ def save_account(request, pk=None):
     inp.is_valid(raise_exception=True)
     data = inp.validated_data
     password = data.get("password")
+    if item and (
+        ("profileVersion" in data or data["name"] != item.name)
+        and data.get("profileVersion") != item.profile_version
+    ):
+        raise Problem("Профиль сотрудника уже изменён. Обновите страницу.", 409)
     if not item and not password:
         raise Problem("Задайте начальный пароль управляющего (от 12 символов).")
     before = account_data(item) if item else None
     item = item or User()
+    if item.pk and item.name != data["name"]:
+        item.profile_version += 1
     item.name, item.email, item.username = data["name"], data["login"], data["login"]
     item.role = data.get("role", item.role or "manager")
     if item.role == "accountant" and item.pk and item.managed_resorts.exists():

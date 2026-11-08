@@ -4,6 +4,7 @@ import { staffNavigation } from "../model/navigation.js";
 import { computed } from "vue";
 import { useSessionStore } from "@/entities/session";
 import { LanguageSwitcher } from "@/shared/ui";
+import { ArrivalCheckIn } from "@/features/arrival-check-in";
 import { publicUrl, isStaffApp, isDemo } from "@/shared/config";
 const { t } = useI18n();
 const props = defineProps({ section: String });
@@ -66,6 +67,12 @@ const nav = computed(() =>
           }}</strong></span
         >
         <div class="staff-topbar-actions">
+          <ArrivalCheckIn v-if="!isDemo && !session.isAccountant" />
+          <RouterLink
+            to="/staff/profile"
+            :aria-current="section === 'profile' ? 'page' : undefined"
+            >{{ t("common.staffProfile.title") }}</RouterLink
+          >
           <LanguageSwitcher />
           <a v-if="!isStaffApp" :href="publicUrl">{{
             t("staff.openWebsite")

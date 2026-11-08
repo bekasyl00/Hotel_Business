@@ -3,6 +3,7 @@ import {
   ageAt,
   childBirthFromIin,
   selectChildCount,
+  roomForParty,
 } from "../model/children.js";
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
@@ -50,6 +51,8 @@ const tariff = computed(() =>
 const price = computed(() =>
   room.value &&
   (props.staff || tariff.value) &&
+  !childCountError.value &&
+  !capacityError.value &&
   !validateChildren(form.guests, form.childrenAges)
     ? quoteStay(room.value, props.staff ? null : tariff.value, form)
     : null,
@@ -90,12 +93,34 @@ onMounted(async () => {
 });
 const childCountId = useId();
 const childCountInput = ref("0");
-const maxChildren = computed(() =>
-  Math.max(0, (room.value?.capacity || 4) - 1),
+const maxChildren = 3;
+const selectedRoomNotice = ref("");
+const childCountError = computed(() =>
+  selectChildCount(childCountInput.value, form.guests)
+    ? ""
+    : t("common.children.countLimit"),
 );
+const capacityError = computed(() =>
+  room.value && Number(form.guests) > room.value.capacity
+    ? t("common.children.roomCapacity", {
+        capacity: room.value.capacity,
+        guests: form.guests,
+      })
+    : "",
+);
+function fitRoom() {
+  const larger = roomForParty(props.rooms, form.roomId, Number(form.guests));
+  if (larger && larger.id !== form.roomId) {
+    form.roomId = larger.id;
+    selectedRoomNotice.value = t("common.children.roomChanged", {
+      room: `${larger.number} · ${larger.title}`,
+      capacity: larger.capacity,
+    });
+  }
+}
 function setChildCount(value) {
   childCountInput.value = String(value);
-  const next = selectChildCount(value, form.guests, room.value?.capacity || 4);
+  const next = selectChildCount(value, form.guests);
   if (!next) return;
   children.value = Array.from(
     { length: next.children },
@@ -103,23 +128,12 @@ function setChildCount(value) {
   );
   childCountInput.value = String(next.children);
   form.guests = next.guests;
+  fitRoom();
 }
 function commitChildCount() {
-  setChildCount(childCountInput.value === "" ? 0 : childCountInput.value);
-  childCountInput.value = String(children.value.length);
+  if (childCountInput.value === "") setChildCount(0);
 }
-watch(
-  () => form.guests,
-  (value) => {
-    if (value === "" || !Number.isInteger(Number(value)) || Number(value) < 1)
-      return;
-    const count = Math.min(children.value.length, Number(value) - 1);
-    if (count !== children.value.length) {
-      children.value = children.value.slice(0, count);
-      childCountInput.value = String(count);
-    }
-  },
-);
+watch(() => form.guests, fitRoom);
 const store = useBookingStore(),
   busy = ref(false),
   error = ref(""),
@@ -127,13 +141,15 @@ const store = useBookingStore(),
 let attempt = null;
 async function save() {
   error.value =
-    !props.staff && !guestAccount.authenticated
+    childCountError.value ||
+    capacityError.value ||
+    (!props.staff && !guestAccount.authenticated
       ? t("common.checkout.loginRequired")
       : children.value.some(
             (c) => !childBirthFromIin(c.iin, form.start, dateAfter()),
           )
         ? t("common.children.invalidIin")
-        : validateChildren(form.guests, form.childrenAges);
+        : validateChildren(form.guests, form.childrenAges));
   if (error.value) return;
   if (price.value && !settlement.value) {
     error.value = t("common.settlement.notConfigured");
@@ -163,13 +179,6 @@ async function save() {
     busy.value = false;
   }
 }
-watch(
-  () => form.roomId,
-  () => {
-    if (room.value && form.guests > room.value.capacity)
-      form.guests = room.value.capacity;
-  },
-);
 </script>
 <template>
   <Modal
@@ -255,7 +264,10 @@ watch(
               :key="r.id"
               :value="r.id"
             >
-              № {{ r.number }} · {{ r.title }}
+              № {{ r.number }} · {{ r.title }} ·
+              {{
+                t("common.children.capacityOption", { capacity: r.capacity })
+              }}
             </option>
           </select></label
         ><label
@@ -263,10 +275,25 @@ watch(
           }}<input
             v-model.number="form.guests"
             type="number"
-            min="1"
-            :max="room?.capacity || 4"
+            :min="children.length + 1"
+            max="4"
             required
         /></label>
+      </div>
+      <p v-if="selectedRoomNotice" class="field-help" role="status">
+        {{ selectedRoomNotice }}
+      </p>
+      <div v-if="capacityError" class="form-error" role="alert">
+        <p>{{ capacityError }}</p>
+        <RouterLink
+          v-if="!staff"
+          :to="{
+            path: `/resorts/${resort.id}`,
+            query: { start: form.start, end: form.end, guests: form.guests },
+          }"
+          @click="emit('close')"
+          >{{ t("common.children.findRoom") }}</RouterLink
+        >
       </div>
       <fieldset class="pricing-fields">
         <legend>{{ t("common.pricing.children") }}</legend>
@@ -293,6 +320,7 @@ watch(
               :max="maxChildren"
               step="1"
               :aria-describedby="`${childCountId}-help`"
+              :aria-invalid="!!childCountError"
               required
               @input="setChildCount($event.target.value)"
               @blur="commitChildCount"
@@ -310,6 +338,17 @@ watch(
           <p :id="`${childCountId}-help`" class="field-help">
             {{ t("common.children.partySizeHint") }}
           </p>
+          <p v-if="childCountError" class="form-error" role="alert">
+            {{ childCountError }}
+          </p>
+          <p
+            v-if="Number(form.guests) <= children.length"
+            class="form-error"
+            role="alert"
+          >
+            {{ t("common.children.adultRequired") }}
+          </p>
+          <p class="field-help">{{ t("common.children.agePolicy") }}</p>
         </div>
         <div
           v-for="(child, index) in children"
@@ -392,8 +431,11 @@ watch(
       <p v-else-if="price" class="form-error" role="status">
         {{ t("common.settlement.notConfigured") }}
       </p>
-      <p v-if="tariff?.childrenUnderThreeFree" class="field-help">
-        {{ t("common.pricing.freeUnderThree") }}
+      <p
+        v-if="tariff?.childrenUnderTwoFree ?? tariff?.childrenUnderThreeFree"
+        class="field-help"
+      >
+        {{ t("common.pricing.freeUnderTwo") }}
       </p>
       <details v-if="displayPrice" class="price-breakdown">
         <summary>{{ t("common.pricing.breakdown") }}</summary>

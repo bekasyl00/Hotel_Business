@@ -14,6 +14,7 @@ const props = defineProps({
 const emit = defineEmits(["saved"]);
 const { t } = useI18n();
 const open = ref(false),
+  qrImage = ref(""),
   voucher = ref(null),
   busy = ref(false),
   error = ref(""),
@@ -63,11 +64,23 @@ async function show() {
   notice.value = "";
   received.value = false;
   voucher.value = null;
+  qrImage.value = "";
   clearFile();
   const current = ++revision;
   try {
     const result = await request("GET", path.value);
-    if (current === revision) voucher.value = result;
+    if (current === revision) {
+      voucher.value = result;
+      if (result.scanCode) {
+        const QRCode = (await import("qrcode")).default;
+        const image = await QRCode.toDataURL(result.scanCode, {
+          width: 280,
+          margin: 3,
+          errorCorrectionLevel: "M",
+        });
+        if (current === revision) qrImage.value = image;
+      }
+    }
   } catch (e) {
     if (current === revision) error.value = e.message;
   } finally {
@@ -243,6 +256,18 @@ onBeforeUnmount(() => {
           </div>
         </dl>
         <p class="voucher-note">{{ t("common.voucher.explanation") }}</p>
+        <figure v-if="qrImage" class="voucher-qr">
+          <img
+            :src="qrImage"
+            width="240"
+            height="240"
+            :alt="t('common.arrival.qrAlt')"
+          />
+          <figcaption>
+            <strong>{{ t("common.arrival.qrTitle") }}</strong
+            ><span>{{ t("common.arrival.qrHint") }}</span>
+          </figcaption>
+        </figure>
         <div class="voucher-actions">
           <button
             type="button"
@@ -329,6 +354,38 @@ onBeforeUnmount(() => {
   display: grid;
   gap: 0.9rem;
   min-width: 0;
+}
+.voucher-qr {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin: 4px 0;
+  padding: 14px;
+  border: 1px solid #dbe4d9;
+  border-radius: 16px;
+  background: #f8faf6;
+}
+.voucher-qr img {
+  width: 180px;
+  height: 180px;
+  flex: none;
+  max-width: 100%;
+}
+.voucher-qr figcaption {
+  display: grid;
+  gap: 10px;
+  line-height: 1.5;
+}
+.voucher-qr figcaption span {
+  font-size: 14px;
+  color: #69786d;
+}
+@media (max-width: 520px) {
+  .voucher-qr {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+  }
 }
 .booking-voucher h3,
 .booking-voucher h4,

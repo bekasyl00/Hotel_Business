@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import { DocumentFiles } from "@/shared/ui";
 import { AccountingLedger } from "@/features/accounting-ledger";
 import { DocumentGuests } from "@/features/document-guests";
+import { CompanyDetails } from "@/features/company-details";
 import { StaffShell } from "@/widgets/staff-shell";
 import { useSessionStore } from "@/entities/session";
 import { request, requestFile } from "@/shared/api";
@@ -19,7 +20,6 @@ const data = ref(null),
   busy = ref(false),
   company = ref(null),
   companyBusy = ref(false),
-  companyError = ref(""),
   documentBooking = ref(null),
   documentGuestsBusy = ref(false);
 const today = new Date().toLocaleDateString("en-CA", {
@@ -95,43 +95,12 @@ async function download(path, name, type) {
     error.value = e.message;
   }
 }
-async function openCompany() {
-  if (!filter.resortId) return;
-  companyError.value = "";
-  companyBusy.value = true;
-  try {
-    company.value = {
-      supplier: "",
-      bin: "",
-      address: "",
-      iban: "",
-      bank: "",
-      bik: "",
-      director: "",
-      accountant: "",
-      vatMode: "no_vat",
-      vatRate: "0",
-      ...(await request("GET", `/accounting/company/${filter.resortId}`)),
-    };
-  } catch (e) {
-    error.value = e.message;
-  } finally {
-    companyBusy.value = false;
-  }
+function openCompany() {
+  if (filter.resortId) company.value = filter.resortId;
 }
-async function saveCompany() {
-  companyBusy.value = true;
-  companyError.value = "";
-  try {
-    const { resortId, ...body } = company.value;
-    await request("PATCH", `/accounting/company/${resortId}`, body);
-    company.value = null;
-    await load();
-  } catch (e) {
-    companyError.value = e.message;
-  } finally {
-    companyBusy.value = false;
-  }
+async function companySaved() {
+  company.value = null;
+  await load();
 }
 onMounted(() => load());
 </script>
@@ -405,65 +374,12 @@ onMounted(() => load());
         wide
         :busy="companyBusy"
         @close="company = null"
-        ><form class="editor-form" @submit.prevent="saveCompany">
-          <div class="form-grid">
-            <label
-              v-for="key in [
-                'supplier',
-                'bin',
-                'address',
-                'iban',
-                'bank',
-                'bik',
-                'director',
-                'accountant',
-              ]"
-              :key="key"
-              >{{ t(`common.accounting.fields.${key}`)
-              }}<input
-                v-model="company[key]"
-                :required="['supplier', 'bin', 'address'].includes(key)"
-                :maxlength="
-                  key === 'bin' ? 12 : key === 'address' ? 240 : 160
-                " /></label
-            ><label
-              >{{ t("common.accounting.vat")
-              }}<select
-                v-model="company.vatMode"
-                @change="
-                  company.vatRate =
-                    company.vatMode === 'no_vat' ? '0' : company.vatRate
-                "
-              >
-                <option value="no_vat">
-                  {{ t("common.accounting.noVat") }}
-                </option>
-                <option value="included">
-                  {{ t("common.accounting.vatIncluded") }}
-                </option>
-              </select></label
-            ><label v-if="company.vatMode === 'included'"
-              >{{ t("common.accounting.vatRate")
-              }}<input
-                v-model="company.vatRate"
-                type="number"
-                min="0.01"
-                max="100"
-                step="0.01"
-                required
-            /></label>
-          </div>
-          <p class="field-help">{{ t("common.accounting.companyHint") }}</p>
-          <p v-if="companyError" class="form-error" role="alert">
-            {{ companyError }}
-          </p>
-          <button class="primary" :disabled="companyBusy">
-            {{ t("staff.saveAccess") }}
-          </button>
-        </form></Modal
-      >
-    </main></StaffShell
-  >
+        ><CompanyDetails
+          :resort-id="company"
+          @busy="companyBusy = $event"
+          @saved="companySaved"
+      /></Modal></main
+  ></StaffShell>
 </template>
 <style scoped>
 .accounting-page {

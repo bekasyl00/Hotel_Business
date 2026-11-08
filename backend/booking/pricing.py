@@ -18,9 +18,9 @@ def quote_stay(room, tariff, start, end, guests, children_ages=None):
     periods = list(room.price_periods.all())
     discount = tariff.discount_percent if tariff and tariff.price_kind == "discount" else 0
     supplement = tariff.supplement if tariff else 0
-    children_free = tariff.children_under_three_free if tariff else False
+    children_free = tariff.children_under_two_free if tariff else False
     children_ages = children_ages or []
-    free_children = sum(age < 3 for age in children_ages) if children_free else 0
+    free_children = sum(age < 2 for age in children_ages) if children_free else 0
     chargeable_guests = guests - free_children
     lines = []
     for offset in range((end - start).days):
@@ -41,9 +41,9 @@ def quote_stay(room, tariff, start, end, guests, children_ages=None):
     prices = {line["nightly"] for line in lines}
     regular_prices = {line["regularNightly"] for line in lines}
     return {
-        "pricingVersion": 2,
+        "pricingVersion": 3,
         "childrenAges": children_ages,
-        "childrenUnderThreeFree": children_free,
+        "childrenUnderTwoFree": children_free,
         "freeChildren": free_children,
         "chargeableGuests": chargeable_guests,
         "nightlyBreakdown": lines,

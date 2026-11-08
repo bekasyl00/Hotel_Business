@@ -2,7 +2,7 @@
 specification { element module }
 model {
   app = module 'app' {
-    description 'Инициализация Vue, Router, Pinia; выбор HTTP или локального демо-адаптера.. Файлов: 17'
+    description 'Инициализация Vue, Router, Pinia; выбор HTTP или локального демо-адаптера.. Файлов: 19'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/app 'Исходный код'
   }
   entities_booking = module 'entities/booking' {
@@ -25,6 +25,10 @@ model {
     description 'Ручной расход, отмена с причиной, сводка и финансовая выгрузка.. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/accounting-ledger 'Исходный код'
   }
+  features_arrival_check_in = module 'features/arrival-check-in' {
+    description 'Компоненты и действия среза features/arrival-check-in. Файлов: 3'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/arrival-check-in 'Исходный код'
+  }
   features_booking_documents = module 'features/booking-documents' {
     description 'Документы выбранной брони с серверной проверкой роли и области.. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/booking-documents 'Исходный код'
@@ -32,6 +36,14 @@ model {
   features_booking_voucher = module 'features/booking-voucher' {
     description 'Компоненты и действия среза features/booking-voucher. Файлов: 3'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/booking-voucher 'Исходный код'
+  }
+  features_class_pricing = module 'features/class-pricing' {
+    description 'Компоненты и действия среза features/class-pricing. Файлов: 3'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/class-pricing 'Исходный код'
+  }
+  features_company_details = module 'features/company-details' {
+    description 'Компоненты и действия среза features/company-details. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/company-details 'Исходный код'
   }
   features_create_booking = module 'features/create-booking' {
     description 'Компоненты и действия среза features/create-booking. Файлов: 3'
@@ -48,6 +60,10 @@ model {
   features_edit_account = module 'features/edit-account' {
     description 'Компоненты и действия среза features/edit-account. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/edit-account 'Исходный код'
+  }
+  features_edit_child_policy = module 'features/edit-child-policy' {
+    description 'Компоненты и действия среза features/edit-child-policy. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/edit-child-policy 'Исходный код'
   }
   features_edit_resort = module 'features/edit-resort' {
     description 'Компоненты и действия среза features/edit-resort. Файлов: 2'
@@ -120,6 +136,10 @@ model {
   pages_staff_menu = module 'pages/staff-menu' {
     description 'Компоненты и действия среза pages/staff-menu. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/staff-menu 'Исходный код'
+  }
+  pages_staff_profile = module 'pages/staff-profile' {
+    description 'Компоненты и действия среза pages/staff-profile. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/staff-profile 'Исходный код'
   }
   pages_workspace = module 'pages/workspace' {
     description 'Кабинет: реестры, фильтры, действия и история изменений.. Файлов: 2'
@@ -211,6 +231,7 @@ model {
   app -> pages_guest_profile 'import'
   app -> pages_receipt 'import'
   app -> pages_guest_auth 'import'
+  app -> pages_staff_profile 'import'
   app -> pages_workspace 'import'
   app -> pages_clients 'import'
   app -> pages_accounting 'import'
@@ -227,6 +248,10 @@ model {
   features_accounting_ledger -> shared_config 'import'
   features_accounting_ledger -> shared_ui 'import'
   features_accounting_ledger -> shared_lib 'import'
+  features_arrival_check_in -> entities_booking 'import'
+  features_arrival_check_in -> shared_ui 'import'
+  features_arrival_check_in -> shared_api 'import'
+  features_arrival_check_in -> shared_lib 'import'
   features_booking_documents -> shared_api 'import'
   features_booking_documents -> shared_config 'import'
   features_booking_documents -> shared_ui 'import'
@@ -235,6 +260,11 @@ model {
   features_booking_voucher -> shared_ui 'import'
   features_booking_voucher -> shared_lib 'import'
   features_booking_voucher -> shared_native 'import'
+  features_class_pricing -> shared_api 'import'
+  features_class_pricing -> shared_ui 'import'
+  features_class_pricing -> shared_lib 'import'
+  features_company_details -> shared_api 'import'
+  features_company_details -> shared_config 'import'
   features_create_booking -> shared_config 'import'
   features_create_booking -> shared_ui 'import'
   features_create_booking -> entities_booking 'import'
@@ -249,6 +279,9 @@ model {
   features_edit_account -> shared_config 'import'
   features_edit_account -> shared_ui 'import'
   features_edit_account -> shared_api 'import'
+  features_edit_child_policy -> shared_api 'import'
+  features_edit_child_policy -> shared_ui 'import'
+  features_edit_child_policy -> shared_lib 'import'
   features_edit_resort -> shared_ui 'import'
   features_edit_resort -> shared_api 'import'
   features_edit_resort -> entities_session 'import'
@@ -269,6 +302,7 @@ model {
   pages_accounting -> shared_ui 'import'
   pages_accounting -> features_accounting_ledger 'import'
   pages_accounting -> features_document_guests 'import'
+  pages_accounting -> features_company_details 'import'
   pages_accounting -> widgets_staff_shell 'import'
   pages_accounting -> entities_session 'import'
   pages_accounting -> shared_api 'import'
@@ -347,6 +381,11 @@ model {
   pages_staff_guest -> shared_config 'import'
   pages_staff_menu -> widgets_staff_shell 'import'
   pages_staff_menu -> entities_session 'import'
+  pages_staff_profile -> widgets_staff_shell 'import'
+  pages_staff_profile -> features_company_details 'import'
+  pages_staff_profile -> entities_session 'import'
+  pages_staff_profile -> shared_api 'import'
+  pages_staff_profile -> shared_config 'import'
   pages_workspace -> entities_session 'import'
   pages_workspace -> entities_resort 'import'
   pages_workspace -> entities_booking 'import'
@@ -354,6 +393,8 @@ model {
   pages_workspace -> widgets_overview 'import'
   pages_workspace -> features_edit_resort 'import'
   pages_workspace -> features_edit_room 'import'
+  pages_workspace -> features_class_pricing 'import'
+  pages_workspace -> features_edit_child_policy 'import'
   pages_workspace -> widgets_occupancy_board 'import'
   pages_workspace -> features_edit_account 'import'
   pages_workspace -> widgets_payment_dialog 'import'
@@ -383,6 +424,7 @@ model {
   widgets_occupancy_board -> features_booking_documents 'import'
   widgets_occupancy_board -> features_document_guests 'import'
   widgets_occupancy_board -> features_booking_voucher 'import'
+  widgets_occupancy_board -> features_arrival_check_in 'import'
   widgets_occupancy_board -> features_pay_booking 'import'
   widgets_occupancy_board -> shared_config 'import'
   widgets_occupancy_board -> shared_ui 'import'
@@ -399,11 +441,12 @@ model {
   widgets_public_header -> shared_config 'import'
   widgets_staff_shell -> entities_session 'import'
   widgets_staff_shell -> shared_ui 'import'
+  widgets_staff_shell -> features_arrival_check_in 'import'
   widgets_staff_shell -> shared_config 'import'
 }
 views {
   view modules {
     title 'FSD: реальные зависимости срезов Vue'
-    include app, entities_booking, entities_guest_account, entities_resort, entities_session, features_accounting_ledger, features_booking_documents, features_booking_voucher, features_create_booking, features_demo_payment, features_document_guests, features_edit_account, features_edit_resort, features_edit_room, features_pay_booking, features_payment_receipt, features_review_form, pages_accounting, pages_analytics, pages_catalog, pages_clients, pages_guest_auth, pages_guest_profile, pages_login, pages_my_bookings, pages_receipt, pages_resort_profile, pages_room_profile, pages_staff_guest, pages_staff_menu, pages_workspace, shared_api, shared_config, shared_i18n, shared_lib, shared_native, shared_ui, widgets_availability_calendar, widgets_guest_booking_history, widgets_guest_documents, widgets_media_gallery, widgets_mobile_navigation, widgets_occupancy_board, widgets_overview, widgets_payment_dialog, widgets_public_header, widgets_staff_mobile_navigation, widgets_staff_shell
+    include app, entities_booking, entities_guest_account, entities_resort, entities_session, features_accounting_ledger, features_arrival_check_in, features_booking_documents, features_booking_voucher, features_class_pricing, features_company_details, features_create_booking, features_demo_payment, features_document_guests, features_edit_account, features_edit_child_policy, features_edit_resort, features_edit_room, features_pay_booking, features_payment_receipt, features_review_form, pages_accounting, pages_analytics, pages_catalog, pages_clients, pages_guest_auth, pages_guest_profile, pages_login, pages_my_bookings, pages_receipt, pages_resort_profile, pages_room_profile, pages_staff_guest, pages_staff_menu, pages_staff_profile, pages_workspace, shared_api, shared_config, shared_i18n, shared_lib, shared_native, shared_ui, widgets_availability_calendar, widgets_guest_booking_history, widgets_guest_documents, widgets_media_gallery, widgets_mobile_navigation, widgets_occupancy_board, widgets_overview, widgets_payment_dialog, widgets_public_header, widgets_staff_mobile_navigation, widgets_staff_shell
   }
 }

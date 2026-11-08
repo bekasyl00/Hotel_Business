@@ -65,8 +65,11 @@ def company_data(resort):
 
 
 @transaction.atomic
-def save_company(request, resort_id):
-    require_accountant(request.user, resort_id)
+def save_company(request, resort_id, *, allow_manager=False):
+    if allow_manager:
+        require_staff(request.user, resort_id, roles=("admin", "manager", "accountant"))
+    else:
+        require_accountant(request.user, resort_id)
     resort = get_object_or_404(Resort.objects.select_for_update(), pk=resort_id)
     inp = CompanyInput(data=request.data)
     inp.is_valid(raise_exception=True)

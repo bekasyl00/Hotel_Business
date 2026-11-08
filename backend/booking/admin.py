@@ -308,7 +308,7 @@ class TariffAdmin(ResortRelation, ReadOnlyAdmin):
         "name",
         "description",
         "supplement",
-        "children_under_three_free",
+        "children_under_two_free",
         "features",
         "price_kind",
         "discount_percent",

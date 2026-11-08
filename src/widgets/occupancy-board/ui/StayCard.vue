@@ -5,6 +5,7 @@ import { occupancyState } from "@/entities/booking";
 import { BookingDocuments } from "@/features/booking-documents";
 import { DocumentGuests } from "@/features/document-guests";
 import { BookingVoucher, canOpenVoucher } from "@/features/booking-voucher";
+import { ArrivalCheckIn } from "@/features/arrival-check-in";
 import { isBankProvider } from "@/features/pay-booking";
 import { isDemo } from "@/shared/config";
 import { Modal } from "@/shared/ui";
@@ -325,6 +326,17 @@ const actionName = (action) =>
     </section>
     <p v-if="error" role="alert" class="form-error">{{ error }}</p>
     <div v-if="!readOnly" class="stay-card-actions">
+      <ArrivalCheckIn
+        v-if="
+          !isDemo &&
+          canOpenVoucher(booking) &&
+          !booking.checkedInAt &&
+          !booking.checkedOutAt
+        "
+        :booking="booking"
+        :disabled="busy || documentGuestsBusy"
+        @saved="emit('saved', $event)"
+      />
       <button
         v-if="canPay"
         class="primary"
@@ -343,7 +355,7 @@ const actionName = (action) =>
       >
         {{ t("common.payment.details") }}</button
       ><button
-        v-if="canCheckIn"
+        v-if="isDemo && canCheckIn"
         class="primary"
         :disabled="busy || documentGuestsBusy"
         @click="emit('action', 'check-in')"

@@ -46,9 +46,43 @@ class ChildBirthTests(TestCase):
             with self.subTest(changes=changes):
                 self.assertFalse(BookingInput(data=self.payload(**changes)).is_valid())
 
+    def test_child_boundary_is_fourteenth_birthday_on_checkin(self):
+        inp = BookingInput(data=self.payload(childrenBirthDates=["2013-11-09"]))
+        self.assertTrue(inp.is_valid(), inp.errors)
+        self.assertEqual(inp.validated_data["childrenAges"], [13])
+        inp = BookingInput(data=self.payload(start="2027-11-09", childrenBirthDates=["2013-11-09"]))
+        self.assertFalse(inp.is_valid())
+        self.assertFalse(
+            BookingInput(data=self.payload(childrenBirthDates=[], childrenAges=[14])).is_valid()
+        )
+
+    def test_second_birthday_ends_opt_in_supplement_exemption(self):
+        from .pricing import quote_stay
+
+        _, room, tariff, _, _ = fixture()
+        tariff.children_under_two_free = True
+        tariff.supplement = 1000
+        for checkin, age, free in [("2027-11-08", 1, 1), ("2027-11-09", 2, 0)]:
+            inp = BookingInput(data=self.payload(start=checkin, childrenBirthDates=["2025-11-09"]))
+            self.assertTrue(inp.is_valid(), inp.errors)
+            data = inp.validated_data
+            self.assertEqual(data["childrenAges"], [age])
+            quote = quote_stay(
+                room,
+                tariff,
+                data["start"],
+                data["start"] + timedelta(days=1),
+                2,
+                data["childrenAges"],
+            )
+            self.assertEqual(quote["freeChildren"], free)
+            self.assertEqual(quote["total"], room.price + 1000 * (2 - free))
+            self.assertEqual(quote["pricingVersion"], 3)
+            self.assertNotIn("childrenUnderThreeFree", quote)
+
     def test_booking_and_audit_only_keep_age(self):
         resort, room, tariff, _, _ = fixture()
-        tariff.children_under_three_free = True
+        tariff.children_under_two_free = True
         tariff.supplement = 1000
         tariff.save()
         today = timezone.localdate()
