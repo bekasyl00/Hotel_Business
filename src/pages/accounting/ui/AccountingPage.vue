@@ -228,7 +228,7 @@ onMounted(() => load());
               {{ t("common.accounting.export") }}
             </button>
           </header>
-          <div class="finance-table">
+          <div class="finance-table" tabindex="0">
             <table>
               <thead>
                 <tr>
