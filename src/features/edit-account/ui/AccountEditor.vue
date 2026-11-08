@@ -4,7 +4,7 @@ import { isDemo } from "@/shared/config";
 import { reactive } from "vue";
 import { Modal } from "@/shared/ui";
 import { useEditor } from "@/shared/api/use-editor.js";
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const props = defineProps({ item: Object, resorts: Array });
 const emit = defineEmits(["close", "saved"]);
 const form = reactive({
@@ -12,7 +12,7 @@ const form = reactive({
   role: "manager",
   name: "",
   login: "",
-  resortId: props.resorts[0]?.id || "",
+
   status: "active",
   ...props.item,
 });
@@ -28,7 +28,8 @@ const { busy, error, save } = useEditor("accounts", props.item, emit);
       @submit.prevent="
         save({
           ...form,
-          resortId: form.role === 'accountant' ? null : form.resortId,
+          resortId: undefined,
+          resortIds: undefined,
           password: form.password || undefined,
         })
       "
@@ -44,18 +45,6 @@ const { busy, error, save } = useEditor("accounts", props.item, emit);
           maxlength="100"
           placeholder="manager@demo.tynys"
           autocomplete="off" /></label
-      ><label v-if="form.role !== 'accountant'"
-        >{{ t("staff.resort")
-        }}<select v-model="form.resortId" required>
-          <option disabled value="">{{ t("staff.selectResort") }}</option>
-          <option
-            v-for="r in resorts.filter((r) => r.status !== 'archived')"
-            :key="r.id"
-            :value="r.id"
-          >
-            {{ r.name }}
-          </option>
-        </select></label
       ><label
         >{{ t("staff.access")
         }}<select v-model="form.status">
@@ -70,6 +59,18 @@ const { busy, error, save } = useEditor("accounts", props.item, emit);
           <option value="accountant">{{ t("common.accounting.role") }}</option>
         </select></label
       >
+      <div class="role-explanation">
+        <strong>{{ t("staff.directory.assigned") }}</strong>
+        <p>
+          {{
+            resorts
+              .filter((r) => String(r.accountId) === item?.id)
+              .map((r) => r.name)
+              .join(", ") || t("staff.directory.noResorts")
+          }}
+        </p>
+        <small>{{ t("staff.directory.ownerHelp") }}</small>
+      </div>
       <label v-if="!isDemo"
         >{{ item ? t("staff.newPasswordOptional") : t("staff.initialPassword")
         }}<input
@@ -80,6 +81,10 @@ const { busy, error, save } = useEditor("accounts", props.item, emit);
           maxlength="128"
           autocomplete="new-password"
       /></label>
+      <p v-if="item?.lastLogin" class="field-help">
+        {{ t("staff.directory.lastLogin") }}:
+        {{ new Date(item.lastLogin).toLocaleString(locale) }}
+      </p>
       <p v-if="!isDemo" class="field-help">
         {{ t("staff.passwordHint") }}
       </p>

@@ -50,7 +50,9 @@ def asset_is_referenced(asset):
 def can_read_asset(request, asset):
     from .services import admin, guest_owner
 
-    staff = request.user.is_authenticated and (admin(request.user) or request.user.role == "manager")
+    staff = request.user.is_authenticated and (
+        admin(request.user) or request.user.role == "manager"
+    )
     if asset.purpose == "avatar":
         if not GuestProfile.objects.filter(pk=asset.profile_id, avatar=asset).exists():
             return False
@@ -59,12 +61,15 @@ def can_read_asset(request, asset):
                 admin(request.user)
                 or Booking.objects.filter(
                     guest_profile_id=asset.profile_id,
-                    resort_id=request.user.resort_id,
+                    resort__account=request.user,
                     source="website",
                 ).exists()
             )
         return asset.profile.owner == guest_owner(request)
-    if staff and (admin(request.user) or str(request.user.resort_id) == str(asset.resort_id)):
+    if staff and (
+        admin(request.user)
+        or Resort.objects.filter(pk=asset.resort_id, account=request.user).exists()
+    ):
         return True
     if asset.purpose == "review":
         if asset.booking.owner == guest_owner(request) and asset.booking.source == "website":

@@ -213,7 +213,7 @@ async function load() {
     granularity: filters.granularity,
     paymentMode: filters.paymentMode,
   });
-  const scope = session.isAdmin ? filters.resortId : session.user?.resortId;
+  const scope = filters.resortId;
   if (scope) params.set("resortId", scope);
   try {
     const result = await request("GET", "/analytics?" + params);
@@ -335,15 +335,18 @@ onBeforeUnmount(() => {
             </label>
             <label
               >{{ t("staff.resort")
-              }}<select v-model="filters.resortId" :disabled="!session.isAdmin">
-                <option v-if="session.isAdmin" value="">
+              }}<select
+                v-model="filters.resortId"
+                :disabled="(data?.resorts || []).length < 2"
+              >
+                <option v-if="(data?.resorts || []).length > 1" value="">
                   {{ t("staff.allResorts") }}
                 </option>
                 <option v-else value="">
                   {{ data?.resorts?.[0]?.name || t("staff.assignedResort") }}
                 </option>
                 <option
-                  v-if="session.isAdmin"
+                  v-if="(data?.resorts || []).length > 1"
                   v-for="resort in data?.resorts || []"
                   :key="resort.id"
                   :value="resort.id"

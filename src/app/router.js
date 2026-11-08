@@ -46,13 +46,15 @@ router.beforeEach(async (to) => {
   if (
     !isStaffApp &&
     (/^\/bookings(\/|$)/.test(to.path) ||
-      (isMobile && !isDemo && /^\/(profile|receipts)(\/|$)/.test(to.path)))
+      /^\/profile(\/|$)/.test(to.path) ||
+      (isMobile && !isDemo && /^\/receipts(\/|$)/.test(to.path)))
   ) {
     const guest = useGuestAccountStore();
     try {
       await guest.restore();
     } catch {
-      guest.clear();
+      routeLoadFailed.value = true;
+      return false;
     }
     if (!guest.authenticated)
       return { path: "/account/login", query: { next: to.fullPath } };
@@ -80,6 +82,7 @@ router.beforeEach(async (to) => {
     )
   )
     return "/staff/accounting";
+  if (to.meta.admin && !session.isAdmin) return "/staff/bookings";
   if (to.meta.accounting && !session.isAdmin && !session.isAccountant)
     return "/staff/bookings";
 });

@@ -223,6 +223,7 @@ class StaffAdmin(ResortRelation, ReadOnlyAdmin):
 class ResortAdmin(ReadOnlyAdmin):
     list_display = (
         "name",
+        "account",
         "city",
         "status",
         "category",
@@ -236,6 +237,7 @@ class ResortAdmin(ReadOnlyAdmin):
     fields = (
         "id",
         "name",
+        "account",
         "city",
         "address",
         "subtitle",

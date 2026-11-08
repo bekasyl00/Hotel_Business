@@ -231,7 +231,7 @@ def analytics_for_request(request):
     resorts = (
         Resort.objects.all()
         if admin(request.user) or request.user.role == "accountant"
-        else Resort.objects.filter(pk=request.user.resort_id)
+        else Resort.objects.filter(account=request.user)
     )
     selected = request.query_params.get("resortId")
     options = list(resorts.order_by("name", "id").values("id", "name"))

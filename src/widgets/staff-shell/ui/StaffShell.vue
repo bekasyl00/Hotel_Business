@@ -1,5 +1,6 @@
 <script setup>
 import { useI18n } from "vue-i18n";
+import { staffNavigation } from "../model/navigation.js";
 import { computed } from "vue";
 import { useSessionStore } from "@/entities/session";
 import { LanguageSwitcher } from "@/shared/ui";
@@ -9,33 +10,11 @@ const props = defineProps({ section: String });
 const emit = defineEmits(["logout"]);
 const session = useSessionStore();
 const nav = computed(() =>
-  session.isAccountant
-    ? [
-        ["accounting", "₸", t("common.accounting.title")],
-        ["analytics", "↗", t("staff.analytics")],
-        ["bookings", "▤", t("staff.board.title")],
-      ]
-    : [
-        ...(session.isAdmin
-          ? [
-              ["accounting", "₸", t("common.accounting.title")],
-              ["analytics", "↗", t("staff.analytics")],
-              ["bookings", "▤", t("staff.board.title")],
-            ]
-          : []),
-        ["overview", "◫", t("staff.overview")],
-        ["analytics", "↗", t("staff.analytics")],
-        [
-          "resorts",
-          "⌖",
-          session.isAdmin ? t("staff.resorts") : t("staff.myResort"),
-        ],
-        ["rooms", "▦", t("staff.rooms")],
-        ["bookings", "▤", t("staff.board.title")],
-        ["reviews", "☆", t("staff.reviews")],
-        ["history", "◷", t("staff.history")],
-        ...(session.isAdmin ? [["accounts", "♙", t("staff.managers")]] : []),
-      ],
+  staffNavigation(session.user?.role).map(([key, icon, label]) => [
+    key,
+    icon,
+    t(label),
+  ]),
 );
 </script>
 <template>

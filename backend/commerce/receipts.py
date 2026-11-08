@@ -71,7 +71,7 @@ def receipt_for_request(request, pk):
     b = payment.booking
     owns = b.source == "website" and b.owner == guest_owner(request)
     employee = request.user.is_authenticated and (
-        admin(request.user) or request.user.resort_id == b.resort_id
+        admin(request.user) or b.resort.account_id == request.user.pk
     )
     if not owns and not employee:
         raise Problem("Квитанция не найдена.", 404)

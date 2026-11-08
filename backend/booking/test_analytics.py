@@ -7,6 +7,7 @@ from django.utils import timezone
 from psycopg.types.range import Range
 from rest_framework.test import APIClient
 
+from booking.test_helpers import unrelated_owner
 from commerce.models import DemoPayment, DemoRefund
 
 from .models import Booking, Resort, Review, Room, Tariff
@@ -81,7 +82,12 @@ class AnalyticsTests(TestCase):
 
     def other_inventory(self):
         self.other = Resort.objects.create(
-            name="Foreign resort", city="City", address="Secret address", lat=1, lng=1
+            account=unrelated_owner(),
+            name="Foreign resort",
+            city="City",
+            address="Secret address",
+            lat=1,
+            lng=1,
         )
         self.other_room = Room.objects.create(
             resort=self.other,

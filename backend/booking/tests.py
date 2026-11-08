@@ -8,6 +8,8 @@ from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from booking.test_helpers import unrelated_owner
+
 from .models import Audit, Booking, GuestAccount, GuestProfile, Resort, Room, Tariff, User
 
 PASSWORD = "Test-only-forest-9284!"
@@ -30,7 +32,14 @@ def authenticate_guest(client, *, name="Тестовый гость", phone=None
 
 
 def fixture():
+    manager = User.objects.create_user(
+        username="manager@example.test",
+        email="manager@example.test",
+        name="Управляющий",
+        password=PASSWORD,
+    )
     resort = Resort.objects.create(
+        account=manager,
         name="Тестовый санаторий",
         city="Сарыагаш",
         address="Тест",
@@ -38,6 +47,8 @@ def fixture():
         lng=69,
         status="published",
     )
+    manager.resort = resort
+    manager.save(update_fields=["resort"])
     room = Room.objects.create(
         resort=resort,
         number="201",
@@ -49,13 +60,7 @@ def fixture():
         price=18000,
     )
     tariff = Tariff.objects.create(resort=resort, name="Питание", supplement=4500)
-    manager = User.objects.create_user(
-        username="manager@example.test",
-        email="manager@example.test",
-        name="Управляющий",
-        password=PASSWORD,
-        resort=resort,
-    )
+
     administrator = User.objects.create_user(
         username="admin@example.test", email="admin@example.test", password=PASSWORD, role="admin"
     )
@@ -186,7 +191,9 @@ class ApiTests(TestCase):
         )
 
     def test_tenant_scope_and_admin_only(self):
-        other = Resort.objects.create(name="Другой", city="Тест", address="Тест", lat=40, lng=70)
+        other = Resort.objects.create(
+            account=unrelated_owner(), name="Другой", city="Тест", address="Тест", lat=40, lng=70
+        )
         self.staff()
         workspace = self.client.get("/api/workspace").json()
         self.assertEqual([r["id"] for r in workspace["resorts"]], [self.resort.pk])
@@ -275,6 +282,7 @@ class ApiTests(TestCase):
             "/api/resorts",
             {
                 "name": "Новый",
+                "accountId": self.admin.pk,
                 "city": "Тест",
                 "address": "Тест",
                 "lat": 42,
@@ -335,7 +343,6 @@ class ApiTests(TestCase):
         data = {
             "name": "Новый",
             "login": "new@example.test",
-            "resortId": self.resort.pk,
             "status": "active",
             "password": PASSWORD,
         }
@@ -400,7 +407,6 @@ class ApiTests(TestCase):
         data = {
             "name": "Тест",
             "login": self.manager.email,
-            "resortId": self.resort.pk,
             "status": "active",
             "password": PASSWORD,
         }

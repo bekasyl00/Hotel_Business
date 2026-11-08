@@ -11,6 +11,8 @@ from django.utils import timezone
 from PIL import Image
 from rest_framework.test import APIClient
 
+from booking.test_helpers import unrelated_owner
+
 from .models import GuestAccount, GuestProfile, MediaAsset, Resort
 from .tests import PASSWORD, fixture
 
@@ -90,7 +92,12 @@ class ManagedMediaTests(TestCase):
 
     def test_cross_tenant_cannot_read_or_attach_asset(self):
         data = self.upload()
-        other = Resort.objects.create(name="Other", city="Test", address="Test", lat=1, lng=1)
+        other = Resort.objects.create(
+            account=unrelated_owner(), name="Other", city="Test", address="Test", lat=1, lng=1
+        )
+        Resort.objects.filter(account=self.manager).update(account=unrelated_owner())
+        other.account = self.manager
+        other.save(update_fields=["account"])
         self.manager.resort = other
         self.manager.save(update_fields=["resort"])
         self.assertEqual(self.staff.get(data["url"]).status_code, 404)

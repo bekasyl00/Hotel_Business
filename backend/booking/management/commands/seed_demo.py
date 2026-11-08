@@ -4,8 +4,9 @@ from pathlib import Path
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Q
 
-from booking.models import Resort, Room, Tariff
+from booking.models import Resort, Room, Tariff, User
 
 
 class Command(BaseCommand):
@@ -15,11 +16,19 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if not settings.DEBUG:
             raise CommandError("seed_demo is only available with DEBUG=True.")
+        owner = (
+            User.objects.filter(is_active=True)
+            .filter(Q(role="admin") | Q(is_superuser=True))
+            .first()
+        )
+        if owner is None:
+            raise CommandError("Create a platform admin before seeding the catalogue.")
         seed = json.loads(Path(__file__).with_name("demo_catalog.json").read_text())
         for index, data in enumerate(seed["resorts"]):
             resort, created = Resort.objects.get_or_create(
                 pk=data["id"],
                 defaults={
+                    "account": owner,
                     "name": data["name"],
                     "subtitle": data["subtitle"],
                     "description": data["description"],

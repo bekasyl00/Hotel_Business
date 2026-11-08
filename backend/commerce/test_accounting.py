@@ -10,6 +10,7 @@ from openpyxl import load_workbook
 from rest_framework.test import APIClient
 
 from booking.models import Audit, Resort, User
+from booking.test_helpers import unrelated_owner
 from commerce.accounting.rendering import amount_words, pdf_bytes, xlsx_bytes
 from commerce.accounting.services import prepare_after_stay
 from commerce.models import AccountingDocument, DemoPayment
@@ -80,7 +81,9 @@ class AccountingTests(TestCase):
             ).status_code,
             403,
         )
-        other = Resort.objects.create(name="Other", city="Test", address="Test", lat=42, lng=69)
+        other = Resort.objects.create(
+            account=unrelated_owner(), name="Other", city="Test", address="Test", lat=42, lng=69
+        )
         self.assertEqual(self.client.get("/api/accounting?resortId=" + other.pk).status_code, 200)
         self.assertEqual(
             self.write("/api/accounting/company/" + other.pk, COMPANY, "patch").status_code, 200
@@ -278,7 +281,12 @@ class AccountingTests(TestCase):
             self.assertIn("no-store", response["Cache-Control"])
         self.assertEqual(self.client.get("/api/accounting").status_code, 403)
         self.assertEqual(self.client.post(base, {}).status_code, 403)  # CSRF is still enforced
-        other = Resort.objects.create(name="Other", city="Test", address="Test", lat=1, lng=1)
+        other = Resort.objects.create(
+            account=unrelated_owner(), name="Other", city="Test", address="Test", lat=1, lng=1
+        )
+        Resort.objects.filter(account=self.manager).update(account=unrelated_owner())
+        other.account = self.manager
+        other.save(update_fields=["account"])
         self.manager.resort = other
         self.manager.save()
         self.assertEqual(self.client.get(base).status_code, 404)

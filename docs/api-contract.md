@@ -231,3 +231,10 @@ Accountant may GET `/workspace` (all resorts, no employee accounts/audit/reviews
 - GET `/accounting/report.xlsx`: same period/resort/mode/search filters; sheets Summary/Resorts/Expenses (Russian titles). Rejects truncated exports (>500 properties or >200 expenses), forces text cells to prevent spreadsheet formula execution. Not a bank statement or 1C import contract.
 
 Prepared files have per-row loading/errors, PDF preview and persistent Download/Open fallback links for mobile browsers. Blob URLs are revoked on component disposal. No anonymous share URLs are created.
+
+### Partner ownership and admin client directory (2026-11-08)
+- Staff `Resort.accountId`: required on POST /resorts, optional on versioned PATCH; changing ownership is admin-only (older managers may round-trip their unchanged accountId). Must reference an active admin/manager; never exposed by public catalog endpoints. Existing disabled ownership remains linked until reassigned.
+- Staff account response adds `resortIds` (all owned properties), `createdAt`, `lastLogin`. `resortId` is the first owned property for legacy readers, never an authorization source. POST /accounts allows a manager with no resorts. Assign/transfer in PATCH /resorts, not POST/PATCH /accounts. Manager workspace/analytics include all owned resorts; accountant retains global explicit financial/read permissions.
+- Admin `GET /clients?q=&page=1`: `{items:[{profile,account,bookingCount}],count,page,pageSize:25}`. `account=null` is legacy history, not a registered guest. Registered summary contains only id, status, version, createdAt. Search max100, page max100000. No auth/ownership hashes.
+- `GET /guests/:profileId`: admin can view guests without bookings, with account summary. Managers only view guests with website bookings in their owned resorts; history remains scoped. Accountant denied.
+- Admin `PATCH /clients/:profileId` accepts exactly `{version,status:'active'|'disabled'}`. CSRF/Bearer rules apply; stale version409. Increments account.version and auth_version, invalidates previous sessions even on re-enable; audit contains status/version, not contacts.

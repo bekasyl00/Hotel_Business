@@ -204,6 +204,18 @@ export function createDemoTransport({
         503,
       );
     }
+    for (const resort of db.resorts) {
+      resort.accountId ||=
+        db.accounts.find(
+          (a) => a.role === "manager" && a.resortId === resort.id,
+        )?.id || db.accounts.find((a) => a.role === "admin")?.id;
+    }
+    for (const account of db.accounts) {
+      account.resortIds = db.resorts
+        .filter((r) => r.accountId === account.id)
+        .map((r) => r.id);
+      account.resortId = account.resortIds[0] || null;
+    }
     upgradeMarketplace(db);
     resolveGuest(db, session);
     upgradeGuests(db);
@@ -231,7 +243,7 @@ export function createDemoTransport({
       if (!user) fail("Войдите в кабинет сотрудника.", 401);
       if (!["admin", "manager"].includes(user.role))
         fail("Эта операция недоступна бухгалтеру.", 403);
-      if (user.role !== "admin" && user.resortId !== resortId)
+      if (user.role !== "admin" && !user.resortIds.includes(resortId))
         fail("У вас нет доступа к этому санаторию.", 403);
     };
     const admin = () => {
@@ -240,7 +252,8 @@ export function createDemoTransport({
         fail("Действие доступно только администратору платформы.", 403);
     };
     const scoped = (item) =>
-      user?.role === "admin" || (user && item.resortId === user.resortId);
+      user?.role === "admin" ||
+      (user && user.resortIds.includes(item.resortId));
     const version = (item) => {
       if (payload.version !== item.version)
         fail(
@@ -348,6 +361,7 @@ export function createDemoTransport({
     });
     if (mediaRequest.handled) return clone(mediaRequest.value);
     const guestRequest = demoGuestRequest({
+      query,
       db,
       user,
       method,
@@ -450,7 +464,8 @@ export function createDemoTransport({
         fail("Недостаточно прав.", 403);
       const resorts = db.resorts.filter(
         (r) =>
-          ["admin", "accountant"].includes(user.role) || r.id === user.resortId,
+          ["admin", "accountant"].includes(user.role) ||
+          user.resortIds.includes(r.id),
       );
       const selected = params.get("resortId");
       if (selected && !resorts.some((r) => r.id === selected))
@@ -512,7 +527,7 @@ export function createDemoTransport({
         resorts: db.resorts.filter(
           (r) =>
             ["admin", "accountant"].includes(user.role) ||
-            r.id === user.resortId,
+            user.resortIds.includes(r.id),
         ),
         rooms: db.rooms.filter(
           (item) => user.role === "accountant" || scoped(item),
@@ -523,12 +538,7 @@ export function createDemoTransport({
         bookings: db.bookings.filter(
           (item) => user.role === "accountant" || scoped(item),
         ),
-        accounts:
-          user.role === "admin"
-            ? db.accounts.filter((a) =>
-                ["manager", "accountant"].includes(a.role),
-              )
-            : [],
+        accounts: user.role === "admin" ? db.accounts : [],
         audit: user.role === "accountant" ? [] : db.audit.filter(scoped),
         reviews: user.role === "accountant" ? [] : db.reviews.filter(scoped),
       });
@@ -741,14 +751,28 @@ export function createDemoTransport({
       entity === "accounts"
         ? payload.resortId
         : item?.resortId || payload.resortId;
-    if (["rooms", "tariffs", "accounts"].includes(entity)) {
+    if (["rooms", "tariffs"].includes(entity)) {
       const resort = db.resorts.find((r) => r.id === resortId);
       if (!resort || resort.status === "archived")
         fail("Выберите действующий санаторий.");
     }
     let fields;
     if (entity === "resorts") {
-      if ("commissionPercent" in payload) admin();
+      if (
+        "commissionPercent" in payload ||
+        ("accountId" in payload && payload.accountId !== item?.accountId)
+      )
+        admin();
+      const accountId = payload.accountId ?? item?.accountId;
+      if (
+        !db.accounts.some(
+          (a) =>
+            a.id === accountId &&
+            ["admin", "manager"].includes(a.role) &&
+            a.status === "active",
+        )
+      )
+        fail("Выберите ответственный аккаунт.");
       const commissionPercent =
         payload.commissionPercent === undefined
           ? (item?.commissionPercent ?? null)
@@ -762,6 +786,7 @@ export function createDemoTransport({
           "Комиссия: укажите процент от 0 до 100, не более двух знаков после запятой.",
         );
       fields = {
+        accountId,
         commissionPercent,
         category: choice(payload.category || item?.category || "wellness", [
           "wellness",
@@ -877,6 +902,13 @@ export function createDemoTransport({
         status: choice(payload.status, ["active", "disabled"]),
       };
     if (entity === "accounts") {
+      if (item?.role === "admin")
+        fail("Администратор недоступен для изменения.", 403);
+      if (
+        payload.role === "accountant" &&
+        db.resorts.some((r) => r.accountId === id)
+      )
+        fail("Сначала передайте санатории другому аккаунту.", 409);
       fields = {
         resortId,
         name: text(payload.name, "Имя", 100),
@@ -917,6 +949,7 @@ export function createDemoTransport({
           )
         : await execute(method, path, body);
     const privateTerms = new Set([
+      "accountId",
       "commissionTerms",
       "commissionPercent",
       "staffNotes",
@@ -931,7 +964,7 @@ export function createDemoTransport({
                 .map(([key, child]) => [key, publicData(child)]),
             )
           : value;
-    const guestOutput = /^\/(my-bookings|profile)(\/|\?|$)/.test(path);
+    const guestOutput = /^\/(my-bookings|profile|catalog)(\/|\?|$)/.test(path);
     return media.hydrate(guestOutput ? publicData(result) : result);
   };
   transport.dispose = () => media.dispose();

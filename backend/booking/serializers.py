@@ -140,6 +140,10 @@ class ResortSerializer(serializers.ModelSerializer):
 
 
 class StaffResortSerializer(ResortSerializer):
+    accountId = serializers.PrimaryKeyRelatedField(
+        source="account",
+        queryset=User.objects.filter(role__in=["admin", "manager"], is_active=True),
+    )
     commissionPercent = serializers.DecimalField(
         source="commission_percent",
         max_digits=5,
@@ -151,7 +155,7 @@ class StaffResortSerializer(ResortSerializer):
     )
 
     class Meta(ResortSerializer.Meta):
-        fields = [*ResortSerializer.Meta.fields, "commissionPercent"]
+        fields = [*ResortSerializer.Meta.fields, "commissionPercent", "accountId"]
 
 
 class PricePeriodInput(serializers.Serializer):
@@ -303,12 +307,6 @@ class AccountInput(serializers.Serializer):
     status = serializers.ChoiceField(choices=["active", "disabled"])
     password = serializers.CharField(min_length=12, max_length=128, required=False, write_only=True)
 
-    def validate(self, data):
-        role = data.get("role", self.instance.role if self.instance else "manager")
-        if role == "manager" and not data.get("resort"):
-            raise serializers.ValidationError({"resortId": "Выберите санаторий управляющего."})
-        return data
-
     def validate_login(self, value):
         existing = User.objects.filter(email__iexact=value)
         if self.instance:
@@ -441,9 +439,12 @@ def account_data(user):
         "name": user.name or user.username,
         "login": user.email,
         "role": "admin" if user.is_superuser else user.role,
-        "resortId": user.resort_id,
+        "resortId": user.managed_resorts.order_by("id").values_list("id", flat=True).first(),
+        "resortIds": list(user.managed_resorts.order_by("id").values_list("id", flat=True)),
         "status": "active" if user.is_active else "disabled",
         "version": user.version,
+        "createdAt": user.date_joined.isoformat(),
+        "lastLogin": user.last_login.isoformat() if user.last_login else None,
     }
 
 

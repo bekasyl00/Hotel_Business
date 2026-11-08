@@ -24,7 +24,10 @@ export function resolveGuest(db, session) {
   const account =
     identity &&
     db.guestAccounts.find(
-      (a) => a.id === identity.id && a.authVersion === identity.version,
+      (a) =>
+        a.id === identity.id &&
+        a.authVersion === identity.version &&
+        a.status !== "disabled",
     );
   if (identity && !account) {
     session.removeItem(GUEST_SESSION_KEY);
@@ -154,7 +157,9 @@ export async function demoAuthRequest({
     db.guestAttempts.push({ phone, endpoint, at: now });
     persist();
     if (endpoint === "login") {
-      const account = db.guestAccounts.find((a) => a.phone === phone);
+      const account = db.guestAccounts.find(
+        (a) => a.phone === phone && a.status !== "disabled",
+      );
       if (typeof payload.password !== "string" || payload.password.length > 128)
         fail("invalid_credentials", 401);
       const hash = await passwordHash(

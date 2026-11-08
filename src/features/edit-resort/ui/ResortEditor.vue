@@ -6,7 +6,10 @@ import { useEditor } from "@/shared/api/use-editor.js";
 import { useSessionStore } from "@/entities/session";
 const session = useSessionStore();
 const { t } = useI18n();
-const props = defineProps({ item: Object });
+const props = defineProps({
+  item: Object,
+  accounts: { type: Array, default: () => [] },
+});
 const emit = defineEmits(["close", "saved"]);
 const mediaBusy = ref(false);
 const form = reactive({
@@ -18,6 +21,7 @@ const form = reactive({
   checkInTime: "14:00",
   timeZone: "Asia/Almaty",
   commissionPercent: null,
+  accountId: session.user?.id || "",
   city: t("staff.saryagash"),
   address: "",
   subtitle: "",
@@ -40,8 +44,10 @@ function submit() {
       .map((v) => v.trim())
       .filter(Boolean),
   };
-  if (!session.isAdmin) delete payload.commissionPercent;
-  else if (payload.commissionPercent === "") payload.commissionPercent = null;
+  if (!session.isAdmin) {
+    delete payload.commissionPercent;
+    delete payload.accountId;
+  } else if (payload.commissionPercent === "") payload.commissionPercent = null;
   return save(payload);
 }
 </script>
@@ -57,6 +63,23 @@ function submit() {
         <h3>{{ t("staff.basicInformation") }}</h3>
       </div>
       <div class="form-grid">
+        <label v-if="session.isAdmin" class="span-2"
+          >{{ t("staff.directory.owner") }}
+          <select v-model="form.accountId" required>
+            <option
+              v-for="a in accounts.filter(
+                (a) =>
+                  ['admin', 'manager'].includes(a.role) &&
+                  (a.status === 'active' || a.id === String(form.accountId)),
+              )"
+              :key="a.id"
+              :value="a.id"
+            >
+              {{ a.name }} · {{ a.login }}
+            </option>
+          </select>
+          <small>{{ t("staff.directory.ownerHelp") }}</small>
+        </label>
         <label v-if="session.isAdmin">
           {{ t("common.checkout.commissionPercent") }}
           <input
@@ -152,6 +175,23 @@ function submit() {
         @location="Object.assign(form, $event)"
       />
       <div class="form-grid">
+        <label v-if="session.isAdmin" class="span-2"
+          >{{ t("staff.directory.owner") }}
+          <select v-model="form.accountId" required>
+            <option
+              v-for="a in accounts.filter(
+                (a) =>
+                  ['admin', 'manager'].includes(a.role) &&
+                  (a.status === 'active' || a.id === String(form.accountId)),
+              )"
+              :key="a.id"
+              :value="a.id"
+            >
+              {{ a.name }} · {{ a.login }}
+            </option>
+          </select>
+          <small>{{ t("staff.directory.ownerHelp") }}</small>
+        </label>
         <label
           >{{ t("staff.latitude")
           }}<input

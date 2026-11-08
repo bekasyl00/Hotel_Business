@@ -59,6 +59,7 @@ export function demoGuestRequest({
   user,
   method,
   pathname,
+  query,
   payload,
   commit,
   authorize,
@@ -107,17 +108,73 @@ export function demoGuestRequest({
       return done(bundle(profile));
     }
   }
+  const accountFor = (profile) =>
+    db.guestAccounts?.find((a) => a.owner === profile.owner);
+  const summary = (a) =>
+    a
+      ? {
+          id: a.id,
+          status: a.status || "active",
+          version: a.version || 1,
+          createdAt: a.createdAt,
+        }
+      : null;
+  if (pathname === "/clients" && method === "GET") {
+    if (user?.role !== "admin")
+      fail("Доступно только администратору.", user ? 403 : 401);
+    const params = new URLSearchParams(query || "");
+    const q = (params.get("q") || "").toLowerCase(),
+      page = Math.max(1, Number(params.get("page")) || 1);
+    const profiles = db.guestProfiles.filter((p) =>
+      `${p.name} ${p.phone}`.toLowerCase().includes(q),
+    );
+    return done({
+      count: profiles.length,
+      page,
+      pageSize: 25,
+      items: profiles.slice((page - 1) * 25, page * 25).map((p) => ({
+        profile: publicProfile(p),
+        account: summary(accountFor(p)),
+        bookingCount: db.bookings.filter((b) => b.guestProfileId === p.id)
+          .length,
+      })),
+    });
+  }
+  const access = pathname.match(/^\/clients\/([^/]+)$/);
+  if (access && method === "PATCH") {
+    if (user?.role !== "admin")
+      fail("Доступно только администратору.", user ? 403 : 401);
+    const profile = db.guestProfiles.find((p) => p.id === access[1]),
+      account = profile && accountFor(profile);
+    if (!account) fail("Аккаунт не найден.", 404);
+    if (payload.version !== (account.version || 1))
+      fail("Обновите данные.", 409);
+    if (!["active", "disabled"].includes(payload.status))
+      fail("Недопустимый статус.");
+    account.status = payload.status;
+    account.version = (account.version || 1) + 1;
+    account.authVersion++;
+    commit("guestAccounts", summary(account), null, "access");
+    return done(summary(account));
+  }
   const guest = pathname.match(/^\/guests\/([^/]+)$/);
   if (guest && method === "GET") {
     if (!user) fail("Войдите в кабинет сотрудника.", 401);
     const profile = db.guestProfiles.find((p) => p.id === guest[1]);
-    const scope = (b) => user.role === "admin" || b.resortId === user.resortId;
+    const scope = (b) =>
+      user.role === "admin" || user.resortIds.includes(b.resortId);
     if (
       !profile ||
-      !db.bookings.some((b) => b.guestProfileId === profile.id && scope(b))
+      (user.role !== "admin" &&
+        !db.bookings.some((b) => b.guestProfileId === profile.id && scope(b)))
     )
       fail("Гость не найден.", 404);
-    return done(bundle(profile, scope));
+    return done({
+      ...bundle(profile, scope),
+      ...(user.role === "admin"
+        ? { account: summary(accountFor(profile)) }
+        : {}),
+    });
   }
   const notes = pathname.match(/^\/bookings\/([^/]+)\/notes$/);
   if (notes && method === "POST") {

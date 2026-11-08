@@ -1,5 +1,6 @@
 <script setup>
 import { reactive, ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { PublicHeader } from "@/widgets/public-header";
 import { GuestDocuments } from "@/widgets/guest-documents";
@@ -8,6 +9,7 @@ import { useGuestAccountStore } from "@/entities/guest-account";
 import { useBookingStore } from "@/entities/booking";
 import { request, ApiError, uploadErrorCode } from "@/shared/api";
 import { isDemo, isMobile } from "@/shared/config";
+const router = useRouter();
 const { t } = useI18n(),
   account = useGuestAccountStore(),
   bookings = useBookingStore();
@@ -28,6 +30,13 @@ async function load() {
   data.value = null;
   try {
     await account.restore();
+    if (!account.authenticated) {
+      await router.replace({
+        path: "/account/login",
+        query: { next: "/profile" },
+      });
+      return;
+    }
     data.value = await request("GET", "/profile");
     form.name = data.value.profile?.name || "";
     form.phone = data.value.profile?.phone || "";
@@ -46,6 +55,7 @@ async function save() {
       name: form.name.trim(),
       phone: form.phone.trim(),
     });
+    if (account.session) account.session.profile = data.value.profile;
     saved.value = true;
   } catch (e) {
     formError.value = e.message;

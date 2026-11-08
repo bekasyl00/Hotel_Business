@@ -67,10 +67,12 @@ function add(target, event) {
 
 export function demoAnalytics(db, user, params, now = Date.now()) {
   if (!user) fail("Войдите в кабинет сотрудника.", 401);
-  if (user.role !== "admin" && !user.resortId)
+  if (!["admin", "manager", "accountant"].includes(user.role))
     fail("У вас нет доступа к санаторию.", 403);
   const available = db.resorts.filter(
-    (r) => user.role === "admin" || r.id === user.resortId,
+    (r) =>
+      ["admin", "accountant"].includes(user.role) ||
+      (user.resortIds || [user.resortId]).includes(r.id),
   );
   const requestedResort = params.get("resortId");
   if (requestedResort && !available.some((r) => r.id === requestedResort))

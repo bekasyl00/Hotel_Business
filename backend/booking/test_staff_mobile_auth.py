@@ -9,6 +9,7 @@ from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
+from booking.test_helpers import unrelated_owner
 from identity.models import StaffDevice, StaffRefreshToken
 
 from .authentication import token_hash
@@ -40,7 +41,7 @@ class StaffMobileTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.resort, cls.room, cls.tariff, cls.manager, cls.admin = fixture()
-        cls.other = Resort.objects.create(name="Other", lat=42, lng=70)
+        cls.other = Resort.objects.create(account=unrelated_owner(), name="Other", lat=42, lng=70)
 
     def session(self, user=None):
         response = login(user or self.manager)

@@ -15,6 +15,7 @@ from rest_framework.test import APIClient
 
 from booking.errors import Problem
 from booking.models import Audit, Booking, Resort, Review, Room, Tariff, User
+from booking.test_helpers import unrelated_owner
 
 from .models import DemoPayment, DemoRefund
 from .services import (
@@ -26,7 +27,13 @@ from .services import (
 
 
 def fixture():
+    manager = User.objects.create(
+        username="payments@example.test",
+        email="payments@example.test",
+        name="Управляющий",
+    )
     resort = Resort.objects.create(
+        account=manager,
         name="Демо-санаторий",
         city="Сарыагаш",
         address="Тест",
@@ -34,6 +41,8 @@ def fixture():
         lng=69,
         status="published",
     )
+    manager.resort = resort
+    manager.save(update_fields=["resort"])
     room = Room.objects.create(
         resort=resort,
         number="101",
@@ -45,12 +54,7 @@ def fixture():
         price=18000,
     )
     tariff = Tariff.objects.create(resort=resort, name="Проживание")
-    manager = User.objects.create(
-        username="payments@example.test",
-        email="payments@example.test",
-        name="Управляющий",
-        resort=resort,
-    )
+
     start = timezone.localdate() + timedelta(days=5)
     booking = Booking.objects.create(
         resort=resort,
@@ -165,7 +169,12 @@ class CommerceTests(TestCase):
         self.assertEqual(self.client.get(url + "?asStaff=true").status_code, 401)
         self.client.force_login(self.manager)
         self.assertEqual(self.client.get(url + "?asStaff=true").json()["actorKind"], "provider")
-        other = Resort.objects.create(name="Другой", city="Тест", address="Тест", lat=40, lng=70)
+        other = Resort.objects.create(
+            account=unrelated_owner(), name="Другой", city="Тест", address="Тест", lat=40, lng=70
+        )
+        Resort.objects.filter(account=self.manager).update(account=unrelated_owner())
+        other.account = self.manager
+        other.save(update_fields=["account"])
         self.manager.resort = other
         self.manager.save()
         self.assertEqual(self.client.get(url + "?asStaff=true").status_code, 403)

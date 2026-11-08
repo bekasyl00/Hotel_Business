@@ -7,6 +7,9 @@ from django.utils import timezone
 from psycopg.types.range import Range
 from rest_framework.test import APIClient
 
+from booking.models import Resort
+from booking.test_helpers import unrelated_owner
+
 from .models import Audit, Booking, RoomPricePeriod
 from .tests import authenticate_guest, fixture
 
@@ -89,6 +92,7 @@ class PlannerTests(TestCase):
         b.refresh_from_db()
         self.assertNotIn("staffNotes", booking_data(b))
         self.assertEqual(booking_data(b, staff=True)["staffNotes"], "Private operational note")
+        Resort.objects.filter(account=self.manager).update(account=unrelated_owner())
         self.manager.resort = None
         self.manager.save()
         self.assertEqual(self.post(url, dict(version=2, staffNotes="foreign")).status_code, 403)

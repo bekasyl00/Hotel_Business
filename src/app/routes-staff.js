@@ -1,5 +1,10 @@
 export const staffRoutes = [
   {
+    path: "/staff/clients",
+    component: () => import("@/pages/clients"),
+    meta: { staff: true, admin: true },
+  },
+  {
     path: "/staff/accounting",
     component: () => import("@/pages/accounting"),
     meta: { staff: true, accounting: true },

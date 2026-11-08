@@ -36,6 +36,10 @@ class Endpoint(APIView):
     def get(self, request, resource, pk=None, action=None):
         if action:
             raise Problem("Для этого действия используйте POST.", 405)
+        if resource == "clients" and not pk:
+            from .directory import clients
+
+            return Response(clients(request))
         if resource == "profile" and not pk:
             return Response(svc.current_guest_profile(request))
         if resource == "guests" and pk:
@@ -166,7 +170,7 @@ class Endpoint(APIView):
             resorts = (
                 Resort.objects.all()
                 if svc.admin(request.user) or request.user.role == "accountant"
-                else Resort.objects.filter(pk=request.user.resort_id)
+                else Resort.objects.filter(account=request.user)
             )
             audit = (
                 Audit.objects.all()
@@ -192,9 +196,9 @@ class Endpoint(APIView):
                     ],
                     "accounts": [
                         account_data(u)
-                        for u in User.objects.filter(
-                            role__in=["manager", "accountant"], is_superuser=False
-                        )
+                        for u in User.objects.all()
+                        .prefetch_related("managed_resorts")
+                        .order_by("name", "id")
                     ]
                     if svc.admin(request.user)
                     else [],
@@ -242,6 +246,10 @@ class Endpoint(APIView):
         raise Problem("Не найдено.", 404)
 
     def patch(self, request, resource, pk=None, action=None):
+        if resource == "clients" and pk:
+            from .directory import set_client_status
+
+            return Response(set_client_status(request, pk))
         if action:
             raise Problem("Для этого действия используйте POST.", 405)
         if resource == "profile" and not pk:

@@ -313,7 +313,7 @@ class BookingDocumentsView(APIView):
         require_staff(request.user, roles=("admin", "manager", "accountant"))
         bookings = Booking.objects.all()
         if not admin(request.user) and request.user.role != "accountant":
-            bookings = bookings.filter(resort_id=request.user.resort_id)
+            bookings = bookings.filter(resort__account=request.user)
         booking = get_object_or_404(bookings, pk=booking_id)
         docs = AccountingDocument.objects.filter(booking=booking).select_related("booking")
         if pk:

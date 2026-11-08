@@ -510,7 +510,7 @@ onBeforeUnmount(() => {
               >{{ t("staff.resort")
               }}<select
                 v-model="selected"
-                :disabled="!session.isAdmin && !session.isAccountant"
+                :disabled="catalog.resorts.length < 2"
               >
                 <option v-if="!catalog.resorts.length" value="">
                   {{ t("staff.noResorts") }}
@@ -679,6 +679,14 @@ onBeforeUnmount(() => {
                             ><small>{{
                               r.subtitle || t("staff.descriptionMissing")
                             }}</small>
+                            <small v-if="session.isAdmin"
+                              >{{ t("staff.directory.owner") }}:
+                              {{
+                                accounts.find(
+                                  (a) => a.id === String(r.accountId),
+                                )?.name || "—"
+                              }}</small
+                            >
                           </div>
                         </div>
                       </td>
@@ -1027,15 +1035,19 @@ onBeforeUnmount(() => {
                         <strong>{{ a.name }}</strong
                         ><small>{{ a.login }}</small>
                         <small>{{
-                          a.role === "accountant"
-                            ? t("common.accounting.role")
-                            : t("staff.manager")
+                          a.role === "admin"
+                            ? t("staff.admin")
+                            : a.role === "accountant"
+                              ? t("common.accounting.role")
+                              : t("staff.manager")
                         }}</small>
                       </td>
                       <td :data-label="t('staff.resort')">
                         {{
-                          catalog.resorts.find((r) => r.id === a.resortId)
-                            ?.name || "—"
+                          catalog.resorts
+                            .filter((r) => String(r.accountId) === a.id)
+                            .map((r) => r.name)
+                            .join(", ") || "—"
                         }}
                       </td>
                       <td :data-label="t('staff.access')">
@@ -1046,6 +1058,7 @@ onBeforeUnmount(() => {
                       <td :data-label="t('staff.action')">
                         <button
                           class="text-button"
+                          v-if="a.role !== 'admin'"
                           @click="open('accounts', a)"
                         >
                           {{ t("staff.configureAccess") }}
@@ -1258,6 +1271,7 @@ onBeforeUnmount(() => {
   <ResortEditor
     v-if="editor?.kind === 'resorts'"
     :item="editor.item"
+    :accounts="accounts"
     @close="editor = null"
     @saved="saved"
   />

@@ -7,6 +7,8 @@ from django.utils import timezone
 from psycopg.types.range import Range
 from rest_framework.test import APIClient
 
+from booking.test_helpers import unrelated_owner
+
 from .models import Audit, Booking, RoomPricePeriod
 from .serializers import RoomSerializer
 from .tests import authenticate_guest, fixture
@@ -126,7 +128,9 @@ class PricingTests(TestCase):
     def test_manager_cannot_change_other_resort_periods(self):
         from .models import Resort, Room
 
-        other = Resort.objects.create(name="Other", city="City", address="Test", lat=0, lng=0)
+        other = Resort.objects.create(
+            account=unrelated_owner(), name="Other", city="City", address="Test", lat=0, lng=0
+        )
         room = Room.objects.create(
             resort=other,
             number="1",

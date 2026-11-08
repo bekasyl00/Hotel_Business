@@ -15,6 +15,26 @@ const session = useSessionStore(),
   bookings = useBookingStore(),
   route = useRoute(),
   router = useRouter();
+const changing = ref(false),
+  confirmAccess = ref(false);
+async function changeAccess() {
+  changing.value = true;
+  try {
+    data.value.account = await request(
+      "PATCH",
+      `/clients/${encodeURIComponent(route.params.id)}`,
+      {
+        status: data.value.account.status === "active" ? "disabled" : "active",
+        version: data.value.account.version,
+      },
+    );
+    confirmAccess.value = false;
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    changing.value = false;
+  }
+}
 const data = ref(null),
   loading = ref(true),
   error = ref("");
@@ -53,11 +73,21 @@ async function logout() {
 watch(() => route.params.id, load, { immediate: true });
 </script>
 <template>
-  <StaffShell section="bookings" @logout="logout"
+  <StaffShell
+    :section="session.isAdmin ? 'clients' : 'bookings'"
+    @logout="logout"
     ><main class="work-main staff-guest-main">
-      <RouterLink class="profile-back" to="/staff/bookings">{{
-        t("staff.backToBookings")
-      }}</RouterLink>
+      <RouterLink
+        class="profile-back"
+        :to="session.isAdmin ? '/staff/clients' : '/staff/bookings'"
+        >{{
+          t(
+            session.isAdmin
+              ? "staff.directory.clients"
+              : "staff.backToBookings",
+          )
+        }}</RouterLink
+      >
       <div v-if="isDemo" class="demo-strip">
         {{ t("staff.demoGuest") }}
       </div>
@@ -85,6 +115,47 @@ watch(() => route.params.id, load, { immediate: true });
           }}
           {{ t("staff.guestEditsContact") }}
         </p>
+        <section
+          v-if="session.isAdmin && data.account"
+          class="public-session-note"
+        >
+          <h2>{{ t("staff.directory.access") }}</h2>
+          <p>
+            {{
+              t(
+                data.account.status === "active"
+                  ? "staff.active"
+                  : "staff.disabled",
+              )
+            }}
+          </p>
+          <button
+            v-if="!confirmAccess"
+            class="secondary"
+            @click="confirmAccess = true"
+          >
+            {{
+              t(
+                data.account.status === "active"
+                  ? "staff.directory.disable"
+                  : "staff.directory.enable",
+              )
+            }}
+          </button>
+          <div v-else>
+            <p>{{ t("staff.directory.accessHelp") }}</p>
+            <button class="primary" :disabled="changing" @click="changeAccess">
+              {{ t("staff.directory.confirm") }}
+            </button>
+            <button
+              class="secondary"
+              :disabled="changing"
+              @click="confirmAccess = false"
+            >
+              {{ t("staff.directory.cancel") }}
+            </button>
+          </div>
+        </section>
         <GuestBookingHistory :bookings="data.bookings" staff
       /></template></main
   ></StaffShell>

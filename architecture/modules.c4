@@ -73,6 +73,10 @@ model {
     description 'Поиск санатория по категории и карте, без выбора дат.. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/catalog 'Исходный код'
   }
+  pages_clients = module 'pages/clients' {
+    description 'Компоненты и действия среза pages/clients. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/clients 'Исходный код'
+  }
   pages_guest_auth = module 'pages/guest-auth' {
     description 'Компоненты и действия среза pages/guest-auth. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/guest-auth 'Исходный код'
@@ -178,7 +182,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/widgets/staff-mobile-navigation 'Исходный код'
   }
   widgets_staff_shell = module 'widgets/staff-shell' {
-    description 'Компоненты и действия среза widgets/staff-shell. Файлов: 2'
+    description 'Компоненты и действия среза widgets/staff-shell. Файлов: 3'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/widgets/staff-shell 'Исходный код'
   }
   app -> shared_config 'import'
@@ -198,6 +202,7 @@ model {
   app -> pages_guest_profile 'import'
   app -> pages_receipt 'import'
   app -> pages_guest_auth 'import'
+  app -> pages_clients 'import'
   app -> pages_accounting 'import'
   app -> pages_login 'import'
   app -> pages_staff_guest 'import'
@@ -264,6 +269,9 @@ model {
   pages_catalog -> widgets_public_header 'import'
   pages_catalog -> shared_ui 'import'
   pages_catalog -> shared_lib 'import'
+  pages_clients -> widgets_staff_shell 'import'
+  pages_clients -> entities_session 'import'
+  pages_clients -> shared_api 'import'
   pages_guest_auth -> widgets_public_header 'import'
   pages_guest_auth -> entities_guest_account 'import'
   pages_guest_auth -> entities_booking 'import'
@@ -370,6 +378,6 @@ model {
 views {
   view modules {
     title 'FSD: реальные зависимости срезов Vue'
-    include app, entities_booking, entities_guest_account, entities_resort, entities_session, features_accounting_ledger, features_booking_documents, features_create_booking, features_demo_payment, features_edit_account, features_edit_resort, features_edit_room, features_pay_booking, features_payment_receipt, features_review_form, pages_accounting, pages_analytics, pages_catalog, pages_guest_auth, pages_guest_profile, pages_login, pages_my_bookings, pages_receipt, pages_resort_profile, pages_room_profile, pages_staff_guest, pages_staff_menu, pages_workspace, shared_api, shared_config, shared_i18n, shared_lib, shared_native, shared_ui, widgets_availability_calendar, widgets_guest_booking_history, widgets_guest_documents, widgets_media_gallery, widgets_mobile_navigation, widgets_occupancy_board, widgets_overview, widgets_payment_dialog, widgets_public_header, widgets_staff_mobile_navigation, widgets_staff_shell
+    include app, entities_booking, entities_guest_account, entities_resort, entities_session, features_accounting_ledger, features_booking_documents, features_create_booking, features_demo_payment, features_edit_account, features_edit_resort, features_edit_room, features_pay_booking, features_payment_receipt, features_review_form, pages_accounting, pages_analytics, pages_catalog, pages_clients, pages_guest_auth, pages_guest_profile, pages_login, pages_my_bookings, pages_receipt, pages_resort_profile, pages_room_profile, pages_staff_guest, pages_staff_menu, pages_workspace, shared_api, shared_config, shared_i18n, shared_lib, shared_native, shared_ui, widgets_availability_calendar, widgets_guest_booking_history, widgets_guest_documents, widgets_media_gallery, widgets_mobile_navigation, widgets_occupancy_board, widgets_overview, widgets_payment_dialog, widgets_public_header, widgets_staff_mobile_navigation, widgets_staff_shell
   }
 }

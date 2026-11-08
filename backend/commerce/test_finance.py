@@ -8,6 +8,7 @@ from openpyxl import load_workbook
 from rest_framework.test import APIClient
 
 from booking.models import Audit, Resort, User
+from booking.test_helpers import unrelated_owner
 from commerce.models import AccountingExpense, DemoPayment
 from commerce.tests import fixture
 
@@ -44,7 +45,9 @@ class FinanceTests(TestCase):
         return self.client.get("/api/accounting", {"paymentMode": "demo", **params})
 
     def test_global_accountant_reads_all_properties_and_has_no_operational_writes(self):
-        Resort.objects.create(name="Other", city="Test", address="Test", lat=1, lng=1)
+        Resort.objects.create(
+            account=unrelated_owner(), name="Other", city="Test", address="Test", lat=1, lng=1
+        )
         workspace = self.client.get("/api/workspace")
         self.assertEqual(workspace.status_code, 200)
         self.assertEqual(len(workspace.json()["resorts"]), 2)

@@ -11,6 +11,8 @@ from PIL import Image
 from psycopg.types.range import Range
 from rest_framework.test import APIClient
 
+from booking.test_helpers import unrelated_owner
+
 from .models import Audit, Booking, MediaAsset, Resort, Review
 from .tests import fixture
 
@@ -156,8 +158,11 @@ class CatalogueTests(TestCase):
             resort=self.resort, booking=booking, rating=4, text="Текст отзыва после проживания"
         )
         foreign_resort = Resort.objects.create(
-            name="Другой", city="Тест", address="Тест", lat=1, lng=1
+            account=unrelated_owner(), name="Другой", city="Тест", address="Тест", lat=1, lng=1
         )
+        Resort.objects.filter(account=self.manager).update(account=unrelated_owner())
+        foreign_resort.account = self.manager
+        foreign_resort.save(update_fields=["account"])
         self.manager.resort = foreign_resort
         self.manager.save()
         self.staff()
@@ -168,6 +173,8 @@ class CatalogueTests(TestCase):
             ).status_code,
             403,
         )
+        self.resort.account = self.manager
+        self.resort.save(update_fields=["account"])
         self.manager.resort = self.resort
         self.manager.save()
         response = self.write(
@@ -236,7 +243,9 @@ class CatalogueTests(TestCase):
                 ).status_code,
                 422,
             )
-            other = Resort.objects.create(name="Другой", city="Тест", address="Тест", lat=1, lng=1)
+            other = Resort.objects.create(
+                account=unrelated_owner(), name="Другой", city="Тест", address="Тест", lat=1, lng=1
+            )
             upload = SimpleUploadedFile("photo.png", image.getvalue(), content_type="image/png")
             self.assertEqual(
                 self.client.post(

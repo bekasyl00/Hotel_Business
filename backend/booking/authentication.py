@@ -110,7 +110,7 @@ def staff_credential_version(user):
     # A password, role, resort or superuser change invalidates issued credentials.
     return salted_hmac(
         "native-staff-credential-version",
-        f"{user.get_session_auth_hash()}:{user.role}:{user.resort_id}:{user.is_superuser}",
+        f"{user.get_session_auth_hash()}:{user.role}:{user.resort_id}:{user.is_superuser}:{user.version}",
         algorithm="sha256",
     ).hexdigest()
 

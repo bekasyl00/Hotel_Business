@@ -13,7 +13,12 @@ const sections = computed(() => [
   ["rooms", "staff.rooms", "▦"],
   ["reviews", "staff.reviews", "☆"],
   ["history", "staff.history", "◷"],
-  ...(session.isAdmin ? [["accounts", "staff.managers", "♙"]] : []),
+  ...(session.isAdmin
+    ? [
+        ["clients", "staff.directory.clients", "♧"],
+        ["accounts", "staff.managers", "♙"],
+      ]
+    : []),
 ]);
 async function logout() {
   try {

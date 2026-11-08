@@ -172,7 +172,7 @@ export function marketplaceRequest({
       (r) => r.id === id && r.status === "published",
     );
     if (!resort) return null;
-    const { commissionPercent, ...publicData } = resort;
+    const { commissionPercent, accountId, ...publicData } = resort;
     return publicData;
   };
   const publicReview = ({
@@ -212,7 +212,8 @@ export function marketplaceRequest({
       !booking ||
       (!(booking.ownerId === ownerOf(db) && booking.source === "website") &&
         (!user ||
-          (user.role !== "admin" && user.resortId !== booking.resortId)))
+          (user.role !== "admin" &&
+            !user.resortIds.includes(booking.resortId))))
     )
       fail("Квитанция не найдена.", 404);
     if (!payment.receipt) {

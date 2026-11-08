@@ -137,6 +137,21 @@ onMounted(load);
             {{ t("staff.retryLoading") }}
           </button>
         </form>
+        <section class="partner-contact">
+          <h3>{{ t("staff.directory.partnerTitle") }}</h3>
+          <p>{{ t("staff.directory.partnerDescription") }}</p>
+          <a
+            class="secondary button-link"
+            :href="
+              'https://wa.me/77782764005?text=' +
+              encodeURIComponent(t('staff.directory.partnerMessage'))
+            "
+            target="_blank"
+            rel="noopener noreferrer"
+            >{{ t("staff.directory.contact") }}</a
+          >
+          <small>+7 778 276 40 05 · Бекасыл Админ</small>
+        </section>
         <p v-if="isDemo" class="demo-note">
           {{
             t(
@@ -151,6 +166,23 @@ onMounted(load);
   </main>
 </template>
 <style scoped>
+.partner-contact {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #dce3dc;
+}
+.partner-contact h3 {
+  font-size: 20px;
+  margin: 0 0 10px;
+}
+.partner-contact p {
+  color: #647269;
+  line-height: 1.55;
+}
+.partner-contact small {
+  display: block;
+  margin-top: 12px;
+}
 .login-language {
   display: flex;
   justify-content: flex-end;

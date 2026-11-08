@@ -4,6 +4,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from booking.models import Resort
+from booking.test_helpers import unrelated_owner
 
 from .models import DemoPayment
 from .services import apply_cancellation
@@ -62,7 +63,12 @@ class ReceiptTests(TestCase):
         self.assertEqual(stranger.get(url + "/pdf").status_code, 404)
         stranger.force_login(self.manager)
         self.assertEqual(stranger.get(url).status_code, 200)
-        other = Resort.objects.create(name="Другой", city="Тест", address="Тест", lat=40, lng=70)
+        other = Resort.objects.create(
+            account=unrelated_owner(), name="Другой", city="Тест", address="Тест", lat=40, lng=70
+        )
+        Resort.objects.filter(account=self.manager).update(account=unrelated_owner())
+        other.account = self.manager
+        other.save(update_fields=["account"])
         self.manager.resort = other
         self.manager.save()
         self.assertEqual(stranger.get(url).status_code, 404)

@@ -21,6 +21,7 @@ class Record(models.Model):
 
 
 class Resort(Record):
+    account = models.ForeignKey("User", on_delete=models.PROTECT, related_name="managed_resorts")
     name = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
     address = models.CharField(max_length=200)

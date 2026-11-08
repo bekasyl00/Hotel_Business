@@ -14,6 +14,7 @@ from django.utils import timezone
 from psycopg.types.range import Range
 from rest_framework.test import APIClient
 
+from booking.test_helpers import unrelated_owner
 from commerce.models import DemoPayment
 
 from .errors import Problem
@@ -138,7 +139,13 @@ class ProfileTests(TestCase):
     def test_staff_profile_history_is_scoped_even_for_same_guest(self):
         own = self.create()
         other = Resort.objects.create(
-            name="Другой", city="Тест", address="Тест", lat=1, lng=1, status="published"
+            account=unrelated_owner(),
+            name="Другой",
+            city="Тест",
+            address="Тест",
+            lat=1,
+            lng=1,
+            status="published",
         )
         room = Room.objects.create(
             resort=other,
@@ -159,8 +166,11 @@ class ProfileTests(TestCase):
         self.assertEqual([b["id"] for b in result.json()["bookings"]], [own.id])
         self.assertNotIn("Чужой", result.content.decode())
         empty_resort = Resort.objects.create(
-            name="Без броней", city="Тест", address="Тест", lat=1, lng=1
+            account=unrelated_owner(), name="Без броней", city="Тест", address="Тест", lat=1, lng=1
         )
+        Resort.objects.filter(account=self.manager).update(account=unrelated_owner())
+        empty_resort.account = self.manager
+        empty_resort.save(update_fields=["account"])
         self.manager.resort = empty_resort
         self.manager.save()
         self.assertEqual(self.client.get(f"/api/guests/{own.guest_profile_id}").status_code, 404)
@@ -226,7 +236,12 @@ class ProfileTests(TestCase):
     def test_foreign_manager_cannot_register_arrival(self):
         booking = self.create()
         self.paid_confirmed(booking)
-        other = Resort.objects.create(name="Чужой", city="Тест", address="Тест", lat=1, lng=1)
+        other = Resort.objects.create(
+            account=unrelated_owner(), name="Чужой", city="Тест", address="Тест", lat=1, lng=1
+        )
+        Resort.objects.filter(account=self.manager).update(account=unrelated_owner())
+        other.account = self.manager
+        other.save(update_fields=["account"])
         self.manager.resort = other
         self.manager.save()
         self.staff()

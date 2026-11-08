@@ -7,8 +7,8 @@ from zoneinfo import ZoneInfo
 from django.conf import settings
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.password_validation import validate_password
-from django.db import transaction
-from django.db.models import Avg
+from django.db import connection, transaction
+from django.db.models import Avg, F
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from psycopg.types.range import Range
@@ -65,15 +65,32 @@ def admin(user):
     return user.is_authenticated and (user.is_superuser or user.role == "admin")
 
 
+def lock_account_assignments():
+    # Serialize ownership/role changes across platform admins. No personal data in lock key.
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(74696879)")
+
+
+def scoped_resorts(user):
+    return (
+        Resort.objects.all()
+        if admin(user) or user.role == "accountant"
+        else Resort.objects.filter(account=user)
+    )
+
+
 def require_staff(user, resort_id=None, *, roles=("admin", "manager")):
     if not user.is_authenticated:
         raise Problem("Войдите в кабинет сотрудника.", 401)
     if not user.is_active or (not user.is_superuser and user.role not in roles):
         raise Problem("Эта операция недоступна вашей роли.", 403)
+    if resort_id and connection.in_atomic_block:
+        list(Resort.objects.select_for_update().filter(pk=resort_id).values_list("pk", flat=True))
     if (
         not admin(user)
         and user.role != "accountant"
-        and (not user.resort_id or (resort_id and str(user.resort_id) != str(resort_id)))
+        and resort_id
+        and not Resort.objects.filter(pk=resort_id, account=user).exists()
     ):
         raise Problem("У вас нет доступа к этому санаторию.", 403)
 
@@ -322,10 +339,15 @@ def save_catalog(request, kind, pk=None):
     from .media_access import validate_asset_references
 
     require_staff(request.user)
+    if kind == "resorts" and (not pk or "accountId" in request.data):
+        lock_account_assignments()
     if kind == "resorts" and "commissionPercent" in request.data:
         require_admin(request.user)
     model, serializer_cls = MODELS[kind], SERIALIZERS[kind]
     item = get_object_or_404(model, pk=pk) if pk else None
+    if kind == "resorts" and "accountId" in request.data:
+        if not item or str(request.data["accountId"]) != str(item.account_id):
+            require_admin(request.user)
     resort_id = (
         item.pk
         if kind == "resorts" and item
@@ -369,7 +391,12 @@ def save_catalog(request, kind, pk=None):
         if future.filter(guests__gt=data.get("capacity", item.capacity)).exists():
             raise Problem("Вместимость меньше числа гостей в активной брони.", 409)
     before = dict(serializer_cls(item).data) if item else None
+    old_account = item.account_id if kind == "resorts" and item else None
     result = inp.save(version=item.version + 1 if item else 1)
+    if kind == "resorts" and old_account != result.account_id:
+        User.objects.filter(pk__in=[old_account, result.account_id]).update(
+            version=F("version") + 1
+        )
     after = dict(serializer_cls(result).data)
     log_change(
         request.user,
@@ -412,6 +439,7 @@ def delete_catalog(request, kind, pk):
 @transaction.atomic
 def save_account(request, pk=None):
     require_admin(request.user)
+    lock_account_assignments()
     if pk and (not str(pk).isdigit() or len(str(pk)) > 18):
         raise Problem("Аккаунт не найден.", 404)
     item = (
@@ -436,7 +464,12 @@ def save_account(request, pk=None):
     item = item or User()
     item.name, item.email, item.username = data["name"], data["login"], data["login"]
     item.role = data.get("role", item.role or "manager")
-    item.resort = None if item.role == "accountant" else data["resort"]
+    if item.role == "accountant" and item.pk and item.managed_resorts.exists():
+        raise Problem("Сначала передайте санатории другому аккаунту.", 409)
+    # Ownership is changed only through the versioned resort workflow.
+    if item.role != "accountant" and data.get("resort") and data["resort"].account_id != item.pk:
+        raise Problem("Назначьте аккаунт в настройках санатория.", 409)
+    item.resort = None if item.role == "accountant" else data.get("resort", item.resort)
     item.is_active = data["status"] == "active"
     if password:
         validate_password(password, item)
@@ -592,11 +625,16 @@ def staff_guest_profile(request, pk):
     require_staff(request.user)
     bookings = Booking.objects.filter(guest_profile_id=pk, source="website")
     if not admin(request.user):
-        bookings = bookings.filter(resort_id=request.user.resort_id)
-    if not bookings.exists():
+        bookings = bookings.filter(resort__in=scoped_resorts(request.user))
+    if not admin(request.user) and not bookings.exists():
         raise Problem("Профиль гостя не найден.", 404)
     profile = get_object_or_404(GuestProfile, pk=pk)
-    return {"profile": guest_profile_data(profile), "bookings": profile_bookings(bookings)}
+    from .directory import account_summary
+
+    result = {"profile": guest_profile_data(profile), "bookings": profile_bookings(bookings)}
+    if admin(request.user):
+        result["account"] = account_summary(getattr(profile, "account", None))
+    return result
 
 
 @transaction.atomic

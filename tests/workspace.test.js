@@ -42,6 +42,7 @@ const booking = (roomId = "altun-111") => ({
   guestLabel: "Тестовый гость",
 });
 const newResort = {
+  accountId: "admin",
   name: "Тестовый санаторий",
   city: "Сарыагаш",
   address: "Тестовый адрес",
@@ -199,7 +200,9 @@ test("disabling a manager revokes subsequent workspace access", async () => {
       delay: 0,
     });
   await managerApi("POST", "/auth/login", { accountId: "manager-altun" });
-  const account = (await api("GET", "/workspace")).accounts[0];
+  const account = (await api("GET", "/workspace")).accounts.find(
+    (a) => a.id === "manager-altun",
+  );
   await api("PATCH", "/accounts/" + account.id, {
     ...account,
     status: "disabled",
@@ -213,11 +216,17 @@ test("disabling a manager revokes subsequent workspace access", async () => {
 
 test("admin can reassign a manager; future requests use the new tenant", async () => {
   const { api, storage } = await setup();
-  const account = (await api("GET", "/workspace")).accounts[0];
-  await api("PATCH", "/accounts/" + account.id, {
-    ...account,
-    resortId: "arasan",
-  });
+  const account = (await api("GET", "/workspace")).accounts.find(
+    (a) => a.id === "manager-altun",
+  );
+  const resorts = (await api("GET", "/workspace")).resorts;
+  for (const [id, accountId] of [
+    ["altun", "admin"],
+    ["arasan", account.id],
+  ]) {
+    const r = resorts.find((r) => r.id === id);
+    await api("PATCH", "/resorts/" + id, { ...r, accountId });
+  }
   const manager = createDemoTransport({ storage, session: memory(), delay: 0 });
   await manager("POST", "/auth/login", { accountId: account.id });
   assert.deepEqual(
