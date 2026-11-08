@@ -217,6 +217,9 @@ class CommerceTests(TestCase):
         self.assertEqual(DemoPayment.objects.get().status, "paid")
 
     def test_booking_api_freezes_discount_price_and_checkin(self):
+        from booking.tests import authenticate_guest
+
+        authenticate_guest(self.client)
         room, tariff = self.booking.room, self.booking.tariff
         room.price = 5
         room.save()

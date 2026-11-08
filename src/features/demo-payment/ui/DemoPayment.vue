@@ -3,6 +3,7 @@ import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 import { ref } from "vue";
 import { Modal } from "@/shared/ui";
+import { PaymentCountdown } from "@/entities/booking";
 import { request } from "@/shared/api";
 import { money } from "@/shared/lib";
 const props = defineProps({
@@ -10,11 +11,13 @@ const props = defineProps({
   staff: Boolean,
 });
 const emit = defineEmits(["close", "saved"]);
+const expired = ref(false);
 const busy = ref(false),
   error = ref(""),
   failed = ref(false);
 let attempt = null;
 async function pay(outcome) {
+  if (expired.value) return;
   busy.value = true;
   error.value = "";
   failed.value = false;
@@ -48,6 +51,7 @@ async function pay(outcome) {
     :busy="busy"
     @close="emit('close')"
     ><div class="demo-payment">
+      <PaymentCountdown :booking="booking" @expired="expired = true" />
       <span class="payment-demo-label">{{
         t("public.demonstrationNoRealCharge")
       }}</span>
@@ -68,13 +72,21 @@ async function pay(outcome) {
       </p>
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>
       <div class="payment-actions">
-        <button class="primary" :disabled="busy" @click="pay('success')">
+        <button
+          class="primary"
+          :disabled="busy || expired"
+          @click="pay('success')"
+        >
           {{
             busy
               ? t("public.processing")
               : t("public.simulateSuccessfulPayment")
           }}</button
-        ><button class="secondary" :disabled="busy" @click="pay('failed')">
+        ><button
+          class="secondary"
+          :disabled="busy || expired"
+          @click="pay('failed')"
+        >
           {{ t("public.testPaymentFailure") }}
         </button>
       </div>

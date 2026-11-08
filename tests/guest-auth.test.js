@@ -62,11 +62,15 @@ test("phone auth normalizes KZ numbers and rejects email/non-mobile values", () 
   ])
     assert.throws(() => normalizePhone(value));
 });
-test("registration adopts only current anonymous history and hides it after logout", async () => {
+test("registration is required for booking and logout hides owned history", async () => {
   const { api, db } = setup();
   const before = (await api("GET", "/profile")).profile;
-  const b = await api("POST", "/my-bookings", booking());
+  await assert.rejects(
+    api("POST", "/my-bookings", booking()),
+    (e) => e.status === 401,
+  );
   const signed = await register(api);
+  const b = await api("POST", "/my-bookings", booking());
   assert.equal(signed.authenticated, true);
   assert.equal(signed.profile.id, before.id);
   assert.equal((await api("GET", "/my-bookings"))[0].id, b.id);
@@ -86,11 +90,10 @@ test("login uses account ownership without merging anonymous bookings", async ()
   await register(api);
   const own = await api("POST", "/my-bookings", booking());
   await api("POST", "/guest-auth/logout", {});
-  const anonymous = await api("POST", "/my-bookings", {
-    ...booking(),
-    start: dateAfter(20),
-    end: dateAfter(22),
-  });
+  await assert.rejects(
+    api("POST", "/my-bookings", booking()),
+    (e) => e.status === 401,
+  );
   await assert.rejects(
     api("POST", "/guest-auth/login", { phone, password: "wrong" }),
     (e) => e.status === 401,
@@ -100,7 +103,6 @@ test("login uses account ownership without merging anonymous bookings", async ()
     (await api("GET", "/my-bookings")).map((b) => b.id),
     [own.id],
   );
-  assert.notEqual(own.id, anonymous.id);
   await api("POST", "/guest-auth/logout", {});
   assert.equal((await api("GET", "/my-bookings")).length, 0);
 });

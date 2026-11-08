@@ -9,7 +9,7 @@ from rest_framework.test import APIClient
 
 from .models import Audit, Booking, RoomPricePeriod
 from .serializers import RoomSerializer
-from .tests import fixture
+from .tests import authenticate_guest, fixture
 
 
 class PricingTests(TestCase):
@@ -40,6 +40,7 @@ class PricingTests(TestCase):
 
     def book(self, children=None):
         self.client.logout()
+        authenticate_guest(self.client, phone="+77010000001")
         self.token = self.client.get("/api/auth/csrf").json()["token"]
         data = {
             "roomId": self.room.pk,

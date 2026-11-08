@@ -85,6 +85,30 @@ class GuestAuthTests(TestCase):
         self.assertEqual(response.status_code, 201, response.content)
         return Booking.objects.get(pk=response.json()["id"])
 
+    def legacy_booking(self, api, offset=1):
+        from psycopg.types.range import Range
+
+        profile = api.get("/api/profile").json()["profile"]
+        owner = GuestProfile.objects.get(pk=profile["id"])
+        owner.name, owner.phone = "Тестовый гость", PHONE
+        owner.save()
+        start = timezone.localdate() + timedelta(days=offset)
+        return Booking.objects.create(
+            resort=self.resort,
+            room=self.room,
+            tariff=self.tariff,
+            stay=Range(start, start + timedelta(days=2)),
+            guests=1,
+            guest_label=owner.name,
+            guest_phone=PHONE,
+            owner=owner.owner,
+            guest_profile=owner,
+            request_key=uuid.uuid4(),
+            request_hash="legacy",
+            source="website",
+            snapshot={"total": 45000},
+        )
+
     def test_registration_accepts_eight_characters_without_composition_rules(self):
         api = client()
         item = challenge(api)
@@ -102,7 +126,7 @@ class GuestAuthTests(TestCase):
 
     def test_registration_adopts_only_current_history_and_rotates_opaque_owner(self):
         api = client()
-        booking = self.booking(api)
+        booking = self.legacy_booking(api)
         old_owner, old_profile = booking.owner, booking.guest_profile_id
         old_cookie = api.cookies["sessionid"].value
         stale = client()
@@ -129,10 +153,10 @@ class GuestAuthTests(TestCase):
 
     def test_cross_device_login_does_not_merge_phone_or_previous_browser_history(self):
         first = client()
-        own = self.booking(first)
+        own = self.legacy_booking(first)
         identity = register_client(first)
         second = client()
-        unrelated = self.booking(second, offset=5)
+        unrelated = self.legacy_booking(second, offset=5)
         self.assertEqual(GuestProfile.objects.filter(phone=PHONE).count(), 2)
         result = write(second, "login", {"phone": PHONE, "password": PASSWORD})
         self.assertEqual(result.status_code, 200, result.content)
@@ -189,8 +213,8 @@ class GuestAuthTests(TestCase):
 
     def test_reset_revokes_every_guest_session_including_receipt_and_payment_access(self):
         first, second, recovery = client(), client(), client()
-        booking = self.booking(first)
         register_client(first)
+        booking = self.booking(first)
         self.assertEqual(
             write(second, "login", {"phone": PHONE, "password": PASSWORD}).status_code, 200
         )

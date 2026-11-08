@@ -5,6 +5,7 @@ from booking.admin import ReadOnlyAdmin, platform_admin_site, record_link, struc
 from .models import (
     AccountingCompany,
     AccountingDocument,
+    AccountingExpense,
     DemoPayment,
     DemoRefund,
     PaymentAttempt,
@@ -186,3 +187,29 @@ class BankJobAdmin(ReadOnlyAdmin):
     )
     list_display = ("id", "kind", "state", "attempts", "last_error")
     workspace_path = "bookings"
+
+
+@admin.register(AccountingExpense, site=platform_admin_site)
+class AccountingExpenseAdmin(ReadOnlyAdmin):
+    fields = (
+        "id",
+        "resort",
+        "occurred_on",
+        "amount",
+        "category",
+        "payment_mode",
+        "version",
+        "created_at",
+        "voided_at",
+    )
+    list_display = (
+        "id",
+        "resort",
+        "occurred_on",
+        "amount",
+        "category",
+        "payment_mode",
+        "voided_at",
+    )
+    list_filter = ("category", "payment_mode", "resort")
+    workspace_path = "accounting"

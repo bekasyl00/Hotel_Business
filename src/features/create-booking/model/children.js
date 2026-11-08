@@ -31,3 +31,9 @@ export function birthHint(prefix, checkin) {
       }) || ""
   );
 }
+
+export function childBirthFromIin(value, checkin, today) {
+  if (!/^[0-9]{12}$/.test(value || "")) return "";
+  const birth = birthHint(value.slice(0, 6), checkin);
+  return birth && birth <= today ? birth : "";
+}

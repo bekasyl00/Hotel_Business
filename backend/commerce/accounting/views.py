@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from io import StringIO
 from zoneinfo import ZoneInfo
 
-from django.db.models import Q, Sum
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
@@ -17,12 +17,14 @@ from booking.authentication import bearer_or_csrf_protect
 from booking.errors import Problem
 from booking.guest_auth import enforce_limit
 from booking.models import Booking
-from booking.services import guest_owner
+from booking.services import admin, guest_owner, require_staff
 from commerce.models import AccountingDocument, DemoPayment, DemoRefund, PaymentEvent, RefundRequest
 from commerce.services import booking_payment_data
 
 from . import services as svc
+from .expenses import create_expense, void_expense
 from .rendering import pdf_bytes, xlsx_bytes
+from .reporting import financial_report, report_xlsx
 
 
 def bookings_data(query):
@@ -130,11 +132,30 @@ class AccountingView(APIView):
                 confirmed_at__gte=lower,
                 confirmed_at__lt=upper,
             )
-        totals = {
-            "received": payments.aggregate(v=Sum("amount"))["v"] or 0,
-            "refunded": refunds.aggregate(v=Sum("amount"))["v"] or 0,
-        }
-        totals["net"] = totals["received"] - totals["refunded"]
+        finance = financial_report(
+            resorts,
+            bookings,
+            payments,
+            refunds,
+            start,
+            end,
+            mode,
+            selected=bool(request.query_params.get("resortId")),
+        )
+        if resource == "report":
+            enforce_limit(request, "accounting-download", ip_limit=60, minutes=5)
+            if finance["resortsTruncated"] or finance["expenseCount"] > 200:
+                raise Problem(
+                    "Сузьте период или выберите санаторий: выгрузка ограничена 500 санаториями и 200 расходами.",
+                    422,
+                )
+            response = HttpResponse(
+                report_xlsx(finance, start, end, mode),
+                content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            )
+            response["Content-Disposition"] = 'attachment; filename="tynys-finance.xlsx"'
+            response["Cache-Control"] = "private, no-store"
+            return response
         docs = (
             AccountingDocument.objects.filter(
                 booking__resort__in=resorts,
@@ -203,7 +224,8 @@ class AccountingView(APIView):
                 "start": str(start),
                 "end": str(end),
                 "paymentMode": mode,
-                "totals": totals,
+                "totals": finance["totals"],
+                "finance": finance,
                 "count": bookings.count(),
                 "page": page,
                 "bookings": bookings_data(
@@ -219,6 +241,11 @@ class AccountingView(APIView):
         enforce_limit(request, "accounting-write", ip_limit=60, minutes=5)
         if not isinstance(request.data, dict):
             raise Problem("Передайте JSON-объект.")
+        if resource == "expenses":
+            return Response(
+                void_expense(request, pk) if pk else create_expense(request),
+                status=200 if pk else 201,
+            )
         if resource == "documents" and pk:
             return Response(svc.change_document(request, pk, action))
         if resource != "documents" or set(request.data) != {"bookingId", "kind"}:
@@ -273,3 +300,23 @@ class GuestDocumentsView(APIView):
         if booking_id:
             docs = docs.filter(booking_id=booking_id)
         return Response([svc.document_data(d) for d in docs.order_by("-created_at")[:200]])
+
+
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(bearer_or_csrf_protect, name="dispatch")
+class BookingDocumentsView(APIView):
+    """Operational read access without access to the accounting workspace."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request, booking_id, pk=None, format_kind=None):
+        require_staff(request.user, roles=("admin", "manager", "accountant"))
+        bookings = Booking.objects.all()
+        if not admin(request.user) and request.user.role != "accountant":
+            bookings = bookings.filter(resort_id=request.user.resort_id)
+        booking = get_object_or_404(bookings, pk=booking_id)
+        docs = AccountingDocument.objects.filter(booking=booking).select_related("booking")
+        if pk:
+            enforce_limit(request, "accounting-download", ip_limit=60, minutes=5)
+            return download(get_object_or_404(docs, pk=pk), format_kind)
+        return Response([svc.document_data(doc) for doc in docs.order_by("-created_at")[:200]])

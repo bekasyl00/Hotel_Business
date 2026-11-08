@@ -2,6 +2,7 @@
 import { computed, onMounted, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { Modal } from "@/shared/ui";
+import { PaymentCountdown } from "@/entities/booking";
 import { request } from "@/shared/api";
 import { money } from "@/shared/lib";
 import { isBankProvider, safeCheckoutUrl } from "../model/provider.js";
@@ -40,9 +41,15 @@ let stopped = false,
   clock,
   polls = 0,
   notified = props.booking.payment?.checkoutStatus === "succeeded";
-const expires = computed(() =>
-  Date.parse(payment.value?.expiresAt || props.booking.holdExpiresAt || ""),
-);
+const expires = computed(() => {
+  const deadlines = [
+    payment.value?.expiresAt,
+    props.booking.status === "pending" ? props.booking.holdExpiresAt : null,
+  ]
+    .map((v) => Date.parse(v || ""))
+    .filter(Number.isFinite);
+  return deadlines.length ? Math.min(...deadlines) : NaN;
+});
 const remaining = computed(() =>
   Number.isFinite(expires.value)
     ? Math.max(0, Math.ceil((expires.value - now.value) / 60000))
@@ -144,6 +151,7 @@ onBeforeUnmount(() => {
 <template>
   <Modal :title="t('common.payment.title')" :busy="busy" @close="emit('close')">
     <div class="bank-payment">
+      <PaymentCountdown :booking="booking" />
       <span class="payment-demo-label">{{
         provider === "xpayment"
           ? t("common.payment.kaspiXPayment")

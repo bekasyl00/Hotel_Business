@@ -44,10 +44,9 @@ const router = createRouter({
 });
 router.beforeEach(async (to) => {
   if (
-    isMobile &&
     !isStaffApp &&
-    !isDemo &&
-    /^\/(profile|bookings|receipts)(\/|$)/.test(to.path)
+    (/^\/bookings(\/|$)/.test(to.path) ||
+      (isMobile && !isDemo && /^\/(profile|receipts)(\/|$)/.test(to.path)))
   ) {
     const guest = useGuestAccountStore();
     try {
@@ -55,7 +54,8 @@ router.beforeEach(async (to) => {
     } catch {
       guest.clear();
     }
-    if (!guest.authenticated) return { path: "/account/login" };
+    if (!guest.authenticated)
+      return { path: "/account/login", query: { next: to.fullPath } };
   }
   if (
     appSurface === "public" &&
@@ -73,7 +73,13 @@ router.beforeEach(async (to) => {
     return "/staff/login";
   }
   if (!session.user) return "/staff/login";
-  if (session.isAccountant && !to.meta.accounting) return "/staff/accounting";
+  if (
+    session.isAccountant &&
+    !["/staff/accounting", "/staff/bookings", "/staff/analytics"].includes(
+      to.path,
+    )
+  )
+    return "/staff/accounting";
   if (to.meta.accounting && !session.isAdmin && !session.isAccountant)
     return "/staff/bookings";
 });

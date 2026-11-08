@@ -277,3 +277,43 @@ class AccountingSequence(models.Model):
                 fields=["resort", "year", "kind"], name="accounting_sequence_scope"
             )
         ]
+
+
+class AccountingExpense(Record):
+    resort = models.ForeignKey("booking.Resort", null=True, on_delete=models.PROTECT)
+    occurred_on = models.DateField()
+    amount = models.PositiveBigIntegerField()
+    category = models.CharField(max_length=24)
+    description = models.CharField(max_length=240)
+    payment_mode = models.CharField(max_length=12)
+    request_key = models.UUIDField(unique=True)
+    created_by = models.ForeignKey("booking.User", on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    voided_at = models.DateTimeField(null=True)
+    void_reason = models.CharField(max_length=240, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["payment_mode", "occurred_on"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(amount__gt=0) & Q(amount__lte=1000000000000),
+                name="expense_positive_bounded",
+            ),
+            models.CheckConstraint(
+                condition=Q(payment_mode__in=["production", "sandbox", "demo"]),
+                name="expense_environment_valid",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    category__in=[
+                        "bank_fee",
+                        "operations",
+                        "marketing",
+                        "payroll",
+                        "taxes",
+                        "other",
+                    ]
+                ),
+                name="expense_category_valid",
+            ),
+        ]

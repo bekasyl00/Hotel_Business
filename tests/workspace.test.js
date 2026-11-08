@@ -1,3 +1,15 @@
+async function registerGuest(api) {
+  const challenge = await api("POST", "/guest-auth/challenges", {
+    phone: "+77000000001",
+    purpose: "register",
+  });
+  await api("POST", "/guest-auth/register", {
+    challengeId: challenge.challengeId,
+    code: challenge.demoCode,
+    name: "Демо-гость",
+    password: "12345678",
+  });
+}
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -17,6 +29,7 @@ async function setup() {
   const storage = memory(),
     session = memory(),
     api = createDemoTransport({ storage, session, delay: 0 });
+  await registerGuest(api);
   await api("POST", "/auth/login", { accountId: "admin" });
   return { api, storage, session };
 }

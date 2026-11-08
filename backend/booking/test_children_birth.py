@@ -8,7 +8,7 @@ from rest_framework.test import APIClient
 
 from .models import Audit, Booking
 from .serializers import BookingInput
-from .tests import fixture
+from .tests import authenticate_guest, fixture
 
 
 class ChildBirthTests(TestCase):
@@ -23,7 +23,6 @@ class ChildBirthTests(TestCase):
             "guestPhone": "+70000000000",
             "requestId": str(uuid.uuid4()),
             "childrenBirthDates": ["2024-11-09"],
-            "childrenDatesConfirmed": True,
             **changes,
         }
 
@@ -36,9 +35,8 @@ class ChildBirthTests(TestCase):
         self.assertTrue(inp.is_valid(), inp.errors)
         self.assertEqual(inp.validated_data["childrenAges"], [3])
 
-    def test_confirmation_invalid_dates_adult_or_spoofed_age_rejected(self):
+    def test_invalid_dates_adult_or_spoofed_age_rejected(self):
         for changes in [
-            {"childrenDatesConfirmed": False},
             {"childrenBirthDates": ["2023-02-29"]},
             {"childrenBirthDates": ["2000-01-01"]},
             {"childrenBirthDates": ["2099-01-01"]},
@@ -60,6 +58,7 @@ class ChildBirthTests(TestCase):
             else date(today.year - 1, 2, 28)
         )
         client = APIClient(enforce_csrf_checks=True)
+        authenticate_guest(client)
         csrf = client.get("/api/auth/csrf").json()["token"]
         response = client.post(
             "/api/my-bookings",

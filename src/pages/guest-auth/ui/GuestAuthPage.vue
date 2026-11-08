@@ -12,6 +12,20 @@ const { t } = useI18n(),
   router = useRouter(),
   account = useGuestAccountStore(),
   bookings = useBookingStore();
+const returnTo = computed(() => {
+  const value = route.query.next;
+  if (
+    typeof value !== "string" ||
+    !/^\/(rooms\/[^/?#]+|bookings|profile)([?#]|$)/.test(value) ||
+    /[\\\x00-\x1f]/.test(value)
+  )
+    return "/profile";
+  return value;
+});
+const authLink = (path) => ({
+  path,
+  query: returnTo.value === "/profile" ? {} : { next: returnTo.value },
+});
 const action = computed(() => route.meta.authAction || "login"),
   title = computed(() =>
     t(
@@ -127,7 +141,7 @@ async function submit() {
     if (current !== generation) return;
     form.password = "";
     form.confirm = "";
-    await router.replace("/profile");
+    await router.replace(returnTo.value);
   } catch (e) {
     if (current === generation) error.value = e.message;
   } finally {
@@ -272,15 +286,19 @@ async function submit() {
           </button>
         </form>
         <nav class="guest-auth-links">
-          <RouterLink v-if="action === 'login'" to="/account/reset-password">{{
-            t("auth.forgot")
-          }}</RouterLink
-          ><RouterLink v-if="action !== 'register'" to="/account/register">{{
-            t("auth.signUp")
-          }}</RouterLink
-          ><RouterLink v-if="action !== 'login'" to="/account/login">{{
-            t("auth.signIn")
-          }}</RouterLink>
+          <RouterLink
+            v-if="action === 'login'"
+            :to="authLink('/account/reset-password')"
+            >{{ t("auth.forgot") }}</RouterLink
+          ><RouterLink
+            v-if="action !== 'register'"
+            :to="authLink('/account/register')"
+            >{{ t("auth.signUp") }}</RouterLink
+          ><RouterLink
+            v-if="action !== 'login'"
+            :to="authLink('/account/login')"
+            >{{ t("auth.signIn") }}</RouterLink
+          >
         </nav>
       </section>
     </main>

@@ -114,7 +114,13 @@
     "payBefore": "Pay by {date}",
     "demoPay": "Demo payment",
     "resortEstimate": "Resort share before bank fees (estimate)",
-    "paymentBooked": "Booked after payment"
+    "paymentBooked": "Booked after payment",
+    "loginRequired": "Sign in or register to book.",
+    "profileContact": "Profile contact: {name} · {phone}",
+    "timeLeft": "Time left to pay",
+    "holdHint": "You have 15 minutes to pay for a new booking. Refreshing the page does not extend the deadline.",
+    "timeExpired": "Payment time has expired. Check the status; select an available room to try again.",
+    "accountHistory": "Bookings belonging to your account appear here."
   },
   "payment": {
     "title": "Booking payment",
@@ -166,7 +172,7 @@
     "title": "Accounting",
     "role": "Accountant",
     "accessRole": "Staff role",
-    "description": "Resort receipts, refunds and documents in one workspace.",
+    "description": "All properties, cash transactions, expenses and documents in one workspace.",
     "company": "Company details",
     "all": "All permitted resorts",
     "from": "From",
@@ -176,7 +182,7 @@
     "demo": "Demonstration",
     "search": "Guest or booking reference",
     "apply": "Apply",
-    "scopeHint": "Select a resort to configure its company details. Access is limited to your assigned organization.",
+    "scopeHint": "All properties are shown. Select a property for its requisites or a separate report.",
     "received": "Received",
     "refunded": "Refunded",
     "net": "Net receipts",
@@ -235,14 +241,54 @@
       "refunded": "Refunded",
       "partially_refunded": "Partially refunded",
       "reconciliation_required": "Reconciliation required"
-    }
+    },
+    "preview": "Preview",
+    "fileLoading": "Preparing file…",
+    "fileReady": "File ready. If the download did not start, select Download.",
+    "downloadFile": "Download {format}",
+    "openFile": "Open file",
+    "copyHint": "A prepared template copy without signatures, digital signing or registration in the electronic invoice system.",
+    "guestEmpty": "No documents have been issued yet. After checkout, the accountant reviews the details and issues copies here.",
+    "staffDocumentsHint": "View documents for this booking. An accountant or administrator handles changes and guest issuance.",
+    "staffDocumentsEmpty": "No documents prepared yet. The act and invoice are drafted after recorded checkout."
   },
   "children": {
-    "prefix": "Child {number}: first 6 IIN digits — optional",
-    "birth": "Child’s date of birth",
-    "age": "Age at check-in: {age}",
-    "confirm": "I confirm the date against the child’s document",
-    "confirmRequired": "Enter and confirm each child’s date of birth.",
-    "hint": "The first 6 digits are only a hint. Verify the date: IIN may not match it. Full IIN is not collected; only age at check-in is stored. Free eligibility depends on the selected rate."
+    "iin": "Child {number}: IIN — 12 digits",
+    "invalidIin": "Enter the child’s 12-digit IIN. The first six digits must represent a valid past date, with an age under 18 at check-in.",
+    "hint": "The demo estimates age from the first six digits. The full IIN is neither sent to the server nor stored. This is not identity verification; discounts depend on the rate.",
+    "age": "Age at check-in: {age}"
+  },
+  "finance": {
+    "title": "Platform finances",
+    "export": "Download financial report XLSX",
+    "basis": "Receipts and refunds use transaction dates; orders use creation dates; expenses use expense dates. Commission is estimated before refund reconciliation. This is neither a bank balance nor net profit.",
+    "confirmedAmount": "Confirmed order value",
+    "awaitingPayment": "Awaiting payment",
+    "confirmedUnpaid": "Confirmed but unpaid",
+    "commissionEstimate": "Contract commission estimate",
+    "unconfigured": "Orders without configured commission: {count}",
+    "received": "Received",
+    "refunded": "Refunded",
+    "net": "Receipts − refunds",
+    "expenses": "Recorded expenses",
+    "platformExpenses": "Platform expenses",
+    "addExpense": "Record expense",
+    "expenseHint": "Manual record of incurred expenses in whole KZT. This does not make a payment. Mistakes can be voided with a reason; history is retained.",
+    "date": "Expense date",
+    "category": "Category",
+    "description": "Description without personal data",
+    "save": "Save expense",
+    "voidExpense": "Void expense",
+    "reason": "Reason for voiding",
+    "empty": "No expenses in this period.",
+    "limit": "Results are limited. Narrow the period or select a property.",
+    "categories": {
+      "bank_fee": "Bank fees",
+      "operations": "Operations",
+      "marketing": "Marketing",
+      "payroll": "Payroll",
+      "taxes": "Taxes",
+      "other": "Other"
+    }
   }
 }

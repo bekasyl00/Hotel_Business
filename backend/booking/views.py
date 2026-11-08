@@ -162,10 +162,10 @@ class Endpoint(APIView):
                 ]
             )
         if resource == "workspace":
-            svc.require_staff(request.user)
+            svc.require_staff(request.user, roles=("admin", "manager", "accountant"))
             resorts = (
                 Resort.objects.all()
-                if svc.admin(request.user)
+                if svc.admin(request.user) or request.user.role == "accountant"
                 else Resort.objects.filter(pk=request.user.resort_id)
             )
             audit = (
@@ -192,12 +192,18 @@ class Endpoint(APIView):
                     ],
                     "accounts": [
                         account_data(u)
-                        for u in User.objects.filter(role__in=["manager", "accountant"], is_superuser=False)
+                        for u in User.objects.filter(
+                            role__in=["manager", "accountant"], is_superuser=False
+                        )
                     ]
                     if svc.admin(request.user)
                     else [],
-                    "audit": [audit_data(a) for a in audit.order_by("-at")[:500]],
-                    "reviews": [
+                    "audit": []
+                    if request.user.role == "accountant"
+                    else [audit_data(a) for a in audit.order_by("-at")[:500]],
+                    "reviews": []
+                    if request.user.role == "accountant"
+                    else [
                         review_data(r, staff=True)
                         for r in Review.objects.filter(resort__in=resorts).order_by("-created_at")[
                             :500

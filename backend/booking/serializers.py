@@ -295,10 +295,19 @@ class AccountInput(serializers.Serializer):
     name = serializers.CharField(max_length=100)
     login = serializers.EmailField(max_length=100)
     resortId = serializers.PrimaryKeyRelatedField(
-        source="resort", queryset=Resort.objects.exclude(status="archived")
+        source="resort",
+        queryset=Resort.objects.exclude(status="archived"),
+        required=False,
+        allow_null=True,
     )
     status = serializers.ChoiceField(choices=["active", "disabled"])
     password = serializers.CharField(min_length=12, max_length=128, required=False, write_only=True)
+
+    def validate(self, data):
+        role = data.get("role", self.instance.role if self.instance else "manager")
+        if role == "manager" and not data.get("resort"):
+            raise serializers.ValidationError({"resortId": "Выберите санаторий управляющего."})
+        return data
 
     def validate_login(self, value):
         existing = User.objects.filter(email__iexact=value)
@@ -340,10 +349,10 @@ class BookingInput(serializers.Serializer):
         from django.utils import timezone
 
         births = data.pop("childrenBirthDates", None)
-        confirmed = data.pop("childrenDatesConfirmed", False)
+        # Retained for older clients, but no checkbox is required. These dates
+        # are declared input, not proof of identity or verified eligibility.
+        data.pop("childrenDatesConfirmed", None)
         if births is not None:
-            if births and not confirmed:
-                raise serializers.ValidationError("Подтвердите даты рождения детей.")
             ages = []
             for birth in births:
                 checkin = data["start"]

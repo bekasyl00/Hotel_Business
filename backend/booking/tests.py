@@ -8,9 +8,25 @@ from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from .models import Audit, Booking, Resort, Room, Tariff, User
+from .models import Audit, Booking, GuestAccount, GuestProfile, Resort, Room, Tariff, User
 
 PASSWORD = "Test-only-forest-9284!"
+
+
+def authenticate_guest(client, *, name="Тестовый гость", phone=None):
+    """Explicit registered identity fixture for tests that are not testing OTP."""
+    phone = phone or "+77" + str(uuid.uuid4().int % 1000000000).zfill(9)
+    account = GuestAccount.objects.filter(phone=phone).first()
+    if account is None:
+        profile = GuestProfile.objects.create(
+            owner="test:" + uuid.uuid4().hex, name=name, phone=phone
+        )
+        account = GuestAccount.objects.create(profile=profile, phone=phone, password="!")
+    session = client.session
+    session["guest_account"] = {"id": account.pk, "version": account.auth_version}
+    session.save()
+    client.cookies["sessionid"] = session.session_key
+    return account
 
 
 def fixture():
@@ -50,6 +66,7 @@ class ApiTests(TestCase):
     def setUp(self):
         self.resort, self.room, self.tariff, self.manager, self.admin = fixture()
         self.client = APIClient(enforce_csrf_checks=True)
+        authenticate_guest(self.client)
         self.token = self.client.get("/api/auth/csrf").json()["token"]
         self.start = timezone.localdate() + timedelta(days=5)
         self.data = {
@@ -403,6 +420,7 @@ class ConcurrencyTests(TransactionTestCase):
             close_old_connections()
             try:
                 client = APIClient(enforce_csrf_checks=True)
+                authenticate_guest(client)
                 token = client.get("/api/auth/csrf").json()["token"]
                 barrier.wait(timeout=10)
                 return client.post(

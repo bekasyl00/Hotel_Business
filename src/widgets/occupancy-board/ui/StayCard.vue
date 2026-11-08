@@ -2,6 +2,7 @@
 import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { occupancyState } from "@/entities/booking";
+import { BookingDocuments } from "@/features/booking-documents";
 import { isBankProvider } from "@/features/pay-booking";
 import { isDemo } from "@/shared/config";
 import { Modal } from "@/shared/ui";
@@ -10,6 +11,7 @@ const props = defineProps({
   booking: Object,
   audit: Array,
   busy: Boolean,
+  readOnly: Boolean,
   canCheckIn: Boolean,
   canPay: Boolean,
   error: String,
@@ -18,7 +20,11 @@ const emit = defineEmits(["close", "action", "notes"]);
 const { t } = useI18n();
 const tab = ref("main"),
   notes = ref(props.booking.staffNotes || "");
-const tabs = ["main", "guests", "calculation", "payment", "notes", "history"];
+const tabs = computed(() =>
+  props.readOnly
+    ? ["main", "guests", "calculation", "payment"]
+    : ["main", "guests", "calculation", "payment", "notes", "history"],
+);
 const state = computed(() => occupancyState(props.booking));
 const history = computed(() =>
   props.audit.filter((a) => a.entityId === props.booking.id),
@@ -142,7 +148,7 @@ const actionName = (action) =>
           {{ t("staff.board.ages") }}: {{ booking.childrenAges.join(", ") }}
         </p>
         <RouterLink
-          v-if="booking.guestProfileId"
+          v-if="booking.guestProfileId && !readOnly"
           :to="`/staff/guests/${booking.guestProfileId}`"
           >{{ t("staff.guestProfile") }}</RouterLink
         ></template
@@ -224,7 +230,7 @@ const actionName = (action) =>
           {{ money(booking.payment.refundedAmount) }}
         </p>
         <RouterLink
-          v-if="booking.payment?.receiptUrl"
+          v-if="booking.payment?.receiptUrl && !readOnly"
           class="secondary receipt-link"
           :to="booking.payment.receiptUrl"
           >{{ t("staff.openReceipt") }}</RouterLink
@@ -271,7 +277,7 @@ const actionName = (action) =>
       >
     </section>
     <p v-if="error" role="alert" class="form-error">{{ error }}</p>
-    <div class="stay-card-actions">
+    <div v-if="!readOnly" class="stay-card-actions">
       <button
         v-if="canPay"
         class="primary"
@@ -317,5 +323,6 @@ const actionName = (action) =>
         {{ t("staff.close") }}
       </button>
     </div>
+    <BookingDocuments :booking-id="booking.id" />
   </Modal>
 </template>

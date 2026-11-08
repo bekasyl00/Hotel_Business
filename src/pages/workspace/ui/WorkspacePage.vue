@@ -21,6 +21,7 @@ import { isDemo, isStaffApp } from "@/shared/config";
 const { t } = useI18n();
 const paymentDialog = ref(null);
 const canPayStaff = (b) =>
+  !session.isAccountant &&
   b.source === "staff" &&
   ["pending", "confirmed"].includes(b.status) &&
   (!b.payment ||
@@ -78,6 +79,7 @@ const focusedBooking = computed(() =>
   ),
 );
 function createAt(preset) {
+  if (session.isAccountant) return;
   editor.value = { kind: "bookings", preset };
 }
 async function cardAction(action) {
@@ -248,12 +250,14 @@ async function prepareCancellation(item) {
   }
 }
 const filteredAccounts = computed(() => accounts.value.filter(matches));
-const canAdd = computed(() =>
-  ["resorts", "accounts"].includes(section.value)
-    ? session.isAdmin
-    : ["rooms", "bookings"].includes(section.value) &&
-      current.value &&
-      current.value.status !== "archived",
+const canAdd = computed(
+  () =>
+    !session.isAccountant &&
+    (["resorts", "accounts"].includes(section.value)
+      ? session.isAdmin
+      : ["rooms", "bookings"].includes(section.value) &&
+        current.value &&
+        current.value.status !== "archived"),
 );
 const addLabels = computed(() => ({
   resorts: t("staff.createResort"),
@@ -504,7 +508,10 @@ onBeforeUnmount(() => {
           >
             <label
               >{{ t("staff.resort")
-              }}<select v-model="selected" :disabled="!session.isAdmin">
+              }}<select
+                v-model="selected"
+                :disabled="!session.isAdmin && !session.isAccountant"
+              >
                 <option v-if="!catalog.resorts.length" value="">
                   {{ t("staff.noResorts") }}
                 </option>
@@ -547,6 +554,7 @@ onBeforeUnmount(() => {
           />
           <template v-else>
             <OccupancyBoard
+              :read-only="session.isAccountant"
               v-if="section === 'bookings' && bookingView === 'calendar'"
               :key="selected"
               :resort="current"
@@ -808,7 +816,7 @@ onBeforeUnmount(() => {
                     <tr v-for="b in filteredBookings" :key="b.id">
                       <td :data-label="t('staff.bookingGuest')">
                         <RouterLink
-                          v-if="b.guestProfileId"
+                          v-if="b.guestProfileId && !session.isAccountant"
                           :to="`/staff/guests/${b.guestProfileId}`"
                           ><strong>{{ b.guestLabel }}</strong></RouterLink
                         >
@@ -860,7 +868,7 @@ onBeforeUnmount(() => {
                           ></small
                         >
                         <RouterLink
-                          v-if="b.payment?.receiptUrl"
+                          v-if="b.payment?.receiptUrl && !session.isAccountant"
                           class="receipt-link"
                           :to="b.payment.receiptUrl"
                           >{{ t("staff.openReceipt") }}</RouterLink
@@ -911,7 +919,10 @@ onBeforeUnmount(() => {
                         }}</small>
                       </td>
                       <td :data-label="t('staff.action')">
-                        <div v-if="b.status === 'pending'" class="row-actions">
+                        <div
+                          v-if="!session.isAccountant && b.status === 'pending'"
+                          class="row-actions"
+                        >
                           <button
                             v-if="canPayStaff(b)"
                             class="text-button"
@@ -934,7 +945,9 @@ onBeforeUnmount(() => {
                           </button>
                         </div>
                         <div
-                          v-else-if="b.status === 'confirmed'"
+                          v-else-if="
+                            !session.isAccountant && b.status === 'confirmed'
+                          "
                           class="row-actions"
                         >
                           <button
@@ -1230,6 +1243,7 @@ onBeforeUnmount(() => {
     </main></StaffShell
   >
   <StayCard
+    :read-only="session.isAccountant"
     v-if="focusedBooking"
     :booking="focusedBooking"
     :audit="audit"

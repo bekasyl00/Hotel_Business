@@ -1,3 +1,15 @@
+async function registerGuest(api) {
+  const challenge = await api("POST", "/guest-auth/challenges", {
+    phone: "+77000000001",
+    purpose: "register",
+  });
+  await api("POST", "/guest-auth/register", {
+    challengeId: challenge.challengeId,
+    code: challenge.demoCode,
+    name: "Демо-гость",
+    password: "12345678",
+  });
+}
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
@@ -11,7 +23,7 @@ import {
 } from "../src/app/providers/demo-marketplace.js";
 import { dateAfter } from "../src/entities/booking/rules.js";
 
-function setup() {
+async function setup() {
   const data = new Map(),
     accounts = new Map();
   const memory = (map) => ({
@@ -30,6 +42,7 @@ function setup() {
     fn(db);
     storage.setItem(DATABASE_KEY, JSON.stringify(db));
   };
+  await registerGuest(api);
   return { api, mutate };
 }
 const booking = () => ({
@@ -71,7 +84,7 @@ test("refund boundaries use frozen advertised checkin; settled refund never chan
 });
 
 test("discount and checkin survive later catalogue changes", async () => {
-  const { api } = setup();
+  const { api } = await setup();
   await api("POST", "/auth/login", { accountId: "admin" });
   let workspace = await api("GET", "/workspace");
   const resort = workspace.resorts.find((r) => r.id === "altun");
@@ -100,7 +113,7 @@ test("discount and checkin survive later catalogue changes", async () => {
 });
 
 test("payment confirms pending automatically; retry is idempotent and cancellation settles once", async () => {
-  const { api } = setup();
+  const { api } = await setup();
   let b = await api("POST", "/my-bookings", booking());
   const pay = {
     bookingId: b.id,
@@ -136,7 +149,7 @@ test("payment confirms pending automatically; retry is idempotent and cancellati
 });
 
 test("only completed verified stays can review; moderation hides private metadata", async () => {
-  const { api, mutate } = setup();
+  const { api, mutate } = await setup();
   const b = await api("POST", "/my-bookings", booking());
   const payload = {
     bookingId: b.id,
@@ -179,7 +192,7 @@ test("only completed verified stays can review; moderation hides private metadat
 });
 
 test("staff sessions cannot review even an owned completed website booking", async () => {
-  const { api, mutate } = setup();
+  const { api, mutate } = await setup();
   const b = await api("POST", "/my-bookings", booking());
   mutate((db) =>
     Object.assign(
@@ -229,17 +242,17 @@ test("media URL rejects credentialed, malformed and traversing references", () =
 });
 
 test("guest profile persists across reloads and staff history is tenant scoped", async () => {
-  const { api } = setup();
+  const { api } = await setup();
   const first = (await api("GET", "/profile")).profile;
   const changed = await api("PATCH", "/profile", {
     name: "Демо-гость",
-    phone: "+70000000000",
+    phone: "+77000000001",
   });
   assert.equal(changed.profile.id, first.id);
   await assert.rejects(
     api("PATCH", "/profile", {
       name: "Демо",
-      phone: "+70000000000",
+      phone: "+77000000001",
       owner: "other",
     }),
   );
@@ -264,7 +277,7 @@ test("guest profile persists across reloads and staff history is tenant scoped",
 });
 
 test("demo receipt remains original after profile/catalogue edits and refunds", async () => {
-  const { api } = setup();
+  const { api } = await setup();
   let b = await api("POST", "/my-bookings", booking());
   await api("POST", "/auth/login", { accountId: "manager-altun" });
   await assert.rejects(
@@ -282,7 +295,7 @@ test("demo receipt remains original after profile/catalogue edits and refunds", 
   const original = (await api("GET", `/receipts/${p.id}`)).receipt;
   await api("PATCH", "/profile", {
     name: "Другое демо-имя",
-    phone: "+70000000001",
+    phone: "+77000000001",
   });
   const resort = (await api("GET", "/workspace")).resorts[0];
   await api("PATCH", `/resorts/${resort.id}`, {
@@ -303,7 +316,7 @@ test("demo receipt remains original after profile/catalogue edits and refunds", 
 });
 
 test("legacy demo receipts are restored once and remain frozen after catalogue edits", async () => {
-  const { api, mutate } = setup();
+  const { api, mutate } = await setup();
   let b = await api("POST", "/my-bookings", booking());
   await api("POST", "/auth/login", { accountId: "manager-altun" });
   await assert.rejects(
@@ -349,7 +362,7 @@ test("legacy demo receipts are restored once and remain frozen after catalogue e
 });
 
 test("arrival needs payment/date/scope/version; checked-in bookings cannot cancel", async () => {
-  const { api, mutate } = setup();
+  const { api, mutate } = await setup();
   let b = await api("POST", "/my-bookings", booking());
   await api("POST", "/auth/login", { accountId: "manager-altun" });
   await assert.rejects(
@@ -409,7 +422,7 @@ test("arrival needs payment/date/scope/version; checked-in bookings cannot cance
 });
 
 test("expired demo holds release inventory and cannot be paid", async () => {
-  const { api, mutate } = setup();
+  const { api, mutate } = await setup();
   const first = await api("POST", "/my-bookings", booking());
   mutate((db) => {
     db.bookings.find((b) => b.id === first.id).holdExpiresAt = new Date(
@@ -430,7 +443,7 @@ test("expired demo holds release inventory and cannot be paid", async () => {
 });
 
 test("admin commission setting is frozen for each order and protected from managers", async () => {
-  const { api } = setup();
+  const { api } = await setup();
   await api("POST", "/auth/login", { accountId: "admin" });
   let resort = (await api("GET", "/workspace")).resorts.find(
     (r) => r.id === "altun",
@@ -466,7 +479,7 @@ test("admin commission setting is frozen for each order and protected from manag
 });
 
 test("staff-created demo orders are booked by payment, not approval", async () => {
-  const { api } = setup();
+  const { api } = await setup();
   await api("POST", "/auth/login", { accountId: "manager-altun" });
   const b = await api("POST", "/bookings", {
     ...booking(),

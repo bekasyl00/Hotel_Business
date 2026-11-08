@@ -226,17 +226,17 @@ def breakdown(source, resorts, dimension):
 
 
 def analytics_for_request(request):
-    require_staff(request.user)
+    require_staff(request.user, roles=("admin", "manager", "accountant"))
     start, end, granularity = parse_period(request.query_params)
     resorts = (
         Resort.objects.all()
-        if admin(request.user)
+        if admin(request.user) or request.user.role == "accountant"
         else Resort.objects.filter(pk=request.user.resort_id)
     )
     selected = request.query_params.get("resortId")
     options = list(resorts.order_by("name", "id").values("id", "name"))
     if selected:
-        require_staff(request.user, selected)
+        require_staff(request.user, selected, roles=("admin", "manager", "accountant"))
         if not resorts.filter(pk=selected).exists():
             raise Problem("Санаторий не найден.", 404)
         resorts = resorts.filter(pk=selected)

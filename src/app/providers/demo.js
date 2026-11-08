@@ -371,7 +371,13 @@ export function createDemoTransport({
     });
     if (expansion.handled) return clone(expansion.value);
     if (pathname === "/analytics" && method === "GET")
-      return clone(demoAnalytics(db, user, params));
+      return clone(
+        demoAnalytics(
+          db,
+          user?.role === "accountant" ? { ...user, role: "admin" } : user,
+          params,
+        ),
+      );
     if (pathname === "/auth/session" && method === "GET") return clone(user);
     if (pathname === "/demo/accounts" && method === "GET")
       return clone(
@@ -443,7 +449,8 @@ export function createDemoTransport({
       if (!["admin", "accountant"].includes(user.role))
         fail("Недостаточно прав.", 403);
       const resorts = db.resorts.filter(
-        (r) => user.role === "admin" || r.id === user.resortId,
+        (r) =>
+          ["admin", "accountant"].includes(user.role) || r.id === user.resortId,
       );
       const selected = params.get("resortId");
       if (selected && !resorts.some((r) => r.id === selected))
@@ -479,7 +486,7 @@ export function createDemoTransport({
         }));
       const report = demoAnalytics(
           db,
-          { ...user, role: user.role === "accountant" ? "manager" : user.role },
+          { ...user, role: user.role === "accountant" ? "admin" : user.role },
           params,
         ),
         page = Math.max(1, Number(params.get("page")) || 1);
@@ -500,24 +507,30 @@ export function createDemoTransport({
     }
 
     if (pathname === "/workspace" && method === "GET") {
-      if (user?.role === "accountant")
-        fail("Откройте бухгалтерский кабинет.", 403);
       if (!user) fail("Войдите в кабинет сотрудника.", 401);
       return clone({
         resorts: db.resorts.filter(
-          (r) => user.role === "admin" || r.id === user.resortId,
+          (r) =>
+            ["admin", "accountant"].includes(user.role) ||
+            r.id === user.resortId,
         ),
-        rooms: db.rooms.filter(scoped),
-        tariffs: db.tariffs.filter(scoped),
-        bookings: db.bookings.filter(scoped),
+        rooms: db.rooms.filter(
+          (item) => user.role === "accountant" || scoped(item),
+        ),
+        tariffs: db.tariffs.filter(
+          (item) => user.role === "accountant" || scoped(item),
+        ),
+        bookings: db.bookings.filter(
+          (item) => user.role === "accountant" || scoped(item),
+        ),
         accounts:
           user.role === "admin"
             ? db.accounts.filter((a) =>
                 ["manager", "accountant"].includes(a.role),
               )
             : [],
-        audit: db.audit.filter(scoped),
-        reviews: db.reviews.filter(scoped),
+        audit: user.role === "accountant" ? [] : db.audit.filter(scoped),
+        reviews: user.role === "accountant" ? [] : db.reviews.filter(scoped),
       });
     }
     if (pathname === "/my-bookings" && method === "GET")
@@ -533,6 +546,8 @@ export function createDemoTransport({
     if (id && !item) fail("Запись не найдена. Обновите список.", 404);
     if (entity === "bookings") {
       if (method === "POST") {
+        if (kind === "my-bookings" && !db.guestAccount)
+          fail("Войдите или зарегистрируйтесь для бронирования.", 401);
         const room = db.rooms.find((r) => r.id === payload.roomId);
         const tariff = db.tariffs.find((t) => t.id === payload.tariffId);
         if (
@@ -607,7 +622,7 @@ export function createDemoTransport({
           cancellationPolicy,
           holdExpiresAt: new Date(
             Math.min(
-              Date.now() + 30 * 60000,
+              Date.now() + 15 * 60000,
               Date.parse(cancellationPolicy.checkinAt),
             ),
           ).toISOString(),

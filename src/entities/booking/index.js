@@ -14,3 +14,6 @@ export {
   occupancyState,
   calendarRows,
 } from "./model/occupancy.js";
+
+export { default as PaymentCountdown } from "./ui/PaymentCountdown.vue";
+export { holdSeconds, holdLabel } from "./model/hold.js";

@@ -19,13 +19,14 @@ from commerce.models import DemoPayment
 from .errors import Problem
 from .models import Audit, Booking, GuestProfile, Resort, Room, Tariff
 from .services import change_stay
-from .tests import fixture
+from .tests import authenticate_guest, fixture
 
 
 class ProfileTests(TestCase):
     def setUp(self):
         self.resort, self.room, self.tariff, self.manager, self.admin = fixture()
         self.client = APIClient(enforce_csrf_checks=True)
+        authenticate_guest(self.client, name="Гость один", phone="+77010000001")
         self.token = self.client.get("/api/auth/csrf").json()["token"]
         self.today = timezone.localdate()
         clock = patch(
@@ -72,7 +73,7 @@ class ProfileTests(TestCase):
 
     def test_first_profile_and_updates_are_session_owned_and_do_not_rewrite_booking(self):
         empty = self.client.get("/api/profile").json()
-        self.assertEqual(empty["profile"]["name"], "")
+        self.assertEqual(empty["profile"]["name"], "Гость один")
         self.assertEqual(empty["bookings"], [])
         booking = self.create()
         response = self.client.get("/api/profile").json()
@@ -88,11 +89,11 @@ class ProfileTests(TestCase):
             {"name": "Без телефона"},
         ]:
             self.assertEqual(self.write("patch", "/api/profile", payload).status_code, 422)
-        result = self.write("patch", "/api/profile", {"name": "Новое имя", "phone": "+71111111111"})
+        result = self.write("patch", "/api/profile", {"name": "Новое имя", "phone": "+77010000001"})
         self.assertEqual(result.status_code, 200, result.content)
-        self.assertEqual(result.json()["profile"]["phone"], "+71111111111")
+        self.assertEqual(result.json()["profile"]["phone"], "+77010000001")
         booking.refresh_from_db()
-        self.assertEqual(booking.guest_phone, "+70000000000")
+        self.assertEqual(booking.guest_phone, "+77010000001")
         profile_audit = Audit.objects.filter(entity="guestProfiles").get()
         self.assertNotIn("phone", profile_audit.after)
         self.assertNotIn("name", profile_audit.after)
@@ -101,9 +102,10 @@ class ProfileTests(TestCase):
         self.assertEqual(foreign.get("/api/profile").json()["bookings"], [])
         self.assertEqual(foreign.get(f"/api/guests/{profile['id']}").status_code, 401)
 
-    def test_website_profiles_do_not_merge_by_phone_and_manual_bookings_remain_unlinked(self):
+    def test_registered_profiles_remain_separate_and_manual_bookings_remain_unlinked(self):
         booking = self.create()
         foreign = APIClient()
+        authenticate_guest(foreign, phone="+77010000002")
         future = self.today + timedelta(days=5)
         response = foreign.post(
             "/api/my-bookings",
@@ -117,7 +119,7 @@ class ProfileTests(TestCase):
         )
         self.assertEqual(response.status_code, 201, response.content)
         self.assertNotEqual(response.json()["guestProfileId"], booking.guest_profile_id)
-        self.assertEqual(GuestProfile.objects.filter(phone="+70000000000").count(), 2)
+        self.assertEqual(GuestProfile.objects.filter(account__isnull=False).count(), 2)
         self.staff()
         future += timedelta(days=4)
         response = self.write(

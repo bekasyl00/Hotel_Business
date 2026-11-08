@@ -10,13 +10,14 @@ from rest_framework.test import APIClient
 from commerce.models import DemoPayment
 
 from .models import Audit, Booking
-from .tests import fixture
+from .tests import authenticate_guest, fixture
 
 
 class CheckoutTests(TestCase):
     def setUp(self):
         self.resort, self.room, self.tariff, self.manager, self.admin = fixture()
         self.client = APIClient(enforce_csrf_checks=True)
+        authenticate_guest(self.client)
         self.token = self.client.get("/api/auth/csrf").json()["token"]
         start = timezone.localdate() + timedelta(days=5)
         self.payload = {

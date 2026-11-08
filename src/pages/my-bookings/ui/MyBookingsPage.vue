@@ -1,7 +1,7 @@
 <script setup>
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
-import { onMounted, ref, computed } from "vue";
+import { onMounted, onBeforeUnmount, ref, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 const route = useRoute(),
   router = useRouter();
@@ -9,12 +9,22 @@ import { PublicHeader } from "@/widgets/public-header";
 import { PaymentDialog } from "@/widgets/payment-dialog";
 import { ReviewForm } from "@/features/review-form";
 import { isBankProvider } from "@/features/pay-booking";
-import { useBookingStore, dateAfter } from "@/entities/booking";
+import {
+  useBookingStore,
+  dateAfter,
+  PaymentCountdown,
+} from "@/entities/booking";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
 import { isDemo } from "@/shared/config";
-import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
+import { money, dateLabel, statusNames } from "@/shared/lib";
 const store = useBookingStore();
+const now = ref(Date.now());
+let clock;
+onMounted(() => {
+  clock = setInterval(() => (now.value = Date.now()), 1000);
+});
+onBeforeUnmount(() => clearInterval(clock));
 const loading = ref(true),
   error = ref(""),
   notice = ref(""),
@@ -45,8 +55,8 @@ const canPay = (booking) =>
   ["pending", "confirmed"].includes(booking.status) &&
   (booking.status !== "pending" ||
     !booking.holdExpiresAt ||
-    Date.parse(booking.holdExpiresAt) > Date.now()) &&
-  Date.parse(booking.cancellationPolicy?.checkinAt || "") > Date.now() &&
+    Date.parse(booking.holdExpiresAt) > now.value) &&
+  Date.parse(booking.cancellationPolicy?.checkinAt || "") > now.value &&
   (!booking.payment ||
     ["failed", "creating", "pending"].includes(booking.payment.status));
 function checkinLabel(booking) {
@@ -155,11 +165,7 @@ onMounted(load);
         </button>
       </header>
       <p class="public-session-note">
-        {{
-          t(
-            "public.bookingsCreatedInThisBrowserAppearHereKeepYourBookingReferenceClearing",
-          )
-        }}
+        {{ t("common.checkout.accountHistory") }}
       </p>
       <p v-if="notice" class="success-notice" role="status">{{ notice }}</p>
       <div v-if="error" class="profile-feedback" role="alert">
@@ -221,16 +227,7 @@ onMounted(load);
             )
           }}
         </p>
-        <p
-          v-if="booking.status === 'pending' && booking.holdExpiresAt"
-          class="booking-status-note"
-        >
-          {{
-            t("common.checkout.payBefore", {
-              date: timeLabel(booking.holdExpiresAt),
-            })
-          }}
-        </p>
+        <PaymentCountdown :booking="booking" @expired="load" />
         <p
           v-if="booking.status === 'confirmed' && !booking.payment"
           class="booking-status-note"

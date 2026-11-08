@@ -4,6 +4,7 @@ import { useI18n } from "vue-i18n";
 import { PayBooking, isBankProvider } from "@/features/pay-booking";
 import { DemoPayment } from "@/features/demo-payment";
 import { Modal } from "@/shared/ui";
+import { PaymentCountdown } from "@/entities/booking";
 import { request } from "@/shared/api";
 import { isDemo } from "@/shared/config";
 const props = defineProps({
@@ -48,6 +49,7 @@ onMounted(async () => {
     @saved="emit('saved', $event)"
   />
   <Modal v-else :title="t('common.payment.title')" @close="emit('close')">
+    <PaymentCountdown :booking="booking" />
     <p role="status">
       {{
         error ||

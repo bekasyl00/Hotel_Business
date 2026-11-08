@@ -14,6 +14,8 @@ import {
   quoteStay,
 } from "@/entities/booking";
 import { request } from "@/shared/api";
+import { useGuestAccountStore } from "@/entities/guest-account";
+const guestAccount = useGuestAccountStore();
 import { money, categoryNames } from "@/shared/lib";
 const route = useRoute();
 const router = useRouter();
@@ -65,7 +67,11 @@ async function load() {
     if (run !== generation) return;
     data.value = result;
     tariffId.value =
-      result.tariffs.find((t) => t.status === "active")?.id || "";
+      result.tariffs.find(
+        (t) => t.id === route.query.tariffId && t.status === "active",
+      )?.id ||
+      result.tariffs.find((t) => t.status === "active")?.id ||
+      "";
     if (dates.guests > result.room.capacity)
       dates.guests = result.room.capacity;
   } catch (e) {
@@ -78,6 +84,11 @@ async function load() {
     if (run === generation) loading.value = false;
   }
   if (run === generation && data.value && route.query.start) await checkDates();
+  if (run === generation && available.value && route.query.checkout === "1") {
+    const { checkout: _checkout, ...query } = route.query;
+    await router.replace({ query });
+    await openCheckout();
+  }
 }
 async function selectCalendarDates(range) {
   Object.assign(dates, range);
@@ -100,6 +111,23 @@ async function checkDates() {
     if (run === searchGeneration) searchError.value = e.message;
   } finally {
     if (run === searchGeneration) searching.value = false;
+  }
+}
+async function openCheckout() {
+  searchError.value = "";
+  try {
+    await guestAccount.restore();
+    if (!guestAccount.authenticated) {
+      const next = router.resolve({
+        path: route.path,
+        query: { ...dates, tariffId: tariffId.value, checkout: "1" },
+      }).href;
+      await router.push({ path: "/account/login", query: { next } });
+      return;
+    }
+    checkout.value = true;
+  } catch (e) {
+    searchError.value = e.message;
   }
 }
 async function saved(booking) {
@@ -405,7 +433,7 @@ watch(() => route.params.id, load, { immediate: true });
                   type="button"
                   class="primary full-width"
                   :disabled="!tariff"
-                  @click="checkout = true"
+                  @click="openCheckout"
                 >
                   {{ t("public.sendRequest") }}
                 </button></template

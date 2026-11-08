@@ -25,7 +25,13 @@ const { busy, error, save } = useEditor("accounts", props.item, emit);
     @close="emit('close')"
     ><form
       class="editor-form"
-      @submit.prevent="save({ ...form, password: form.password || undefined })"
+      @submit.prevent="
+        save({
+          ...form,
+          resortId: form.role === 'accountant' ? null : form.resortId,
+          password: form.password || undefined,
+        })
+      "
     >
       <label
         >{{ t("staff.nameLabel")
@@ -38,7 +44,7 @@ const { busy, error, save } = useEditor("accounts", props.item, emit);
           maxlength="100"
           placeholder="manager@demo.tynys"
           autocomplete="off" /></label
-      ><label
+      ><label v-if="form.role !== 'accountant'"
         >{{ t("staff.resort")
         }}<select v-model="form.resortId" required>
           <option disabled value="">{{ t("staff.selectResort") }}</option>

@@ -8,7 +8,7 @@ from psycopg.types.range import Range
 from rest_framework.test import APIClient
 
 from .models import Audit, Booking, RoomPricePeriod
-from .tests import fixture
+from .tests import authenticate_guest, fixture
 
 
 class PlannerTests(TestCase):
@@ -62,6 +62,7 @@ class PlannerTests(TestCase):
 
     def test_guest_cannot_use_room_only_price(self):
         self.client.logout()
+        authenticate_guest(self.client)
         self.token = self.client.get("/api/auth/csrf").json()["token"]
         self.payload["guestPhone"] = "+70000000000"
         result = self.post("/api/my-bookings", self.payload)

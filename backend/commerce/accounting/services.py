@@ -9,7 +9,7 @@ from rest_framework import serializers
 
 from booking.errors import Problem
 from booking.models import Audit, Resort
-from booking.services import admin, require_staff, version_check
+from booking.services import require_staff, version_check
 from commerce.models import AccountingCompany, AccountingDocument, AccountingSequence
 from commerce.services import booking_payment_data
 
@@ -22,7 +22,7 @@ def require_accountant(user, resort_id=None):
 
 def resorts_for(user):
     require_accountant(user)
-    return Resort.objects.all() if admin(user) else Resort.objects.filter(pk=user.resort_id)
+    return Resort.objects.all()
 
 
 class StrictInput(serializers.Serializer):

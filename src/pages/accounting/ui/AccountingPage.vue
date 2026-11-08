@@ -2,6 +2,8 @@
 import { ref, reactive, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
+import { DocumentFiles } from "@/shared/ui";
+import { AccountingLedger } from "@/features/accounting-ledger";
 import { StaffShell } from "@/widgets/staff-shell";
 import { useSessionStore } from "@/entities/session";
 import { request, requestFile } from "@/shared/api";
@@ -90,10 +92,6 @@ async function download(path, name, type) {
     error.value = e.message;
   }
 }
-const mime = {
-  pdf: "application/pdf",
-  xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-};
 async function openCompany() {
   if (!filter.resortId) return;
   companyError.value = "";
@@ -205,6 +203,14 @@ onMounted(() => load());
           </article>
         </section>
         <p class="field-help">{{ t("common.accounting.totalsHint") }}</p>
+        <AccountingLedger
+          :finance="data.finance"
+          :resorts="data.resorts"
+          :query="query()"
+          :payment-mode="filter.paymentMode"
+          :resort-id="filter.resortId"
+          @saved="load()"
+        />
         <section class="finance-section">
           <header>
             <h2>{{ t("common.accounting.bookings") }} · {{ data.count }}</h2>
@@ -333,20 +339,11 @@ onMounted(() => load());
                 )
               }}</small>
               <div class="document-actions">
+                <DocumentFiles
+                  :path="`/accounting/documents/${doc.id}`"
+                  :number="doc.number"
+                />
                 <button
-                  v-for="ext in ['pdf', 'xlsx']"
-                  :key="ext"
-                  class="secondary"
-                  @click="
-                    download(
-                      `/accounting/documents/${doc.id}/${ext}/download`,
-                      doc.number + '.' + ext,
-                      mime[ext],
-                    )
-                  "
-                >
-                  {{ ext.toUpperCase() }}</button
-                ><button
                   v-if="doc.state === 'draft'"
                   class="secondary"
                   :disabled="busy"

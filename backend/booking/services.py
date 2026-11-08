@@ -70,8 +70,10 @@ def require_staff(user, resort_id=None, *, roles=("admin", "manager")):
         raise Problem("Войдите в кабинет сотрудника.", 401)
     if not user.is_active or (not user.is_superuser and user.role not in roles):
         raise Problem("Эта операция недоступна вашей роли.", 403)
-    if not admin(user) and (
-        not user.resort_id or (resort_id and str(user.resort_id) != str(resort_id))
+    if (
+        not admin(user)
+        and user.role != "accountant"
+        and (not user.resort_id or (resort_id and str(user.resort_id) != str(resort_id)))
     ):
         raise Problem("У вас нет доступа к этому санаторию.", 403)
 
@@ -158,11 +160,40 @@ def validated_dates(start, end):
 
 @transaction.atomic
 def create_booking(request, staff=False):
-    inp = BookingInput(data=request.data)
+    from .guest_auth import current_account
+
+    profile = None
+    if staff:
+        require_staff(request.user)
+        payload = request.data
+        owner = f"user:{request.user.pk}"
+    else:
+        account = current_account(request)
+        if not account:
+            raise Problem(
+                "Войдите или зарегистрируйтесь для бронирования.", 401, "guest_login_required"
+            )
+        profile = account.profile
+        if not profile.name.strip() or not account.phone:
+            raise Problem(
+                "Заполните имя в профиле перед бронированием.", 422, "guest_profile_incomplete"
+            )
+        # Contact fields from old clients are deliberately ignored. The account
+        # supplies identity; a booking must never overwrite the guest's profile.
+        payload = (
+            {**request.data, "guestLabel": profile.name, "guestPhone": account.phone}
+            if isinstance(request.data, dict)
+            else request.data
+        )
+        owner = profile.owner
+    inp = BookingInput(data=payload)
     inp.is_valid(raise_exception=True)
     data = inp.validated_data
-    owner = f"user:{request.user.pk}" if staff else guest_owner(request)
-    fingerprint_data = {k: v for k, v in data.items() if k != "childrenAges" or v}
+    fingerprint_data = {
+        k: v
+        for k, v in data.items()
+        if (k != "childrenAges" or v) and (staff or k not in {"guestLabel", "guestPhone"})
+    }
     fingerprint = hashlib.sha256(
         json.dumps(fingerprint_data, sort_keys=True, default=str).encode()
     ).hexdigest()
@@ -206,9 +237,6 @@ def create_booking(request, staff=False):
     checkin_at = datetime.fromisoformat(cancellation_policy["checkinAt"])
     if checkin_at <= timezone.now():
         raise Problem("Время заезда уже наступило. Выберите другую дату.", 409)
-    profile = (
-        upsert_guest_profile(owner, data["guestLabel"], data["guestPhone"]) if not staff else None
-    )
     booking = Booking.objects.create(
         resort=resort,
         room=room,
@@ -407,8 +435,9 @@ def save_account(request, pk=None):
     before = account_data(item) if item else None
     item = item or User()
     item.name, item.email, item.username = data["name"], data["login"], data["login"]
-    item.resort, item.is_active = data["resort"], data["status"] == "active"
     item.role = data.get("role", item.role or "manager")
+    item.resort = None if item.role == "accountant" else data["resort"]
+    item.is_active = data["status"] == "active"
     if password:
         validate_password(password, item)
         item.set_password(password)

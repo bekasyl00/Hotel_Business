@@ -10,10 +10,18 @@ const emit = defineEmits(["logout"]);
 const session = useSessionStore();
 const nav = computed(() =>
   session.isAccountant
-    ? [["accounting", "₸", t("common.accounting.title")]]
+    ? [
+        ["accounting", "₸", t("common.accounting.title")],
+        ["analytics", "↗", t("staff.analytics")],
+        ["bookings", "▤", t("staff.board.title")],
+      ]
     : [
         ...(session.isAdmin
-          ? [["accounting", "₸", t("common.accounting.title")]]
+          ? [
+              ["accounting", "₸", t("common.accounting.title")],
+              ["analytics", "↗", t("staff.analytics")],
+              ["bookings", "▤", t("staff.board.title")],
+            ]
           : []),
         ["overview", "◫", t("staff.overview")],
         ["analytics", "↗", t("staff.analytics")],
@@ -73,7 +81,9 @@ const nav = computed(() =>
         <span
           >{{ t("staff.workspaceBreadcrumb") }}
           <strong>{{
-            session.isAdmin ? t("staff.platform") : t("staff.resort")
+            session.isAdmin || session.isAccountant
+              ? t("staff.platform")
+              : t("staff.resort")
           }}</strong></span
         >
         <div class="staff-topbar-actions">

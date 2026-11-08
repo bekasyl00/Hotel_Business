@@ -13,6 +13,7 @@ const props = defineProps({
   bookings: Array,
   resort: Object,
   busy: Boolean,
+  readOnly: Boolean,
 });
 const emit = defineEmits(["select", "create", "refresh"]);
 const { t, locale } = useI18n();
@@ -79,6 +80,7 @@ const blockedDays = computed(() => {
 });
 function available(room, day) {
   return (
+    !props.readOnly &&
     room.status === "active" &&
     props.resort?.status === "published" &&
     day >= today.value &&

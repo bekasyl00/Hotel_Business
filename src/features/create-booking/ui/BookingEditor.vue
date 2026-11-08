@@ -1,9 +1,9 @@
 <script setup>
-import { ageAt, birthHint } from "../model/children.js";
+import { ageAt, childBirthFromIin } from "../model/children.js";
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
-import { isDemo, isMobile, isStaffApp } from "@/shared/config";
-import { reactive, computed, watch } from "vue";
+import { isDemo } from "@/shared/config";
+import { reactive, computed, watch, onMounted } from "vue";
 import { Modal } from "@/shared/ui";
 import {
   useBookingStore,
@@ -50,25 +50,30 @@ const price = computed(() =>
 );
 const total = computed(() => price.value?.total || 0);
 const children = ref([]);
-function suggestBirth(child) {
-  const hint = birthHint(child.prefix, form.start);
-  if (hint) child.birth = hint;
-  child.confirmed = false;
-}
 watch(
   [children, () => form.start],
   () => {
-    form.childrenAges = children.value.map((c) => ageAt(c.birth, form.start));
+    form.childrenAges = children.value.map((c) =>
+      ageAt(childBirthFromIin(c.iin, form.start, dateAfter()), form.start),
+    );
   },
   { deep: true },
 );
+onMounted(async () => {
+  if (!props.staff) {
+    try {
+      await guestAccount.restore();
+    } catch (e) {
+      error.value = e.message;
+    }
+  }
+});
 const childCount = computed({
   get: () => children.value.length,
   set: (value) => {
     children.value = Array.from(
       { length: Math.max(0, Math.min(Number(value) || 0, form.guests - 1)) },
-      (_, i) =>
-        children.value[i] ?? { prefix: "", birth: "", confirmed: false },
+      (_, i) => children.value[i] ?? { iin: "" },
     );
   },
 });
@@ -84,9 +89,14 @@ const store = useBookingStore(),
   consent = ref(false);
 let attempt = null;
 async function save() {
-  error.value = children.value.some((c) => !c.confirmed || !c.birth)
-    ? t("common.children.confirmRequired")
-    : validateChildren(form.guests, form.childrenAges);
+  error.value =
+    !props.staff && !guestAccount.authenticated
+      ? t("common.checkout.loginRequired")
+      : children.value.some(
+            (c) => !childBirthFromIin(c.iin, form.start, dateAfter()),
+          )
+        ? t("common.children.invalidIin")
+        : validateChildren(form.guests, form.childrenAges);
   if (error.value) return;
   busy.value = true;
   error.value = "";
@@ -94,11 +104,13 @@ async function save() {
     const fingerprint = JSON.stringify(form);
     if (attempt?.fingerprint !== fingerprint)
       attempt = { fingerprint, id: crypto.randomUUID() };
+    const { guestLabel, guestPhone, ...publicForm } = form;
     const result = await store.create(
       {
-        ...form,
-        childrenBirthDates: children.value.map((c) => c.birth),
-        childrenDatesConfirmed: true,
+        ...(props.staff ? form : publicForm),
+        childrenBirthDates: children.value.map((c) =>
+          childBirthFromIin(c.iin, form.start, dateAfter()),
+        ),
         requestId: attempt.id,
       },
       props.staff,
@@ -144,7 +156,7 @@ watch(
           <p>{{ resort.city }}</p>
         </div>
       </div>
-      <label v-if="staff || !isDemo"
+      <label v-if="staff"
         >{{ t("public.guestName")
         }}<input
           v-model="form.guestLabel"
@@ -152,7 +164,7 @@ watch(
           maxlength="80"
           :placeholder="t('public.forExampleDemoGuest01')"
       /></label>
-      <label v-if="!isDemo"
+      <label v-if="staff && !isDemo"
         >{{ t("public.contactPhone")
         }}<input
           v-model="form.guestPhone"
@@ -164,11 +176,19 @@ watch(
       <p v-if="staff && isDemo" class="field-help">
         {{ t("public.useFictionalDetailsForTesting") }}
       </p>
+      <p v-if="!staff" class="field-help">
+        {{
+          t("common.checkout.profileContact", {
+            name: guestAccount.session?.profile?.name || "—",
+            phone: guestAccount.session?.account?.phone || "—",
+          })
+        }}
+      </p>
       <RouterLink
-        v-if="isMobile && !isStaffApp && !isDemo && !guestAccount.authenticated"
+        v-if="!staff && !guestAccount.authenticated"
         to="/account/login"
         class="field-help"
-        >{{ t("common.mobile.bookingLogin") }}</RouterLink
+        >{{ t("common.checkout.loginRequired") }}</RouterLink
       >
       <div class="form-grid">
         <label
@@ -224,34 +244,21 @@ watch(
           class="child-birth-fields"
         >
           <label
-            >{{ t("common.children.prefix", { number: index + 1 })
+            >{{ t("common.children.iin", { number: index + 1 })
             }}<input
-              v-model="child.prefix"
+              v-model="child.iin"
               inputmode="numeric"
-              maxlength="6"
-              pattern="[0-9]{6}"
+              minlength="12"
+              maxlength="12"
+              pattern="[0-9]{12}"
               autocomplete="off"
-              @input="suggestBirth(child)"
-          /></label>
-          <label
-            >{{ t("common.children.birth")
-            }}<input
-              v-model="child.birth"
-              type="date"
-              :max="dateAfter()"
               required
-              @input="child.confirmed = false"
           /></label>
           <p class="field-help">
             {{
               t("common.children.age", { age: form.childrenAges[index] ?? "—" })
             }}
           </p>
-          <label class="consent-row"
-            ><input v-model="child.confirmed" type="checkbox" required />{{
-              t("common.children.confirm")
-            }}</label
-          >
         </div>
         <p v-if="children.length" class="field-help">
           {{ t("common.children.hint") }}
@@ -332,7 +339,10 @@ watch(
           @click="emit('close')"
         >
           {{ t("public.cancel") }}</button
-        ><button class="primary" :disabled="busy || !price">
+        ><button
+          class="primary"
+          :disabled="busy || !price || (!staff && !guestAccount.authenticated)"
+        >
           {{
             busy
               ? t("public.saving")
