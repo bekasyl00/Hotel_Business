@@ -12,6 +12,12 @@ PROVIDERS = {
 }
 
 
+def environment_for(provider):
+    if provider == "xpayment":
+        return settings.XPAYMENT_ENV
+    return PROVIDERS.get(provider, ("disabled",))[0]
+
+
 def configuration(provider=None, *, require_gate=True):
     name = provider or settings.PAYMENT_PROVIDER
     if name not in PROVIDERS:
@@ -21,7 +27,7 @@ def configuration(provider=None, *, require_gate=True):
 
 def provider_for(payment, *, creating=False):
     config = configuration(payment.provider, require_gate=creating)
-    environment = PROVIDERS[payment.provider][0]
+    environment = environment_for(payment.provider)
     if payment.environment != environment or payment.merchant_scope != config.merchant_scope:
         raise ProviderError("payment_merchant_configuration_changed")
     if payment.provider == "halyk_epay":
@@ -38,7 +44,8 @@ def provider_for(payment, *, creating=False):
 def processable_jobs():
     """Missing credentials preserve jobs; a closed creation gate still allows settlement."""
     query = Q(pk__in=[])
-    for name, (environment, _) in PROVIDERS.items():
+    for name in PROVIDERS:
+        environment = environment_for(name)
         try:
             config = configuration(name, require_gate=False)
         except ProviderError:

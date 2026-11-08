@@ -1,7 +1,7 @@
-"""XPayment device API. Signed notifications are never payment evidence.
+"""XPayment v1/v2 API. Signed notifications are never payment evidence.
 
-Contract: https://xpayment.kz/openapi/xpayment-developer-api.json
-There is no documented monetary sandbox or idempotency for link/refund POSTs.
+Contracts: https://xpayment.kz/openapi/xpayment-api-v{1,2}.json
+Sandbox credentials are isolated; link/refund POSTs are never blindly retried.
 """
 
 import json
@@ -21,6 +21,7 @@ from .base import Checkout, ProviderError, Transaction
 API = "https://api.xpayment.kz/v1"
 MAX_RESPONSE_BYTES = 1024 * 1024
 PAYMENT_STATUSES = {
+    "QR_TOKEN_CREATED": "ACTIVE",
     "PENDING": "ACTIVE",
     "PROCESSING": "ACTIVE",
     "COMPLETED": "CHARGE",
@@ -72,8 +73,13 @@ def aware_datetime(value):
         raise ProviderError("bank_response_invalid") from None
 
 
-def checkout_url(value):
-    if not isinstance(value, str) or not re.fullmatch(r"https://qr\.kaspi\.kz/[0-9]{1,200}", value):
+def checkout_url(value, *, environment="production"):
+    pattern = (
+        r"https://xpayment\.kz/sandbox/qr/[0-9]{1,200}"
+        if environment == "sandbox"
+        else r"https://qr\.kaspi\.kz/[0-9]{1,200}"
+    )
+    if not isinstance(value, str) or not re.fullmatch(pattern, value):
         raise ProviderError("bank_checkout_url_invalid")
     return value
 
@@ -113,14 +119,12 @@ class XPaymentProvider:
     def __init__(self, config):
         self.config = config
         identifier(config.account_id)
-        if not isinstance(config.api_key, str) or not re.fullmatch(
-            r"xdev_[A-Za-z0-9_-]{1,500}", config.api_key
-        ):
-            raise ProviderError("payment_configuration_invalid")
+        config.validate_transport()
+        self.api = config.api_url
         self.opener = urllib.request.build_opener(NoRedirect())
 
     def _request(self, method, url, *, body=None, mutation=False):
-        if not url.startswith(API + "/"):
+        if not url.startswith(self.api + "/"):
             raise ProviderError("bank_host_invalid")
         headers = {
             "Authorization": "Bearer " + self.config.api_key,
@@ -173,6 +177,14 @@ class XPaymentProvider:
                 or (order_id is not None and actual_order != order_id)
                 or (payment_id is not None and actual_id != payment_id)
                 or row["currency"] != "KZT"
+                or row.get("environment", "production") != self.config.environment
+                or (
+                    self.config.api_version == "v2"
+                    and (
+                        not isinstance(row.get("device_name"), str)
+                        or row["device_name"].lower() != self.config.device_name.lower()
+                    )
+                )
             ):
                 raise ProviderError("bank_payment_mismatch")
             status = PAYMENT_STATUSES[row["status"]]
@@ -195,7 +207,7 @@ class XPaymentProvider:
     def _get_payment(self, payment_id, *, order_id=None):
         payment_id = identifier(payment_id)
         return self._payment(
-            self._request("GET", API + "/payments/" + payment_id),
+            self._request("GET", self.api + "/payments/" + payment_id),
             order_id=order_id,
             payment_id=payment_id,
         )
@@ -211,10 +223,11 @@ class XPaymentProvider:
 
     def _find_payment(self, order_id):
         order_id = identifier(order_id)
+        query = {"merchant_order_id": order_id}
+        if self.config.api_version == "v2":
+            query["device_name"] = self.config.device_name
         rows = self._one_page(
-            self._request(
-                "GET", API + "/payments?" + urllib.parse.urlencode({"merchant_order_id": order_id})
-            )
+            self._request("GET", self.api + "/payments?" + urllib.parse.urlencode(query))
         )
         if not rows:
             return None
@@ -242,17 +255,25 @@ class XPaymentProvider:
         order_id, amount = identifier(payment.invoice_id), money(payment.amount)
         if payment.currency != "KZT":
             raise ProviderError("bank_payment_mismatch")
+        body = {"amount": amount, "merchant_order_id": order_id}
+        if self.config.api_version == "v2":
+            body["device_name"] = self.config.device_name
         row = self._request(
             "POST",
-            API + "/payments/link",
+            self.api + "/payments/link",
             mutation=True,
-            body={"amount": amount, "merchant_order_id": order_id},
+            body=body,
         )
         try:
-            if not isinstance(row, dict) or row.get("status") != "QrTokenCreated":
+            if not isinstance(row, dict) or row.get("status") not in (
+                "QrTokenCreated",
+                "QR_TOKEN_CREATED",
+            ):
                 raise ProviderError("bank_response_invalid")
             payment_id = identifier(row["payment_id"])
-            url = checkout_url(row["qr_token"])
+            if row.get("environment", "production") != self.config.environment:
+                raise ProviderError("bank_payment_mismatch")
+            url = checkout_url(row["qr_token"], environment=self.config.environment)
             expiry = aware_datetime(row["expire_date"])
             actual = self._get_payment(payment_id, order_id=order_id)
             if actual.amount != amount:
@@ -279,7 +300,7 @@ class XPaymentProvider:
             return
         row = self._request(
             "POST",
-            API + "/payments/" + payment_id + "/cancel",
+            self.api + "/payments/" + payment_id + "/cancel",
             mutation=True,
             body={"reason": "Tynys booking hold expired"},
         )
@@ -313,7 +334,7 @@ class XPaymentProvider:
 
     def _refunds(self, charge):
         return self._one_page(
-            self._request("GET", API + "/payments/" + charge.transaction_id + "/refunds")
+            self._request("GET", self.api + "/payments/" + charge.transaction_id + "/refunds")
         )
 
     def request_refund(self, transaction_id, amount, external_id):
@@ -328,7 +349,7 @@ class XPaymentProvider:
             return
         row = self._request(
             "POST",
-            API + "/payments/" + charge.transaction_id + "/refund",
+            self.api + "/payments/" + charge.transaction_id + "/refund",
             mutation=True,
             body={"amount": amount, "reason": reason},
         )

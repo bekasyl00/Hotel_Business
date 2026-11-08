@@ -101,16 +101,51 @@ class XPaymentConfig:
     api_key: str = field(repr=False)
     account_id: str
     webhook_secret: str = field(repr=False)
+    api_version: str = "v1"
+    environment: str = "production"
+    device_name: str = ""
+
+    @property
+    def api_url(self):
+        return "https://api.xpayment.kz/" + self.api_version
+
+    def validate_transport(self):
+        if self.api_version not in ("v1", "v2") or self.environment not in (
+            "production",
+            "sandbox",
+        ):
+            raise ProviderError("payment_configuration_invalid")
+        prefix = "xapi_" if self.api_version == "v2" else "xdev_"
+        if self.environment == "sandbox":
+            prefix += "test_"
+        elif self.api_key.startswith(prefix + "test_"):
+            raise ProviderError("payment_configuration_invalid")
+        if not re.fullmatch(re.escape(prefix) + r"[A-Za-z0-9_-]{1,500}", self.api_key):
+            raise ProviderError("payment_configuration_invalid")
+        if self.api_version == "v2" and (
+            not re.fullmatch(r"[A-Za-z0-9]{1,100}", self.device_name)
+            or (self.environment == "sandbox" and self.device_name.lower() != "test")
+            or (self.environment == "production" and self.device_name.lower() == "test")
+        ):
+            raise ProviderError("payment_configuration_invalid")
 
     @property
     def merchant_scope(self):
-        return hashlib.sha256(("xpayment:production:" + self.account_id).encode()).hexdigest()
+        scope = "xpayment:" + self.environment + ":" + self.account_id
+        if self.api_version == "v2":
+            scope += ":v2:" + self.device_name.lower()
+        return hashlib.sha256(scope.encode()).hexdigest()
 
     @classmethod
     def from_settings(cls, *, require_gate=True):
         if require_gate and not settings.XPAYMENT_ENABLED:
             raise ProviderError("xpayment_disabled")
-        if require_gate and not settings.XPAYMENT_PROTOCOL_VERIFIED:
+        verified = (
+            settings.XPAYMENT_SANDBOX_PROTOCOL_VERIFIED
+            if settings.XPAYMENT_ENV == "sandbox"
+            else settings.XPAYMENT_PROTOCOL_VERIFIED
+        )
+        if require_gate and not verified:
             raise ProviderError("xpayment_protocol_not_verified")
         key = settings.XPAYMENT_API_KEY
         account = settings.XPAYMENT_ACCOUNT_ID
@@ -121,6 +156,15 @@ class XPaymentConfig:
             valid_account = str(UUID(account)) == account
         except (ValueError, TypeError, AttributeError):
             valid_account = False
-        if not re.fullmatch(r"xdev_[A-Za-z0-9_-]+", key) or not valid_account or len(secret) < 32:
+        if not valid_account or len(secret) < 32:
             raise ProviderError("payment_configuration_invalid")
-        return cls(api_key=key, account_id=account, webhook_secret=secret)
+        config = cls(
+            api_key=key,
+            account_id=account,
+            webhook_secret=secret,
+            api_version=settings.XPAYMENT_API_VERSION,
+            environment=settings.XPAYMENT_ENV,
+            device_name=settings.XPAYMENT_DEVICE_NAME,
+        )
+        config.validate_transport()
+        return config

@@ -160,7 +160,8 @@
       "succeeded": "Refund verified.",
       "reconciliation_required": "Refund needs bank reconciliation."
     },
-    "details": "Payment details"
+    "details": "Payment details",
+    "openXPaymentSandbox": "Open test checkout"
   },
   "gallery": {
     "previous": "Previous",

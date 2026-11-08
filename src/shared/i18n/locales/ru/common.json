@@ -160,7 +160,8 @@
       "succeeded": "Возврат проверен.",
       "reconciliation_required": "Возврат требует сверки с банком."
     },
-    "details": "Сведения об оплате"
+    "details": "Сведения об оплате",
+    "openXPaymentSandbox": "Открыть тестовую оплату"
   },
   "gallery": {
     "previous": "Предыдущее",

@@ -7,6 +7,7 @@ from unittest.mock import Mock, patch
 
 from django.test import SimpleTestCase
 
+from .provider_config import XPaymentConfig
 from .providers.base import ProviderError
 from .providers.xpayment import API, MAX_RESPONSE_BYTES, XPaymentProvider, checkout_url
 
@@ -65,7 +66,7 @@ def link_row(**changes):
 class XPaymentProviderTests(SimpleTestCase):
     def setUp(self):
         self.provider = XPaymentProvider(
-            SimpleNamespace(
+            XPaymentConfig(
                 api_key="xdev_fixture_never_live",
                 account_id=ACCOUNT,
                 webhook_secret="fixture-never-live",

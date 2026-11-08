@@ -160,7 +160,8 @@
       "succeeded": "Қайтарым тексерілді.",
       "reconciliation_required": "Қайтарымды банкпен тексеру қажет."
     },
-    "details": "Төлем туралы мәлімет"
+    "details": "Төлем туралы мәлімет",
+    "openXPaymentSandbox": "Тест төлемін ашу"
   },
   "gallery": {
     "previous": "Алдыңғы",

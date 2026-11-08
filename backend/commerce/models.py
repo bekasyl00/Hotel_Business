@@ -109,7 +109,7 @@ class PaymentAttempt(Record):
             models.CheckConstraint(condition=Q(amount__gt=0), name="bank_amount_positive"),
             models.CheckConstraint(
                 condition=Q(provider="halyk_epay", environment="sandbox")
-                | Q(provider="xpayment", environment="production"),
+                | Q(provider="xpayment", environment__in=["production", "sandbox"]),
                 name="bank_provider_environment",
             ),
         ]

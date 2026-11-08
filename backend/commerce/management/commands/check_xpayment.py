@@ -12,13 +12,17 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         self.stdout.write("Provider selected: " + str(settings.PAYMENT_PROVIDER == "xpayment"))
+        self.stdout.write("API version: " + settings.XPAYMENT_API_VERSION)
+        self.stdout.write("Environment: " + settings.XPAYMENT_ENV)
+        self.stdout.write("Cashier configured: " + str(bool(settings.XPAYMENT_DEVICE_NAME)))
         try:
             XPaymentConfig.from_settings(require_gate=False)
             self.stdout.write("Configuration: valid format (not provider verification)")
         except ProviderError as exc:
             self.stdout.write("Configuration: " + exc.code)
         self.stdout.write("New payment gate: " + str(settings.XPAYMENT_ENABLED))
-        self.stdout.write("Acceptance recorded: " + str(settings.XPAYMENT_PROTOCOL_VERIFIED))
+        self.stdout.write("Production acceptance: " + str(settings.XPAYMENT_PROTOCOL_VERIFIED))
+        self.stdout.write("Sandbox acceptance: " + str(settings.XPAYMENT_SANDBOX_PROTOCOL_VERIFIED))
         self.stdout.write(
             "Next steps: docs/xpayment-integration.md; no network requests performed."
         )

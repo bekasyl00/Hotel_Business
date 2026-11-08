@@ -62,7 +62,11 @@ const terminal = computed(() =>
 );
 const safeUrl = computed(() => {
   if (!payment.value?.checkoutUrl || remaining.value <= 0) return null;
-  return safeCheckoutUrl(provider.value, payment.value.checkoutUrl);
+  return safeCheckoutUrl(
+    provider.value,
+    payment.value.checkoutUrl,
+    environment.value,
+  );
 });
 function schedule() {
   clearTimeout(timer);
@@ -214,9 +218,11 @@ onBeforeUnmount(() => {
           referrerpolicy="no-referrer"
           >{{
             t(
-              provider === "xpayment"
-                ? "common.payment.openKaspi"
-                : "common.payment.open",
+              environment === "sandbox" && provider === "xpayment"
+                ? "common.payment.openXPaymentSandbox"
+                : provider === "xpayment"
+                  ? "common.payment.openKaspi"
+                  : "common.payment.open",
             )
           }}</a
         >

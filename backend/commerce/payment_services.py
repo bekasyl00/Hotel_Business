@@ -14,7 +14,7 @@ from booking.models import Audit, Booking, Resort
 from booking.services import guest_owner, require_staff
 
 from .models import InvoicePool, PaymentAttempt, PaymentEvent
-from .provider_registry import PROVIDERS, configuration
+from .provider_registry import configuration, environment_for
 from .providers.base import ProviderError
 from .services import cancellation_terms
 
@@ -27,7 +27,7 @@ def capabilities():
             "environment": "demo",
             "available": settings.PAYMENTS_ALLOW_SIMULATOR,
         }
-    environment = PROVIDERS.get(provider, ("disabled",))[0]
+    environment = environment_for(provider)
     try:
         configuration()
         return {"provider": provider, "environment": environment, "available": True}
@@ -166,7 +166,7 @@ def create_checkout(request, *, staff=False):
         payment = PaymentAttempt.objects.create(
             booking=booking,
             provider=settings.PAYMENT_PROVIDER,
-            environment=PROVIDERS[settings.PAYMENT_PROVIDER][0],
+            environment=environment_for(settings.PAYMENT_PROVIDER),
             **identity,
             request_key=data["requestKey"],
             fingerprint=fingerprint,

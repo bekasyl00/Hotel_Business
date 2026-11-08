@@ -39,3 +39,22 @@ test("Kaspi links reject URL tricks and extra destinations", () => {
   ])
     assert.equal(safeCheckoutUrl("xpayment", value), null, String(value));
 });
+
+test("XPayment sandbox URLs cannot navigate to a real checkout", () => {
+  const sandbox = "https://xpayment.kz/sandbox/qr/123456789";
+  assert.equal(safeCheckoutUrl("xpayment", sandbox, "sandbox"), sandbox);
+  assert.equal(safeCheckoutUrl("xpayment", sandbox, "production"), null);
+  assert.equal(
+    safeCheckoutUrl("xpayment", "https://qr.kaspi.kz/123", "sandbox"),
+    null,
+  );
+  for (const url of [
+    sandbox + "?next=evil",
+    sandbox + "#fragment",
+    sandbox + "\n",
+    "https://xpayment.kz.evil.test/sandbox/qr/123",
+    "https://xpayment.kz:443/sandbox/qr/123",
+    "https://xpayment.kz/app/sandbox",
+  ])
+    assert.equal(safeCheckoutUrl("xpayment", url, "sandbox"), null);
+});

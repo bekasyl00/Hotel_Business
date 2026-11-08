@@ -29,6 +29,9 @@ XPAYMENT = {
     "XPAYMENT_ENABLED": True,
     "XPAYMENT_PROTOCOL_VERIFIED": True,
     "XPAYMENT_API_KEY": "xdev_fixture_only",
+    "XPAYMENT_API_VERSION": "v1",
+    "XPAYMENT_ENV": "production",
+    "XPAYMENT_DEVICE_NAME": "",
     "XPAYMENT_ACCOUNT_ID": "00000000-0000-4000-8000-000000000001",
     "XPAYMENT_WEBHOOK_SECRET": "fictional-webhook-secret-" + "a" * 32,
 }
@@ -79,10 +82,56 @@ class XPaymentFlowTests(TestCase):
         self.assertEqual(PaymentAttempt.objects.count(), 1)
         self.assertEqual(booking_payment_data(p.booking)["paymentMode"], "production")
 
-    def test_database_rejects_fictional_xpayment_sandbox(self):
+    def test_database_rejects_unknown_payment_environment(self):
         p = self.payment()
         with self.assertRaises(IntegrityError), transaction.atomic():
-            PaymentAttempt.objects.filter(pk=p.pk).update(environment="sandbox")
+            PaymentAttempt.objects.filter(pk=p.pk).update(environment="fictional")
+
+    @override_settings(
+        XPAYMENT_API_VERSION="v2",
+        XPAYMENT_ENV="sandbox",
+        XPAYMENT_DEVICE_NAME="test",
+        XPAYMENT_API_KEY="xapi_test_fixture_only",
+        XPAYMENT_SANDBOX_PROTOCOL_VERIFIED=True,
+    )
+    def test_sandbox_is_frozen_and_never_counted_as_real_money(self):
+        self.assertEqual(
+            self.client.get("/api/payments/config").json(),
+            {
+                "provider": "xpayment",
+                "environment": "sandbox",
+                "available": True,
+            },
+        )
+        p = self.linked()
+        self.assertEqual(p.environment, "sandbox")
+        self.assertIsInstance(provider_for(p), XPaymentProvider)
+        self.assertEqual(self.webhook(p).status_code, 422)
+        self.assertEqual(self.webhook(p, environment="production").status_code, 422)
+        self.assertEqual(self.webhook(p, environment="sandbox").status_code, 200)
+        apply_transaction(p.pk, self.fact(p))
+        p.booking.refresh_from_db()
+        self.assertEqual(p.booking.status, "confirmed")
+        self.client.force_authenticate(self.manager)
+        for mode, expected in [("sandbox", p.amount), ("production", 0)]:
+            self.assertEqual(
+                self.client.get("/api/analytics?paymentMode=" + mode).json()["totals"][
+                    "grossReceived"
+                ],
+                expected,
+            )
+        with self.settings(
+            XPAYMENT_ENV="production",
+            XPAYMENT_DEVICE_NAME="Main",
+            XPAYMENT_API_KEY="xapi_fixture_live",
+        ):
+            with self.assertRaises(ProviderError):
+                provider_for(p)
+            self.assertFalse(run_one(payment_id=p.pk))
+
+    def test_production_rejects_sandbox_callback(self):
+        self.assertEqual(self.webhook(self.linked(), environment="sandbox").status_code, 422)
+        self.assertFalse(WebhookDelivery.objects.exists())
 
     def test_merchant_rotation_does_not_redirect_old_jobs(self):
         p = self.linked()

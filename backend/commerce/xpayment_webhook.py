@@ -80,8 +80,12 @@ class XPaymentCallbackView(APIView):
             or not canonical_uuid(data.get("delivery_id"))
         ):
             raise Problem("Invalid event.", 422)
+        if data.get("environment", "production") != config.environment:
+            raise Problem("Invalid payment environment.", 422)
         payments = PaymentAttempt.objects.filter(
-            provider="xpayment", environment="production", merchant_scope=config.merchant_scope
+            provider="xpayment",
+            environment=config.environment,
+            merchant_scope=config.merchant_scope,
         )
         order = data.get("merchant_order_id")
         if order:
