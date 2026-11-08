@@ -2,7 +2,10 @@
 import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { holdSeconds, holdLabel } from "../model/hold.js";
-const props = defineProps({ booking: { type: Object, required: true } });
+const props = defineProps({
+  booking: { type: Object, required: true },
+  compact: Boolean,
+});
 const emit = defineEmits(["expired"]);
 const { t } = useI18n();
 const now = ref(Date.now());
@@ -32,12 +35,14 @@ onBeforeUnmount(() => clearInterval(timer));
   <div
     v-if="active"
     class="payment-countdown"
-    :class="{ ended: seconds === 0 }"
+    :class="{ ended: seconds === 0, compact }"
   >
     <template v-if="seconds > 0"
       ><span>{{ t("common.checkout.timeLeft") }}</span
       ><strong role="timer" aria-live="off">{{ holdLabel(seconds) }}</strong
-      ><small>{{ t("common.checkout.holdHint") }}</small></template
+      ><small v-if="!compact">{{
+        t("common.checkout.holdHint")
+      }}</small></template
     >
     <p v-else role="status">{{ t("common.checkout.timeExpired") }}</p>
   </div>
@@ -69,5 +74,14 @@ onBeforeUnmount(() => clearInterval(timer));
 }
 .payment-countdown p {
   margin: 0;
+}
+.payment-countdown.compact {
+  justify-content: space-between;
+  padding: 10px 14px;
+  margin: 0;
+  font-size: 0.85rem;
+}
+.payment-countdown.compact strong {
+  font-size: 22px;
 }
 </style>

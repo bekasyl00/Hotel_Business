@@ -96,7 +96,7 @@ function create(room, day) {
   });
 }
 const label = (b) =>
-  `${b.guestLabel} · № ${b.unit} · ${b.start} — ${b.end} · ${money(b.total)}`;
+  `${b.guestLabel} · № ${b.unit} · ${b.start} — ${b.end} · ${money(b.paymentTerms?.total ?? b.total)}`;
 let timer;
 onMounted(() => {
   timer = setInterval(() => {
@@ -261,7 +261,9 @@ onBeforeUnmount(() => clearInterval(timer));
                 <strong>{{ bar.booking.guestLabel }}</strong
                 ><small
                   >{{ t(`staff.board.${bar.status}`) }} ·
-                  {{ money(bar.booking.total) }}</small
+                  {{
+                    money(bar.booking.paymentTerms?.total ?? bar.booking.total)
+                  }}</small
                 ><span
                   v-if="bar.status === 'reserved' && bar.booking.start < today"
                   class="stay-alert"

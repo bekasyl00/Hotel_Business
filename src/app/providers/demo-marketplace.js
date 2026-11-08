@@ -80,6 +80,9 @@ export function upgradeMarketplace(db) {
       : null;
     r.category ||= categories[i % categories.length].id;
     r.resortClass ||= ["comfort", "standard", "premium"][i % 3];
+    r.descriptionAfter ??= "";
+    r.staffWhatsApp ??= "";
+    r.twoGisUrl ??= "";
     r.checkInTime ||= "14:00";
     r.timeZone ||= "Asia/Almaty";
     r.media ||= [
@@ -92,6 +95,7 @@ export function upgradeMarketplace(db) {
     r.amenities ||= ["Wi-Fi", "Парковка"];
   });
   db.rooms.forEach((r) => {
+    r.descriptionAfter ??= "";
     r.description ||=
       "Светлый номер для спокойного отдыха. Фотография иллюстративная; условия уточняйте у управляющего.";
     r.media ||= [
@@ -173,6 +177,7 @@ export function marketplaceRequest({
     );
     if (!resort) return null;
     const { commissionPercent, accountId, ...publicData } = resort;
+    publicData.bookingFeePercent = commissionPercent;
     return publicData;
   };
   const publicReview = ({
@@ -328,7 +333,7 @@ export function marketplaceRequest({
       requestId: payload.requestId,
       outcome: payload.outcome,
       status: payload.outcome === "success" ? "paid" : "failed",
-      amount: b.total,
+      amount: b.paymentTerms?.onlineAmount ?? b.total,
       refundedAmount: 0,
       paymentMode: "demo",
       provider: "kaspi-demo",

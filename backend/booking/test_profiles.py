@@ -15,7 +15,7 @@ from psycopg.types.range import Range
 from rest_framework.test import APIClient
 
 from booking.test_helpers import unrelated_owner
-from commerce.models import DemoPayment
+from commerce.models import DemoPayment, OnsiteSettlement
 
 from .errors import Problem
 from .models import Audit, Booking, GuestProfile, Resort, Room, Tariff
@@ -69,8 +69,17 @@ class ProfileTests(TestCase):
             request_key=uuid.uuid4(),
             outcome="success",
             status="paid",
-            amount=booking.snapshot["total"],
+            amount=booking.snapshot.get("paymentTerms", {}).get(
+                "onlineAmount", booking.snapshot["total"]
+            ),
         )
+        if booking.snapshot.get("paymentTerms", {}).get("onsiteAmount"):
+            OnsiteSettlement.objects.create(
+                booking=booking,
+                recorded_by=self.manager,
+                amount=booking.snapshot["paymentTerms"]["onsiteAmount"],
+                method="cash",
+            )
 
     def test_first_profile_and_updates_are_session_owned_and_do_not_rewrite_booking(self):
         empty = self.client.get("/api/profile").json()
@@ -141,6 +150,7 @@ class ProfileTests(TestCase):
         other = Resort.objects.create(
             account=unrelated_owner(),
             name="Другой",
+            commission_percent=10,
             city="Тест",
             address="Тест",
             lat=1,

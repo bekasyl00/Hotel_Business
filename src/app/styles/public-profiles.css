@@ -1800,3 +1800,17 @@
 .floating-map-dialog .map-selection {
   max-width: 420px;
 }
+
+.profile-introduction {
+  margin-block: 1.25rem;
+}
+.profile-contact-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .6rem;
+  margin-top: 1rem;
+}
+.profile-contact-links .button-link {
+  max-width: 100%;
+  font-size: .9rem;
+}

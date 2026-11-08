@@ -857,7 +857,7 @@ onBeforeUnmount(() => {
                         }}</small>
                       </td>
                       <td :data-label="t('staff.amount')" class="numeric">
-                        {{ money(b.total)
+                        {{ money(b.paymentTerms?.total ?? b.total)
                         }}<small v-if="b.payment"
                           >{{
                             isBankProvider(b.payment.provider)
@@ -1267,6 +1267,7 @@ onBeforeUnmount(() => {
     @close="focusedId = null"
     @action="cardAction"
     @notes="saveNotes"
+    @saved="load(true)"
   />
   <ResortEditor
     v-if="editor?.kind === 'resorts'"

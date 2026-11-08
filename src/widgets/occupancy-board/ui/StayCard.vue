@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { occupancyState } from "@/entities/booking";
 import { BookingDocuments } from "@/features/booking-documents";
+import { BookingVoucher, canOpenVoucher } from "@/features/booking-voucher";
 import { isBankProvider } from "@/features/pay-booking";
 import { isDemo } from "@/shared/config";
 import { Modal } from "@/shared/ui";
@@ -16,7 +17,7 @@ const props = defineProps({
   canPay: Boolean,
   error: String,
 });
-const emit = defineEmits(["close", "action", "notes"]);
+const emit = defineEmits(["close", "action", "notes", "saved"]);
 const { t } = useI18n();
 const tab = ref("main"),
   notes = ref(props.booking.staffNotes || "");
@@ -106,7 +107,7 @@ const actionName = (action) =>
           </div>
           <div>
             <dt>{{ t("staff.amount") }}</dt>
-            <dd>{{ money(booking.total) }}</dd>
+            <dd>{{ money(booking.paymentTerms?.total ?? booking.total) }}</dd>
           </div>
           <div>
             <dt>{{ t("staff.board.source") }}</dt>
@@ -168,10 +169,24 @@ const actionName = (action) =>
           <div>
             <dt>{{ t("staff.amount") }}</dt>
             <dd>
-              <strong>{{ money(booking.total) }}</strong>
+              <strong>{{
+                money(booking.paymentTerms?.total ?? booking.total)
+              }}</strong>
             </dd>
           </div>
-          <div v-if="booking.commissionTerms">
+          <div v-if="booking.paymentTerms?.version === 1">
+            <dt>{{ t("common.payment.onlineCommission") }}</dt>
+            <dd>{{ money(booking.paymentTerms.onlineAmount) }}</dd>
+          </div>
+          <div v-if="booking.paymentTerms?.version === 1">
+            <dt>{{ t("common.payment.onsiteAmount") }}</dt>
+            <dd>{{ money(booking.paymentTerms.onsiteAmount) }}</dd>
+          </div>
+          <div
+            v-if="
+              booking.commissionTerms && booking.paymentTerms?.version !== 1
+            "
+          >
             <dt>{{ t("common.checkout.commissionEstimate") }}</dt>
             <dd>
               {{
@@ -181,7 +196,12 @@ const actionName = (action) =>
               }}
             </dd>
           </div>
-          <div v-if="booking.commissionTerms?.resortAmount != null">
+          <div
+            v-if="
+              booking.commissionTerms?.resortAmount != null &&
+              !booking.paymentTerms
+            "
+          >
             <dt>{{ t("common.checkout.resortEstimate") }}</dt>
             <dd>{{ money(booking.commissionTerms.resortAmount) }}</dd>
           </div>
@@ -207,7 +227,10 @@ const actionName = (action) =>
                     : t("staff.board.unpaid")
           }}
         </h3>
-        <p>{{ t("staff.amount") }}: {{ money(booking.total) }}</p>
+        <p>
+          {{ t("staff.amount") }}:
+          {{ money(booking.paymentTerms?.total ?? booking.total) }}
+        </p>
         <p v-if="isBankProvider(booking.payment?.provider)" class="field-help">
           {{
             t(
@@ -323,6 +346,12 @@ const actionName = (action) =>
         {{ t("staff.close") }}
       </button>
     </div>
+    <BookingVoucher
+      v-if="!isDemo && canOpenVoucher(booking)"
+      :booking="booking"
+      :allow-onsite="!readOnly"
+      @saved="emit('saved', $event)"
+    />
     <BookingDocuments :booking-id="booking.id" />
   </Modal>
 </template>

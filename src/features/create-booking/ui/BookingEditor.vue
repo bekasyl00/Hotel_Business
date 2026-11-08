@@ -1,9 +1,13 @@
 <script setup>
-import { ageAt, childBirthFromIin } from "../model/children.js";
+import {
+  ageAt,
+  childBirthFromIin,
+  selectChildCount,
+} from "../model/children.js";
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 import { isDemo } from "@/shared/config";
-import { reactive, computed, watch, onMounted } from "vue";
+import { reactive, computed, watch, onMounted, useId } from "vue";
 import { Modal } from "@/shared/ui";
 import {
   useBookingStore,
@@ -11,6 +15,7 @@ import {
   nightsBetween,
   quoteStay,
   validateChildren,
+  paymentTerms,
 } from "@/entities/booking";
 import { ref } from "vue";
 import { useGuestAccountStore } from "@/entities/guest-account";
@@ -49,6 +54,9 @@ const price = computed(() =>
     : null,
 );
 const total = computed(() => price.value?.total || 0);
+const settlement = computed(() =>
+  price.value ? paymentTerms(props.resort, total.value) : null,
+);
 const children = ref([]);
 watch(
   [children, () => form.start],
@@ -68,19 +76,36 @@ onMounted(async () => {
     }
   }
 });
-const childCount = computed({
-  get: () => children.value.length,
-  set: (value) => {
-    children.value = Array.from(
-      { length: Math.max(0, Math.min(Number(value) || 0, form.guests - 1)) },
-      (_, i) => children.value[i] ?? { iin: "" },
-    );
-  },
-});
+const childCountId = useId();
+const childCountInput = ref("0");
+const maxChildren = computed(() =>
+  Math.max(0, (room.value?.capacity || 4) - 1),
+);
+function setChildCount(value) {
+  childCountInput.value = String(value);
+  const next = selectChildCount(value, form.guests, room.value?.capacity || 4);
+  if (!next) return;
+  children.value = Array.from(
+    { length: next.children },
+    (_, i) => children.value[i] ?? { iin: "" },
+  );
+  childCountInput.value = String(next.children);
+  form.guests = next.guests;
+}
+function commitChildCount() {
+  setChildCount(childCountInput.value === "" ? 0 : childCountInput.value);
+  childCountInput.value = String(children.value.length);
+}
 watch(
   () => form.guests,
   (value) => {
-    children.value = children.value.slice(0, Math.max(0, value - 1));
+    if (value === "" || !Number.isInteger(Number(value)) || Number(value) < 1)
+      return;
+    const count = Math.min(children.value.length, Number(value) - 1);
+    if (count !== children.value.length) {
+      children.value = children.value.slice(0, count);
+      childCountInput.value = String(count);
+    }
   },
 );
 const store = useBookingStore(),
@@ -98,6 +123,10 @@ async function save() {
         ? t("common.children.invalidIin")
         : validateChildren(form.guests, form.childrenAges);
   if (error.value) return;
+  if (price.value && !settlement.value) {
+    error.value = t("common.settlement.notConfigured");
+    return;
+  }
   busy.value = true;
   error.value = "";
   try {
@@ -229,15 +258,47 @@ watch(
       </div>
       <fieldset class="pricing-fields">
         <legend>{{ t("common.pricing.children") }}</legend>
-        <label
-          >{{ t("common.pricing.childCount")
-          }}<input
-            v-model.number="childCount"
-            type="number"
-            min="0"
-            :max="Math.max(0, form.guests - 1)"
-            required
-        /></label>
+        <div class="child-count-field">
+          <label :for="childCountId">{{
+            t("common.pricing.childCount")
+          }}</label>
+          <div class="child-count-control">
+            <button
+              type="button"
+              class="secondary"
+              :aria-label="t('common.children.remove')"
+              :disabled="children.length === 0"
+              @click="setChildCount(children.length - 1)"
+            >
+              −
+            </button>
+            <input
+              :id="childCountId"
+              :value="childCountInput"
+              type="number"
+              inputmode="numeric"
+              min="0"
+              :max="maxChildren"
+              step="1"
+              :aria-describedby="`${childCountId}-help`"
+              required
+              @input="setChildCount($event.target.value)"
+              @blur="commitChildCount"
+            />
+            <button
+              type="button"
+              class="secondary"
+              :aria-label="t('common.children.add')"
+              :disabled="children.length >= maxChildren"
+              @click="setChildCount(children.length + 1)"
+            >
+              +
+            </button>
+          </div>
+          <p :id="`${childCountId}-help`" class="field-help">
+            {{ t("common.children.partySizeHint") }}
+          </p>
+        </div>
         <div
           v-for="(child, index) in children"
           :key="index"
@@ -298,8 +359,21 @@ watch(
             {{ form.guests }} {{ t("public.guestsInBookingEditor") }}</small
           >
         </div>
-        <strong>{{ price ? money(total) : "—" }}</strong>
+        <strong>{{ price ? money(settlement?.total ?? total) : "—" }}</strong>
       </div>
+      <dl v-if="settlement" class="booking-settlement">
+        <div>
+          <dt>{{ t("common.settlement.online") }}</dt>
+          <dd>{{ money(settlement.onlineAmount) }}</dd>
+        </div>
+        <div>
+          <dt>{{ t("common.settlement.onsite") }}</dt>
+          <dd>{{ money(settlement.onsiteAmount) }}</dd>
+        </div>
+      </dl>
+      <p v-else-if="price" class="form-error" role="status">
+        {{ t("common.settlement.notConfigured") }}
+      </p>
       <p v-if="tariff?.childrenUnderThreeFree" class="field-help">
         {{ t("common.pricing.freeUnderThree") }}
       </p>
@@ -341,7 +415,12 @@ watch(
           {{ t("public.cancel") }}</button
         ><button
           class="primary"
-          :disabled="busy || !price || (!staff && !guestAccount.authenticated)"
+          :disabled="
+            busy ||
+            !price ||
+            !settlement ||
+            (!staff && !guestAccount.authenticated)
+          "
         >
           {{
             busy
@@ -355,3 +434,51 @@ watch(
     </form></Modal
   >
 </template>
+<style scoped>
+.child-count-field {
+  min-width: 0;
+}
+.child-count-control {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+.child-count-control button {
+  flex: 0 0 3rem;
+  min-width: 3rem;
+  min-height: 3rem;
+  padding: 0;
+  font-size: 1.5rem;
+}
+.child-count-control input {
+  width: 100%;
+  min-width: 0;
+  max-width: 8rem;
+  text-align: center;
+}
+.child-count-field .field-help {
+  margin-bottom: 0;
+}
+.booking-settlement {
+  margin: 0;
+  padding: 0.875rem 1rem;
+  border: 1px solid #dbe3d8;
+  border-radius: 14px;
+}
+.booking-settlement > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0;
+}
+.booking-settlement dt {
+  color: #617067;
+}
+.booking-settlement dd {
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+</style>

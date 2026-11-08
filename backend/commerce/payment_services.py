@@ -17,6 +17,7 @@ from .models import InvoicePool, PaymentAttempt, PaymentEvent
 from .provider_registry import configuration, environment_for
 from .providers.base import ProviderError
 from .services import cancellation_terms
+from .settlement import online_amount
 
 
 def capabilities():
@@ -161,7 +162,7 @@ def create_checkout(request, *, staff=False):
             or booking.demo_payments.filter(outcome="success").exists()
         ):
             raise Problem("Бронь недоступна для оплаты.", 409)
-        amount = booking.snapshot.get("total")
+        amount = online_amount(booking)
         if type(amount) is not int or amount <= 0:
             raise Problem("Некорректная сохранённая сумма брони.", 409)
         scope = config.merchant_scope

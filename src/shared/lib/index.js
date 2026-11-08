@@ -1,4 +1,5 @@
 import { t, localeTag, getLocale } from "../i18n/index.js";
+export { whatsAppUrl, twoGisUrl } from "./catalog-contacts.js";
 export const money = (value) =>
   new Intl.NumberFormat(localeTag()).format(value || 0) + " ₸";
 export const dateLabel = (value) =>

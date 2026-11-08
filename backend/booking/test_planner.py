@@ -57,7 +57,7 @@ class PlannerTests(TestCase):
         b.refresh_from_db()
         self.assertEqual(b.status, "confirmed")
         receipt = b.demo_payments.get(outcome="success").receipt
-        self.assertEqual(receipt["total"], b.snapshot["total"])
+        self.assertEqual(receipt["total"], b.snapshot["paymentTerms"]["onlineAmount"])
         self.room.price += 100
         self.room.save()
         b.refresh_from_db()

@@ -27,7 +27,10 @@ export function calendarRows(
   { query = "", state = "all", now = Date.now() } = {},
 ) {
   const end = shiftDay(start, days),
-    search = query.trim().toLocaleLowerCase();
+    search = query
+      .trim()
+      .replace(/^tynys-/i, "")
+      .toLocaleLowerCase();
   const byRoom = new Map();
   for (const booking of bookings) {
     const status = occupancyState(booking, now);

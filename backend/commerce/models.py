@@ -186,6 +186,18 @@ class RefundRequest(Record):
         ]
 
 
+class OnsiteSettlement(Record):
+    """Staff attestation of money received by a property, not a platform bank event."""
+
+    booking = models.OneToOneField(
+        Booking, on_delete=models.PROTECT, related_name="onsite_settlement"
+    )
+    amount = models.PositiveBigIntegerField()
+    method = models.CharField(max_length=8, choices=[("cash", "cash"), ("card", "card")])
+    recorded_by = models.ForeignKey("booking.User", on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class PaymentJob(Record):
     payment = models.ForeignKey(PaymentAttempt, on_delete=models.PROTECT, related_name="jobs")
     kind = models.CharField(

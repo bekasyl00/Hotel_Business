@@ -8,11 +8,21 @@ from .models import (
     AccountingExpense,
     DemoPayment,
     DemoRefund,
+    OnsiteSettlement,
     PaymentAttempt,
     PaymentEvent,
     PaymentJob,
     RefundRequest,
 )
+
+
+@admin.register(OnsiteSettlement, site=platform_admin_site)
+class OnsiteSettlementAdmin(ReadOnlyAdmin):
+    fields = ("id", "booking", "amount", "method", "recorded_by", "created_at")
+    list_display = ("id", "booking", "amount", "method", "created_at")
+    list_filter = ("method", "booking__resort")
+    search_fields = ("=id", "=booking__id")
+    workspace_path = "bookings"
 
 
 @admin.register(AccountingDocument, site=platform_admin_site)

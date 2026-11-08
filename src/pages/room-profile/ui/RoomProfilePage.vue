@@ -6,17 +6,19 @@ import { useRoute, useRouter } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { MediaGallery } from "@/widgets/media-gallery";
 import { AvailabilityCalendar } from "@/widgets/availability-calendar";
+import { SeasonalPrices } from "@/widgets/seasonal-prices";
 import { BookingEditor } from "@/features/create-booking";
 import {
   dateAfter,
   validateSearch,
   nightsBetween,
   quoteStay,
+  paymentTerms,
 } from "@/entities/booking";
 import { request } from "@/shared/api";
 import { useGuestAccountStore } from "@/entities/guest-account";
 const guestAccount = useGuestAccountStore();
-import { money, categoryNames } from "@/shared/lib";
+import { money, categoryNames, whatsAppUrl, twoGisUrl } from "@/shared/lib";
 const route = useRoute();
 const router = useRouter();
 const data = ref(null),
@@ -43,6 +45,19 @@ const price = computed(() =>
   room.value && tariff.value
     ? quoteStay(room.value, tariff.value, dates)
     : null,
+);
+const quotedTariffs = computed(() =>
+  tariffs.value.map((offer) => {
+    const quote = room.value ? quoteStay(room.value, offer, dates) : null;
+    return {
+      ...offer,
+      quote,
+      settlement: quote ? paymentTerms(resort.value, quote.total) : null,
+    };
+  }),
+);
+const settlement = computed(() =>
+  price.value ? paymentTerms(resort.value, price.value.total) : null,
 );
 const nightly = computed(() => price.value?.nightly);
 const originalNight = computed(() => price.value?.regularNightly);
@@ -180,11 +195,29 @@ watch(() => route.params.id, load, { immediate: true });
           </div>
           <span class="profile-class">{{ categoryNames[room.category] }}</span>
         </header>
+        <section class="profile-section profile-introduction">
+          <h2>{{ t("public.aboutThisRoom") }}</h2>
+          <p class="profile-description">
+            {{
+              room.description ||
+              t(
+                "public.aRoomDescriptionWillBeAddedSoonKeyDetailsAndAvailableRates",
+              )
+            }}
+          </p>
+        </section>
         <MediaGallery
           :media="room.media || []"
           :title="room.title"
           fallback="/assets/room.jpg"
         />
+        <section
+          v-if="room.descriptionAfter"
+          class="profile-section profile-introduction"
+        >
+          <h2>{{ t("common.catalogContent.moreAboutStay") }}</h2>
+          <p class="profile-description">{{ room.descriptionAfter }}</p>
+        </section>
         <div v-if="success" class="booking-success" role="status">
           <span class="success-icon">✓</span>
           <div>
@@ -200,20 +233,35 @@ watch(() => route.params.id, load, { immediate: true });
         <div class="profile-columns">
           <div class="profile-content">
             <section class="profile-section">
-              <h2>{{ t("public.aboutThisRoom") }}</h2>
-              <p class="profile-description">
-                {{
-                  room.description ||
-                  t(
-                    "public.aRoomDescriptionWillBeAddedSoonKeyDetailsAndAvailableRates",
-                  )
-                }}
-              </p>
               <ul v-if="room.amenities?.length" class="amenity-tags">
                 <li v-for="amenity in room.amenities" :key="amenity">
                   ✓ {{ amenity }}
                 </li>
               </ul>
+              <div
+                class="profile-contact-links"
+                v-if="
+                  whatsAppUrl(resort.staffWhatsApp) ||
+                  twoGisUrl(resort.twoGisUrl)
+                "
+              >
+                <a
+                  v-if="whatsAppUrl(resort.staffWhatsApp)"
+                  :href="whatsAppUrl(resort.staffWhatsApp)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="secondary button-link"
+                  >{{ t("common.catalogContent.contactStaff") }}</a
+                >
+                <a
+                  v-if="twoGisUrl(resort.twoGisUrl)"
+                  :href="twoGisUrl(resort.twoGisUrl)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="secondary button-link"
+                  >{{ t("common.catalogContent.openTwoGis") }}</a
+                >
+              </div>
               <dl class="checkin-facts">
                 <div>
                   <dt>{{ t("public.checkin") }}</dt>
@@ -241,12 +289,19 @@ watch(() => route.params.id, load, { immediate: true });
               :end="dates.end"
               @select="selectCalendarDates"
             />
+            <SeasonalPrices
+              :room="room"
+              :start="dates.start"
+              :end="dates.end"
+              expanded
+            />
             <section class="profile-section">
               <h2>{{ t("public.chooseARate") }}</h2>
               <p class="field-help">
                 {{
                   t("public.thePriceIsPerRoomPerNightForYourSelectedGuestCount")
                 }}
+                {{ t("common.pricing.feeExcludedNightly") }}
               </p>
               <div v-if="!tariffs.length" class="profile-feedback">
                 {{
@@ -259,7 +314,7 @@ watch(() => route.params.id, load, { immediate: true });
                 :aria-label="t('public.roomRates')"
               >
                 <label
-                  v-for="offer in tariffs"
+                  v-for="offer in quotedTariffs"
                   :key="offer.id"
                   :class="[
                     'profile-tariff',
@@ -295,20 +350,33 @@ watch(() => route.params.id, load, { immediate: true });
                       </li>
                     </ul>
                     <div class="tariff-price">
-                      <del v-if="offer.discountPercent">{{
-                        money(room.price + offer.supplement * dates.guests)
-                      }}</del
+                      <del
+                        v-if="
+                          offer.discountPercent &&
+                          offer.quote?.regularNightly != null
+                        "
+                        >{{ money(offer.quote.regularNightly) }}</del
                       ><strong>{{
-                        money(
-                          Math.round(
-                            ((room.price + offer.supplement * dates.guests) *
-                              (100 - (offer.discountPercent || 0))) /
-                              100,
-                          ),
-                        )
+                        !offer.quote
+                          ? "—"
+                          : offer.quote.nightly == null
+                            ? t("common.pricing.varies")
+                            : money(offer.quote.nightly)
                       }}</strong
-                      ><small> {{ t("public.night") }}</small>
+                      ><small v-if="offer.quote?.nightly != null">
+                        {{ t("public.night") }}</small
+                      >
                     </div>
+                    <p v-if="offer.quote" class="field-help">
+                      {{
+                        t("common.pricing.selectedStayTotal", {
+                          nights: offer.quote.nights,
+                          total: money(
+                            offer.settlement?.total ?? offer.quote.total,
+                          ),
+                        })
+                      }}
+                    </p>
                   </div></label
                 >
               </div>
@@ -358,6 +426,7 @@ watch(() => route.params.id, load, { immediate: true });
               >
               <p class="field-help">
                 {{ t("common.pricing.childrenAtCheckout") }}
+                {{ t("common.pricing.feeExcludedNightly") }}
               </p>
               <div class="stay-date-form compact">
                 <label
@@ -421,14 +490,23 @@ watch(() => route.params.id, load, { immediate: true });
               ><template v-else
                 ><div class="stay-total">
                   <span
-                    >{{ nights }} {{ t("public.nights") }}
-                    {{
-                      nightly == null
-                        ? t("common.pricing.varies")
-                        : money(nightly)
-                    }}</span
-                  ><strong>{{ price ? money(price.total) : "—" }}</strong>
+                    >{{ t("common.settlement.total") }} · {{ nights }}
+                    {{ t("public.nights") }}</span
+                  >
+                  <strong>{{
+                    price ? money(settlement?.total ?? price.total) : "—"
+                  }}</strong>
                 </div>
+                <dl v-if="settlement" class="stay-settlement">
+                  <div>
+                    <dt>{{ t("common.settlement.online") }}</dt>
+                    <dd>{{ money(settlement.onlineAmount) }}</dd>
+                  </div>
+                  <div>
+                    <dt>{{ t("common.settlement.onsite") }}</dt>
+                    <dd>{{ money(settlement.onsiteAmount) }}</dd>
+                  </div>
+                </dl>
                 <button
                   type="button"
                   class="primary full-width"
@@ -461,3 +539,24 @@ watch(() => route.params.id, load, { immediate: true });
     </main>
   </div>
 </template>
+<style scoped>
+.stay-settlement {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+}
+.stay-settlement > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+.stay-settlement dt {
+  color: #617067;
+}
+.stay-settlement dd {
+  margin: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+</style>

@@ -1,3 +1,4 @@
+import { whatsAppUrl, twoGisUrl } from "../../shared/lib/index.js";
 import {
   resolveGuest,
   demoAuthRequest,
@@ -22,6 +23,7 @@ import {
   overlaps,
   nightsBetween,
   quoteStay,
+  paymentTerms,
   validatePricePeriods,
   validateChildren,
 } from "../../entities/booking/rules.js";
@@ -115,6 +117,7 @@ function initialState(legacy = []) {
       feature: r.feature,
       rating: r.rating,
       status: "published",
+      commissionPercent: 10,
       version: 1,
     });
     for (const type of r.rooms)
@@ -419,9 +422,10 @@ export function createDemoTransport({
     }
     if (pathname === "/catalog" && method === "GET")
       return clone({
-        resorts: publicResorts.map(
-          ({ commissionPercent, ...resort }) => resort,
-        ),
+        resorts: publicResorts.map(({ commissionPercent, ...resort }) => ({
+          ...resort,
+          bookingFeePercent: commissionPercent,
+        })),
         rooms: db.rooms.filter(
           (r) => isPublic(r.resortId) && r.status === "active",
         ),
@@ -602,6 +606,12 @@ export function createDemoTransport({
             409,
           );
         const price = quoteStay(room, tariff, search);
+        const terms = paymentTerms(resort, price.total);
+        if (!terms)
+          fail(
+            "Для санатория ещё не согласована комиссия онлайн-бронирования.",
+            409,
+          );
         const cancellationPolicy = freezePolicy(resort, search.start);
         if (Date.parse(cancellationPolicy.checkinAt) <= Date.now())
           fail("Время заезда уже наступило. Выберите другую дату.", 409);
@@ -626,6 +636,7 @@ export function createDemoTransport({
           staffNotes: "",
           ...search,
           ...price,
+          paymentTerms: terms,
           originalNightly: price.regularNightly,
           priceKind: tariff?.priceKind || "regular",
           discountPercent: tariff?.discountPercent || 0,
@@ -639,9 +650,9 @@ export function createDemoTransport({
           commissionTerms: {
             percent,
             amount: commission,
-            resortAmount: commission == null ? null : price.total - commission,
+            resortAmount: price.total,
             currency: "KZT",
-            basis: "booking_total",
+            basis: "accommodation_markup",
             mode: "estimate",
             refundHandling: "requires_reconciliation",
           },
@@ -805,13 +816,37 @@ export function createDemoTransport({
         name: text(payload.name, "Название", 100),
         city: text(payload.city, "Город", 80),
         address: text(payload.address, "Адрес"),
-        description: text(payload.description, "Описание", 2000, false),
+        description: text(payload.description, "Описание", 3000, false),
+        descriptionAfter: text(
+          payload.descriptionAfter ?? item?.descriptionAfter ?? "",
+          "Описание после галереи",
+          5000,
+          false,
+        ),
+        staffWhatsApp: text(
+          payload.staffWhatsApp ?? item?.staffWhatsApp ?? "",
+          "WhatsApp",
+          16,
+          false,
+        ),
+        twoGisUrl: text(
+          payload.twoGisUrl ?? item?.twoGisUrl ?? "",
+          "2ГИС",
+          1000,
+          false,
+        ),
         subtitle: text(payload.subtitle, "Краткое описание", 160, false),
         feature: text(payload.feature || "Отдых", "Услуга", 80),
         lat: number(payload.lat, "Широта", -90, 90),
         lng: number(payload.lng, "Долгота", -180, 180),
         status: choice(payload.status, ["draft", "published"]),
       };
+      if (fields.staffWhatsApp && !whatsAppUrl(fields.staffWhatsApp))
+        fail("Укажите номер WhatsApp с кодом страны.");
+      if (fields.staffWhatsApp)
+        fields.staffWhatsApp = "+" + fields.staffWhatsApp.replace(/^\+/, "");
+      if (fields.twoGisUrl && !twoGisUrl(fields.twoGisUrl))
+        fail("Укажите HTTPS-ссылку на 2gis.kz или 2gis.com.");
       if (!/^([01]\d|2[0-3]):[0-5]\d(:00)?$/.test(fields.checkInTime))
         fail("Укажите корректное время заезда.");
       if (
@@ -835,9 +870,15 @@ export function createDemoTransport({
         category: choice(payload.category, ["standard", "comfort", "suite"]),
         title: text(payload.title, "Название категории", 80),
         description: text(
-          payload.description || item?.description || "",
+          payload.description ?? item?.description ?? "",
           "Описание",
-          3000,
+          5000,
+          false,
+        ),
+        descriptionAfter: text(
+          payload.descriptionAfter ?? item?.descriptionAfter ?? "",
+          "Описание после галереи",
+          5000,
           false,
         ),
         media: safeMedia(payload.media || item?.media || []),

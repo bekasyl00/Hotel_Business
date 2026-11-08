@@ -17,6 +17,7 @@ const form = reactive({
   category: "standard",
   title: t("staff.standard"),
   description: "",
+  descriptionAfter: "",
   capacity: 2,
   area: 22,
   beds: t("staff.twinBeds"),
@@ -178,18 +179,19 @@ async function saveRoom() {
           rows="3"
         ></textarea>
       </label>
+      <label>
+        {{ t("common.catalogContent.descriptionBefore") }}
+        <textarea v-model="form.description" rows="4" maxlength="5000"></textarea>
+      </label>
       <MediaEditor
         v-model="form.media"
         :resort-id="resortId"
         @busy="mediaBusy = $event"
       />
-      <label
-        >{{ t("staff.roomDescription")
-        }}<textarea
-          v-model="form.description"
-          rows="4"
-          maxlength="3000"
-        ></textarea>
+      <label>
+        {{ t("common.catalogContent.descriptionAfter") }}
+        <textarea v-model="form.descriptionAfter" rows="4" maxlength="5000"></textarea>
+        <small>{{ t("common.catalogContent.descriptionAfterHelp") }}</small>
       </label>
       <p v-if="error" role="alert" class="form-error">{{ error }}</p>
       <div class="form-actions">

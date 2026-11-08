@@ -26,6 +26,9 @@ const form = reactive({
   address: "",
   subtitle: "",
   description: "",
+  descriptionAfter: "",
+  staffWhatsApp: "",
+  twoGisUrl: "",
   feature: t("staff.rest"),
   lat: 41.385,
   lng: 69.061,
@@ -137,18 +140,26 @@ function submit() {
             required
             maxlength="200"
             :placeholder="t('staff.addressPlaceholder')" /></label
-        ><label class="span-2"
+        ><label
+          >{{ t("common.catalogContent.staffWhatsApp") }}
+          <input v-model="form.staffWhatsApp" type="tel" inputmode="tel"
+            maxlength="16" pattern="[+]?[1-9][0-9]{7,14}" placeholder="+77770000000" />
+          <small>{{ t("common.catalogContent.optionalPublicContact") }}</small>
+        </label><label
+          >{{ t("common.catalogContent.twoGisUrl") }}
+          <input v-model="form.twoGisUrl" type="url" maxlength="1000" placeholder="https://2gis.kz/…" />
+        </label><label class="span-2"
           >{{ t("staff.shortDescription")
           }}<input
             v-model="form.subtitle"
             maxlength="160"
             :placeholder="t('staff.subtitlePlaceholder')" /></label
         ><label class="span-2"
-          >{{ t("staff.description")
+          >{{ t("common.catalogContent.descriptionBefore")
           }}<textarea
             v-model="form.description"
             rows="3"
-            maxlength="2000"
+            maxlength="3000"
           ></textarea></label
         ><label
           >{{ t("staff.mainService")
@@ -225,6 +236,11 @@ function submit() {
         :resort-id="item?.id"
         @busy="mediaBusy = $event"
       />
+      <label>
+        {{ t("common.catalogContent.descriptionAfter") }}
+        <textarea v-model="form.descriptionAfter" rows="4" maxlength="5000"></textarea>
+        <small>{{ t("common.catalogContent.descriptionAfterHelp") }}</small>
+      </label>
       <p v-if="error" role="alert" class="form-error">{{ error }}</p>
       <div class="form-actions">
         <button

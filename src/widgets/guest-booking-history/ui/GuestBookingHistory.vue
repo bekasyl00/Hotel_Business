@@ -3,6 +3,8 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
 import { money, dateLabel, statusNames } from "@/shared/lib";
+import { BookingVoucher, canOpenVoucher } from "@/features/booking-voucher";
+import { isDemo } from "@/shared/config";
 defineProps({ bookings: { type: Array, default: () => [] }, staff: Boolean });
 const stayNames = computed(() => ({
   not_arrived: t("public.notCheckedIn"),
@@ -52,9 +54,19 @@ function stayLabel(booking) {
           <h2>{{ booking.resortName }}</h2>
           <p>{{ booking.roomName }} · № {{ booking.unit }}</p>
         </div>
-        <strong>{{ money(booking.total) }}</strong>
+        <strong>{{
+          money(booking.paymentTerms?.total ?? booking.total)
+        }}</strong>
       </div>
       <dl class="guest-booking-facts">
+        <div v-if="booking.paymentTerms?.version === 1">
+          <dt>{{ t("common.payment.onlineCommission") }}</dt>
+          <dd>{{ money(booking.paymentTerms.onlineAmount) }}</dd>
+        </div>
+        <div v-if="booking.paymentTerms?.version === 1">
+          <dt>{{ t("common.payment.onsiteAmount") }}</dt>
+          <dd>{{ money(booking.paymentTerms.onsiteAmount) }}</dd>
+        </div>
         <div>
           <dt>{{ t("public.stayDates") }}</dt>
           <dd>{{ dateLabel(booking.start) }} — {{ dateLabel(booking.end) }}</dd>
@@ -73,6 +85,10 @@ function stayLabel(booking) {
         </div>
       </dl>
       <div class="guest-booking-actions">
+        <BookingVoucher
+          v-if="!isDemo && canOpenVoucher(booking)"
+          :booking="booking"
+        />
         <RouterLink
           v-if="booking.payment?.receiptUrl"
           class="secondary button-link"
@@ -87,6 +103,13 @@ function stayLabel(booking) {
           >{{ t("public.refunded") }}
           {{ money(booking.payment.refundedAmount) }}</span
         >
+        <span
+          v-if="booking.payment?.refundStatus"
+          class="small muted"
+          role="status"
+        >
+          {{ t(`common.payment.refunds.${booking.payment.refundStatus}`) }}
+        </span>
       </div>
     </article>
   </div>

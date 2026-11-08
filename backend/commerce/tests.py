@@ -35,6 +35,7 @@ def fixture():
     resort = Resort.objects.create(
         account=manager,
         name="Демо-санаторий",
+        commission_percent=10,
         city="Сарыагаш",
         address="Тест",
         lat=41,

@@ -1,4 +1,5 @@
 import math
+import re
 from urllib.parse import unquote, urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -64,12 +65,64 @@ class FeatureList(serializers.Field):
         return value
 
 
+def validate_staff_whatsapp(value):
+    if not value:
+        return ""
+    if not re.fullmatch(r"\+?[1-9][0-9]{7,14}", value):
+        raise serializers.ValidationError(
+            "Укажите номер WhatsApp с кодом страны, например +77770000000."
+        )
+    return "+" + value.lstrip("+")
+
+
+def validate_two_gis_url(value):
+    if not value:
+        return ""
+    try:
+        parsed = urlsplit(value)
+        valid = (
+            parsed.scheme == "https"
+            and parsed.hostname in {"2gis.kz", "2gis.com", "www.2gis.kz", "www.2gis.com"}
+            and not parsed.username
+            and not parsed.password
+            and parsed.port in (None, 443)
+        )
+    except ValueError:
+        valid = False
+    if not valid or any(ord(char) < 32 for char in value) or "\\" in value:
+        raise serializers.ValidationError("Укажите HTTPS-ссылку на 2gis.kz или 2gis.com.")
+    return value
+
+
 class ResortSerializer(serializers.ModelSerializer):
+    bookingFeePercent = serializers.DecimalField(
+        source="commission_percent", max_digits=5, decimal_places=2, read_only=True
+    )
     reviewCount = serializers.SerializerMethodField()
     reviewRating = serializers.SerializerMethodField()
     lat = serializers.FloatField(min_value=-90, max_value=90)
     lng = serializers.FloatField(min_value=-180, max_value=180)
     description = serializers.CharField(max_length=3000, allow_blank=True, required=False)
+    descriptionAfter = serializers.CharField(
+        source="description_after", max_length=5000, allow_blank=True, required=False
+    )
+    staffWhatsApp = serializers.CharField(
+        source="staff_whatsapp",
+        max_length=16,
+        allow_blank=True,
+        required=False,
+    )
+    twoGisUrl = serializers.CharField(
+        source="two_gis_url",
+        max_length=1000,
+        allow_blank=True,
+        required=False,
+        validators=[validate_two_gis_url],
+    )
+
+    def validate_staffWhatsApp(self, value):
+        return validate_staff_whatsapp(value)
+
     resortClass = serializers.ChoiceField(
         source="resort_class", choices=["standard", "comfort", "premium"], required=False
     )
@@ -122,12 +175,16 @@ class ResortSerializer(serializers.ModelSerializer):
             "address",
             "subtitle",
             "description",
+            "descriptionAfter",
+            "staffWhatsApp",
+            "twoGisUrl",
             "feature",
             "lat",
             "lng",
             "rating",
             "reviewCount",
             "reviewRating",
+            "bookingFeePercent",
             "status",
             "category",
             "resortClass",
@@ -198,6 +255,9 @@ class RoomSerializer(serializers.ModelSerializer):
     area = serializers.IntegerField(min_value=1, max_value=1000)
     price = serializers.IntegerField(min_value=0, max_value=10000000)
     description = serializers.CharField(max_length=5000, allow_blank=True, required=False)
+    descriptionAfter = serializers.CharField(
+        source="description_after", max_length=5000, allow_blank=True, required=False
+    )
     amenities = FeatureList(required=False)
     media = MediaItem(many=True, max_length=20, required=False)
 
@@ -242,6 +302,7 @@ class RoomSerializer(serializers.ModelSerializer):
             "pricePeriods",
             "status",
             "description",
+            "descriptionAfter",
             "amenities",
             "media",
         ]
@@ -450,6 +511,7 @@ def account_data(user):
 
 def booking_data(b, staff=False):
     from commerce.services import booking_payment_data, cancellation_terms
+    from commerce.settlement import onsite_data, payment_terms
 
     review = getattr(b, "review", None)
     snapshot = dict(b.snapshot)
@@ -476,6 +538,8 @@ def booking_data(b, staff=False):
         "checkedInAt": b.checked_in_at.isoformat() if b.checked_in_at else None,
         "checkedOutAt": b.checked_out_at.isoformat() if b.checked_out_at else None,
         **snapshot,
+        "paymentTerms": payment_terms(b),
+        "onsitePayment": onsite_data(b),
         "holdExpiresAt": b.hold_expires_at.isoformat() if b.hold_expires_at else None,
         "cancellationPolicy": cancellation_terms(b),
         "payment": booking_payment_data(b),

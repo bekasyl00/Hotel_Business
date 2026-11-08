@@ -15,6 +15,7 @@ from psycopg.types.range import Range
 
 from commerce.commission import freeze_commission
 from commerce.services import apply_cancellation, freeze_cancellation_terms
+from commerce.settlement import freeze_payment_terms
 
 from .errors import Problem
 from .holds import expire_locked_holds
@@ -248,6 +249,7 @@ def create_booking(request, staff=False):
     price = quote_stay(
         room, tariff, data["start"], data["end"], data["guests"], data["childrenAges"]
     )
+    payment_terms = freeze_payment_terms(resort, price["total"])
     cancellation_policy = freeze_cancellation_terms(resort, data["start"])
     from datetime import datetime
 
@@ -278,7 +280,12 @@ def create_booking(request, staff=False):
             "pricingBasis": "tariff" if tariff else "room",
             **price,
             "cancellationPolicy": cancellation_policy,
-            "commissionTerms": freeze_commission(resort, price["total"]),
+            "commissionTerms": {
+                **freeze_commission(resort, price["total"]),
+                "resortAmount": price["total"],
+                "basis": "accommodation_markup",
+            },
+            "paymentTerms": payment_terms,
         },
     )
     log_change(
@@ -310,6 +317,8 @@ def transition_booking(request, pk, staff=False):
         raise Problem("Этот переход статуса недоступен.", 409)
     if item.checked_in_at:
         raise Problem("Гость уже заселён. Используйте выезд вместо отмены бронирования.", 409)
+    if hasattr(item, "onsite_settlement"):
+        raise Problem("Оплата уже получена в санатории. Отмена требует сверки с сотрудником.", 409)
     if item.stay.upper <= timezone.localdate():
         raise Problem("Завершённое проживание нельзя изменить.", 409)
     before = booking_data(item)
@@ -686,6 +695,10 @@ def change_stay(request, pk, action):
             raise Problem("Заселение уже зарегистрировано.", 409)
         if not item.stay.lower <= today < item.stay.upper:
             raise Problem("Заселение доступно только в даты проживания.", 409)
+        from commerce.settlement import payment_terms
+
+        if payment_terms(item)["onsiteAmount"] > 0 and not hasattr(item, "onsite_settlement"):
+            raise Problem("Сначала подтвердите получение оплаты в санатории.", 409)
     elif action == "check-out":
         if not item.checked_in_at or item.checked_out_at:
             raise Problem("Для выезда гость должен быть заселён и ещё не выехать.", 409)

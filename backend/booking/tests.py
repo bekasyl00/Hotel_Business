@@ -46,6 +46,7 @@ def fixture():
         lat=41,
         lng=69,
         status="published",
+        commission_percent=10,
     )
     manager.resort = resort
     manager.save(update_fields=["resort"])

@@ -103,11 +103,16 @@
     "varies": "Price varies by night",
     "preview": "Estimated price. The server checks current rates on submission and freezes them in the booking.",
     "baseRoomPrice": "base price / night, excluding tariff; dated prices apply after choosing dates",
-    "childrenAtCheckout": "Children’s ages and free child tariffs are applied in the booking form."
+    "childrenAtCheckout": "Children’s ages and free child tariffs are applied in the booking form.",
+    "publicPeriodHint": "Room price per night. Dates show the first and last night of each period; selected rate supplements are calculated separately.",
+    "inSelectedStay": "Applies to your dates",
+    "outsidePeriods": "Outside these periods: {price} per room per night.",
+    "selectedStayTotal": "For {nights} nights: {total}",
+    "feeExcludedNightly": "Nightly prices exclude the platform fee."
   },
   "checkout": {
     "commissionPercent": "Platform commission, %",
-    "commissionHelp": "Administrator only. Empty means not configured; 0 means no commission. Applies to new orders.",
+    "commissionHelp": "The fee is added to accommodation. Only the fee is paid online; accommodation is paid directly to the property on arrival.",
     "commissionEstimate": "Platform commission (estimate)",
     "notConfigured": "Not configured",
     "refundReconciliation": "Refunds require reconciliation of commission and the resort amount.",
@@ -161,14 +166,37 @@
       "reconciliation_required": "Bank reconciliation required. Do not pay again."
     },
     "refunds": {
-      "queued": "Refund queued.",
-      "submitted": "The bank is processing the refund.",
-      "succeeded": "Refund verified.",
-      "reconciliation_required": "Refund needs bank reconciliation."
+      "queued": "Refund waiting to be processed.",
+      "submitted": "Checking the refund with the payment service.",
+      "succeeded": "Refund confirmed by the payment service.",
+      "reconciliation_required": "The refund needs reconciliation with the payment service."
     },
     "details": "Payment details",
     "openXPaymentSandbox": "Open test checkout",
-    "xpaymentSandboxExplanation": "The test link shows the amount and status. Set the test payment result in the XPayment sandbox dashboard. After a successful simulation, the server verifies the payment and automatically confirms the booking."
+    "xpaymentSandboxExplanation": "The test link shows the amount and status. Set the test payment result in the XPayment sandbox dashboard. After a successful simulation, the server verifies the payment and automatically confirms the booking.",
+    "onlineAmount": "Pay online",
+    "totalAmount": "Total to pay",
+    "onsiteAmount": "Pay at the sanatorium",
+    "howItWorks": "How payment works",
+    "progressLabel": "Payment steps",
+    "refreshRefund": "Check refund",
+    "waitingHint": "The status updates automatically. If you have paid, do not pay again.",
+    "readyHint": "Open Kaspi and check the recipient and amount.",
+    "steps": {
+      "invoice": "Invoice",
+      "bank": "Kaspi",
+      "verification": "Verify",
+      "confirmed": "Done"
+    },
+    "progress": {
+      "initial": "Pay for your booking in Kaspi",
+      "loading": "Loading the status…",
+      "creating": "Preparing your payment link…",
+      "ready": "Your link is ready",
+      "verifying": "Checking your payment",
+      "succeeded": "Payment confirmed"
+    },
+    "onlineCommission": "Online booking fee"
   },
   "gallery": {
     "previous": "Previous",
@@ -264,15 +292,18 @@
     "iin": "Child {number}: IIN — 12 digits",
     "invalidIin": "Enter the child’s 12-digit IIN. The first six digits must represent a valid past date, with an age under 18 at check-in.",
     "hint": "The demo estimates age from the first six digits. The full IIN is neither sent to the server nor stored. This is not identity verification; discounts depend on the rate.",
-    "age": "Age at check-in: {age}"
+    "age": "Age at check-in: {age}",
+    "add": "Add a child",
+    "remove": "Remove a child",
+    "partySizeHint": "Children are included in the total guest count. Adding a child increases the total when needed; at least one adult is required."
   },
   "finance": {
     "title": "Platform finances",
     "export": "Download financial report XLSX",
-    "basis": "Receipts and refunds use transaction dates; orders use creation dates; expenses use expense dates. Commission is estimated before refund reconciliation. This is neither a bank balance nor net profit.",
-    "confirmedAmount": "Confirmed order value",
-    "awaitingPayment": "Awaiting payment",
-    "confirmedUnpaid": "Confirmed but unpaid",
+    "basis": "Online receipts and refunds use transaction dates; accommodation, outstanding onsite balances and staff payment records use selected orders (creation date). Staff records are excluded from platform receipts. Expenses use incurred dates; commission is an estimate before refund reconciliation. This is not a bank balance or net profit.",
+    "confirmedAmount": "Accommodation in confirmed orders, excluding fees",
+    "awaitingPayment": "Online payment awaiting",
+    "confirmedUnpaid": "Confirmed without online payment",
     "commissionEstimate": "Contract commission estimate",
     "unconfigured": "Orders without configured commission: {count}",
     "received": "Received",
@@ -297,6 +328,61 @@
       "payroll": "Payroll",
       "taxes": "Taxes",
       "other": "Other"
-    }
+    },
+    "onsiteDue": "Due at the resort",
+    "onsiteRecorded": "Payment recorded by resort staff"
+  },
+  "catalogContent": {
+    "descriptionBefore": "Description before photos and videos",
+    "descriptionAfter": "Description after photos and videos",
+    "descriptionAfterHelp": "Optional. This text appears below the gallery.",
+    "staffWhatsApp": "Staff WhatsApp number",
+    "twoGisUrl": "Resort link on 2GIS",
+    "optionalPublicContact": "Optional. This number will be visible to guests.",
+    "contactStaff": "Message the staff",
+    "openTwoGis": "Open in 2GIS",
+    "moreAboutStay": "More about your stay"
+  },
+  "settlement": {
+    "total": "Total cost",
+    "online": "Online booking fee",
+    "onsite": "Pay at the property",
+    "feeHelp": "The fee is added to accommodation. Only the fee is paid online; accommodation is paid directly to the property on arrival.",
+    "notConfigured": "Online booking will be available once the property booking fee is configured."
+  },
+  "voucher": {
+    "open": "Booking voucher",
+    "title": "Booking confirmation",
+    "loading": "Preparing…",
+    "confirmed": "Booking confirmed",
+    "cancelled": "Booking cancelled",
+    "guest": "Guest",
+    "dates": "Stay dates",
+    "checkIn": "Check-in from",
+    "guests": "Guests",
+    "total": "Total to pay",
+    "online": "Online booking fee",
+    "onsite": "Pay at the sanatorium",
+    "paid": "paid",
+    "unpaid": "unpaid",
+    "recordedShort": "received",
+    "due": "due",
+    "notRequired": "not required",
+    "recordedAt": "Receipt recorded",
+    "explanation": "Show this voucher to the sanatorium staff. It confirms the booking and shows online and on-site payments separately. It is not a bank or fiscal receipt.",
+    "download": "Download PDF",
+    "share": "Share",
+    "openPdf": "Open PDF",
+    "fileReady": "Your PDF is ready to download or open.",
+    "recordTitle": "Received at the sanatorium",
+    "recordDates": "Record payment only during the stay, before the guest checks out.",
+    "method": "On-site payment method",
+    "cash": "Cash",
+    "card": "Card at the sanatorium",
+    "receivedConfirmation": "I confirm the sanatorium received {amount} from this guest.",
+    "recordHint": "This records money actually received by the sanatorium. It does not charge a card, transfer funds or issue a bank receipt.",
+    "record": "Confirm receipt",
+    "recorded": "Payment receipt recorded.",
+    "retry": "Try again"
   }
 }

@@ -12,6 +12,7 @@ from booking.models import Booking, Resort
 
 from .models import DemoPayment, DemoRefund, PaymentAttempt, RefundRequest
 from .receipts import freeze_receipt
+from .settlement import online_amount
 
 PARTIAL_REFUND_PERCENT = 70
 POLICY_TEXT = (
@@ -162,7 +163,7 @@ def _create_demo_payment(request, staff=False):
         request_key=data["requestId"],
         outcome=data["outcome"],
         status="paid" if data["outcome"] == "success" else "failed",
-        amount=booking.snapshot["total"],
+        amount=online_amount(booking),
     )
     if payment.outcome == "success":
         before = booking_data(booking)

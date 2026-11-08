@@ -189,8 +189,11 @@ def execute(job, provider):
         process_refund(payment, provider, verify=job.kind == "refund_verify")
 
 
-def run_one(*, provider=None, payment_id=None):
-    job = claim(payment_id=payment_id, allowed=None if provider else processable_jobs())
+def run_one(*, provider=None, payment_id=None, kinds=None):
+    allowed = Q() if provider else processable_jobs()
+    if kinds is not None:
+        allowed &= Q(kind__in=kinds)
+    job = claim(payment_id=payment_id, allowed=allowed)
     if not job:
         return False
     error = None

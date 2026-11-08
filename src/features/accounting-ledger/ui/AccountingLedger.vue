@@ -34,6 +34,8 @@ const metrics = [
   "awaitingPayment",
   "confirmedUnpaid",
   "commissionEstimate",
+  "onsiteDue",
+  "onsiteRecorded",
 ];
 const form = reactive({
   resortId: null,

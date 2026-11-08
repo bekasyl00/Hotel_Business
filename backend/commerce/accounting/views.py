@@ -28,24 +28,34 @@ from .reporting import financial_report, report_xlsx
 
 
 def bookings_data(query):
-    return [
-        {
-            "id": b.pk,
-            "resortId": b.resort_id,
-            "resort": b.resort.name,
-            "guest": b.guest_label,
-            "room": b.snapshot.get("roomName", b.room.number),
-            "start": b.stay.lower.isoformat(),
-            "end": b.stay.upper.isoformat(),
-            "amount": b.snapshot.get("total", 0),
-            "status": b.status,
-            "completed": bool(b.checked_out_at),
-            "payment": booking_payment_data(b),
-        }
-        for b in query.select_related("resort", "room", "bank_payment__refund").prefetch_related(
-            "demo_payments"
+    from commerce.settlement import onsite_data, payment_terms
+
+    rows = []
+    for b in query.select_related(
+        "resort", "room", "bank_payment__refund", "onsite_settlement"
+    ).prefetch_related("demo_payments"):
+        terms = payment_terms(b)
+        onsite = onsite_data(b)
+        rows.append(
+            {
+                "id": b.pk,
+                "resortId": b.resort_id,
+                "resort": b.resort.name,
+                "guest": b.guest_label,
+                "room": b.snapshot.get("roomName", b.room.number),
+                "start": b.stay.lower.isoformat(),
+                "end": b.stay.upper.isoformat(),
+                "amount": b.snapshot.get("total", 0),
+                "customerTotal": terms["total"],
+                "onlineAmount": terms["onlineAmount"],
+                "onsiteAmount": terms["onsiteAmount"],
+                "onsitePayment": onsite,
+                "status": b.status,
+                "completed": bool(b.checked_out_at),
+                "payment": booking_payment_data(b),
+            }
         )
-    ]
+    return rows
 
 
 def window(params):
@@ -180,9 +190,13 @@ class AccountingView(APIView):
                     "Номер",
                     "Заезд",
                     "Выезд",
-                    "Сумма брони KZT",
+                    "Стоимость проживания KZT",
+                    "Полная стоимость KZT",
+                    "Онлайн-оплата по условиям KZT",
+                    "Оплата в санатории по условиям KZT",
+                    "Отмечено сотрудником в санатории KZT",
                     "Источник",
-                    "Статус оплаты",
+                    "Статус онлайн-оплаты",
                     "Возвращено KZT",
                 ]
             )
@@ -196,6 +210,12 @@ class AccountingView(APIView):
                     b["start"],
                     b["end"],
                     b["amount"],
+                    b["customerTotal"],
+                    b["onlineAmount"],
+                    b["onsiteAmount"],
+                    b["onsitePayment"]["amount"]
+                    if b["onsitePayment"]["status"] == "recorded"
+                    else 0,
                     p.get("paymentMode", "unpaid"),
                     p.get("status", "unpaid"),
                     p.get("refundedAmount", 0),

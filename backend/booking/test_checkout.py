@@ -119,7 +119,8 @@ class CheckoutTests(TestCase):
         self.assertEqual(result.status_code, 200, result.content)
         booking = self.create()
         self.assertEqual(booking.snapshot["commissionTerms"]["amount"], 5873)
-        self.assertEqual(booking.snapshot["commissionTerms"]["resortAmount"], 75127)
+        self.assertEqual(booking.snapshot["commissionTerms"]["resortAmount"], 81000)
+        self.assertEqual(booking.snapshot["paymentTerms"]["total"], 86873)
         self.assertNotIn("commissionTerms", self.client.get("/api/my-bookings").json()[0])
         self.assertNotIn("commissionPercent", self.client.get("/api/catalog").json()["resorts"][0])
         self.assertEqual(
@@ -144,14 +145,17 @@ class CheckoutTests(TestCase):
                 self.write("patch", url, {"version": 1, "commissionPercent": value}).status_code,
                 422,
             )
-        first = self.create(staff=True)
-        self.assertIsNone(first.snapshot["commissionTerms"]["amount"])
-        self.write("patch", f"/api/bookings/{first.pk}", {"version": 1, "status": "cancelled"})
-        self.assertEqual(
-            self.write("patch", url, {"version": 1, "commissionPercent": 0}).status_code, 200
-        )
-        self.payload["requestId"] = str(uuid.uuid4())
-        self.assertEqual(self.create(staff=True).snapshot["commissionTerms"]["amount"], 0)
+        for version, value in [(1, None), (2, 0)]:
+            response = self.write("patch", url, {"version": version, "commissionPercent": value})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(
+                response.json()["commissionPercent"], None if value is None else "0.00"
+            )
+            response = self.write(
+                "post", "/api/bookings", {**self.payload, "requestId": str(uuid.uuid4())}
+            )
+            self.assertEqual(response.status_code, 409)
+            self.assertEqual(response.json()["code"], "booking_fee_not_configured")
 
     def test_staff_demo_payment_requires_staff_source_and_scope(self):
         guest = self.create()

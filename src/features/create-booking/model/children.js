@@ -37,3 +37,14 @@ export function childBirthFromIin(value, checkin, today) {
   const birth = birthHint(value.slice(0, 6), checkin);
   return birth && birth <= today ? birth : "";
 }
+
+export function selectChildCount(value, guests, capacity) {
+  if (value === "" || !Number.isInteger(Number(value))) return null;
+  if (!Number.isInteger(capacity) || capacity < 1) return null;
+  const children = Math.max(0, Math.min(Number(value), capacity - 1));
+  const currentGuests = Number.isInteger(Number(guests)) ? Number(guests) : 1;
+  return {
+    children,
+    guests: Math.min(capacity, Math.max(currentGuests, children + 1)),
+  };
+}

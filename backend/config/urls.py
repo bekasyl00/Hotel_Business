@@ -13,11 +13,15 @@ from commerce.accounting.views import AccountingView, BookingDocumentsView, Gues
 from commerce.payment_views import HalykCallbackView, PaymentView
 from commerce.scheduler import tick
 from commerce.views import CancellationPreviewView, DemoPaymentView, ReceiptView
+from commerce.vouchers import OnsitePaymentView, VoucherView
 from commerce.xpayment_webhook import XPaymentCallbackView
 
 from .health import live, ready
 
 api_patterns = [
+    path("bookings/<str:pk>/voucher", VoucherView.as_view()),
+    path("bookings/<str:pk>/voucher/pdf", VoucherView.as_view(), {"pdf": True}),
+    path("bookings/<str:pk>/onsite-payment", OnsitePaymentView.as_view()),
     path("accounting/report.xlsx", AccountingView.as_view(), {"resource": "report"}),
     path("accounting/expenses", AccountingView.as_view(), {"resource": "expenses"}),
     path("accounting/expenses/<str:pk>/void", AccountingView.as_view(), {"resource": "expenses"}),

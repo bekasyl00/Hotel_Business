@@ -112,6 +112,8 @@ def document_data(doc):
 
 
 def snapshot(booking, number):
+    from commerce.settlement import payment_terms
+
     company = AccountingCompany.objects.filter(resort=booking.resort).first()
     details = company.details if company else {}
     total = int(booking.snapshot.get("total", 0))
@@ -124,6 +126,15 @@ def snapshot(booking, number):
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
     payment = booking_payment_data(booking)
+    terms = payment_terms(booking)
+    split_payment = terms["version"] == 1
+    onsite = getattr(booking, "onsite_settlement", None)
+    online_paid = (
+        payment.get("amount", 0)
+        if payment and payment.get("status") in ("paid", "refunded", "partially_refunded")
+        else 0
+    )
+    online_refunded = payment.get("refundedAmount", 0) if payment else 0
     now = timezone.now().astimezone(ZoneInfo(booking.resort.time_zone))
     return {
         "schema": 1,
@@ -150,10 +161,17 @@ def snapshot(booking, number):
         if details.get("vatMode") == "no_vat"
         else (details.get("vatRate", "") + "%" if vat is not None else "Не настроен"),
         "paymentMode": payment.get("paymentMode", "unpaid") if payment else "unpaid",
-        "paidAmount": payment.get("amount", 0)
-        if payment and payment.get("status") in ("paid", "refunded", "partially_refunded")
-        else 0,
-        "refundedAmount": payment.get("refundedAmount", 0) if payment else 0,
+        "paidAmount": (onsite.amount if onsite else 0) if split_payment else online_paid,
+        "refundedAmount": 0 if split_payment else online_refunded,
+        "customerTotal": terms["total"],
+        "platformFeeAmount": terms["onlineAmount"] if split_payment else 0,
+        "platformFeePaidAmount": online_paid if split_payment else 0,
+        "platformFeeRefundedAmount": online_refunded if split_payment else 0,
+        "onsiteAmount": terms["onsiteAmount"],
+        "paymentEvidence": ("staff_attestation" if onsite else "not_recorded")
+        if split_payment
+        else "online_payment",
+        "paymentTerms": terms,
         "checkedOutAt": booking.checked_out_at.isoformat() if booking.checked_out_at else None,
         "companyVersion": company.version if company else 0,
     }
@@ -244,6 +262,18 @@ def change_document(request, pk, action):
             payment = booking_payment_data(doc.booking)
             if not payment or payment.get("status") != "paid" or payment.get("refundStatus"):
                 raise Problem("Сначала завершите сверку оплаты и возвратов.", 409)
+            from commerce.settlement import payment_terms
+
+            terms = payment_terms(doc.booking)
+            onsite = getattr(doc.booking, "onsite_settlement", None)
+            if (
+                terms["version"] == 1
+                and terms["onsiteAmount"] > 0
+                and (onsite is None or onsite.amount != terms["onsiteAmount"])
+            ):
+                raise Problem(
+                    "Сначала сотрудник должен отметить оплату проживания в санатории.", 409
+                )
             doc.state, doc.released_at = "released", timezone.now()
         doc.snapshot = snapshot(doc.booking, doc.number)
     else:

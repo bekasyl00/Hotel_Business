@@ -1,5 +1,14 @@
 # Проверки
 
+## 08.11.2026 — комиссия сверху, билет, каталог и мобильная оплата
+
+- Полная регрессия **279 Django tests** на отдельном PostgreSQL 17 — pass. После расширения доступа к истории отменённого билета отдельно **7 settlement tests** — pass. Migration drift: no changes. **127 frontend tests**, FSD **132 files / 338 imports**, build, API build:surfaces и arch:check — pass.
+- Новая цена: base 280 000 + 10% online 28 000 = total 308 000; onsite 280 000. Проверены округление whole-KZT, immutable snapshots, legacy full-online, fee-only refund, owner/scope/CSRF/version, повтор onsite и запрет client amount. Отдельные 23 бухгалтерских теста проверили разделение fee/onsite и документов.
+- Локальные реальные Vue-компоненты проверены на 390/1440 px RU/KK/EN: ввод/очистка/повторный ввод детей и +/- автоматически сохраняют взрослого и capacity; категории только в каталоге; description1 → gallery → description2, листание, WhatsApp/2GIS, сезонные периоды без overflow. Payment accordion, анимация, автоматически завершившийся refund polling, guest PDF и staff received-checkbox проверены на вымышленных fixtures. Это UI-проверки, не реальные денежные операции.
+- Новый пользовательский полный возврат **100 KZT** независимо прочитан у XPayment (REFUND, 08.11.2026 22:17:56 Asia/Almaty) и в БД (succeeded). Прежний технический платёж 100 KZT не возвращался. Partial live новой модели пока не проверен.
+- Публикация этой версии и live проверки записываются ниже после завершения. iPhone/Android не пересобирались.
+
+
 ## 08.11.2026 — переход к реальной кассе и регистрация без SMS
 
 - Владелец явно выбрал Altyn Bulak / Көктерек. Backend ограничивает новые production attempts списком `altun,kokterek`; frontend показывает доступность по тому же списку. Existing attempts/verify/refund сохраняются; отозванный объект не запускает новый create job.

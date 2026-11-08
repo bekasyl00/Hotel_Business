@@ -8,7 +8,8 @@ const route = useRoute(),
 import { PublicHeader } from "@/widgets/public-header";
 import { PaymentDialog } from "@/widgets/payment-dialog";
 import { ReviewForm } from "@/features/review-form";
-import { isBankProvider } from "@/features/pay-booking";
+import { BookingVoucher, canOpenVoucher } from "@/features/booking-voucher";
+import { isBankProvider, paymentNeedsPolling } from "@/features/pay-booking";
 import {
   useBookingStore,
   dateAfter,
@@ -20,11 +21,23 @@ import { isDemo } from "@/shared/config";
 import { money, dateLabel, statusNames } from "@/shared/lib";
 const store = useBookingStore();
 const now = ref(Date.now());
-let clock;
+let clock,
+  statusTimer,
+  statusLoading = false,
+  disposed = false;
 onMounted(() => {
   clock = setInterval(() => (now.value = Date.now()), 1000);
+  statusTimer = setInterval(refreshStatuses, 7000);
+  window.addEventListener("focus", refreshStatuses);
+  document.addEventListener("visibilitychange", refreshStatuses);
 });
-onBeforeUnmount(() => clearInterval(clock));
+onBeforeUnmount(() => {
+  disposed = true;
+  clearInterval(clock);
+  clearInterval(statusTimer);
+  window.removeEventListener("focus", refreshStatuses);
+  document.removeEventListener("visibilitychange", refreshStatuses);
+});
 const loading = ref(true),
   error = ref(""),
   notice = ref(""),
@@ -59,6 +72,30 @@ const canPay = (booking) =>
   Date.parse(booking.cancellationPolicy?.checkinAt || "") > now.value &&
   (!booking.payment ||
     ["failed", "creating", "pending"].includes(booking.payment.status));
+async function refreshStatuses() {
+  if (
+    isDemo ||
+    disposed ||
+    document.hidden ||
+    statusLoading ||
+    loading.value ||
+    busy.value ||
+    !store.items.some(
+      (booking) =>
+        isBankProvider(booking.payment?.provider) &&
+        paymentNeedsPolling(booking.payment),
+    )
+  )
+    return;
+  statusLoading = true;
+  try {
+    await store.loadMine();
+  } catch {
+    // Retain the last known state during a network interruption; manual refresh shows errors.
+  } finally {
+    statusLoading = false;
+  }
+}
 function checkinLabel(booking) {
   const at = booking.cancellationPolicy?.checkinAt;
   if (!at)
@@ -132,7 +169,11 @@ async function paymentSaved(result) {
   if (!result.failed) {
     paymentTarget.value = null;
     notice.value = isBankProvider(result.payment?.provider)
-      ? t("common.payment.states.succeeded")
+      ? t(
+          result.payment.refundStatus === "succeeded"
+            ? "common.payment.refunds.succeeded"
+            : "common.payment.states.succeeded",
+        )
       : t("public.demoPaymentSuccessfulNoRealMoneyWasCharged");
   }
   await load();
@@ -199,10 +240,18 @@ onMounted(load);
             }}</RouterLink>
           </div>
           <strong class="guest-booking-total">{{
-            money(booking.total)
+            money(booking.paymentTerms?.total ?? booking.total)
           }}</strong>
         </div>
         <dl class="guest-booking-facts">
+          <div v-if="booking.paymentTerms?.version === 1">
+            <dt>{{ t("common.payment.onlineCommission") }}</dt>
+            <dd>{{ money(booking.paymentTerms.onlineAmount) }}</dd>
+          </div>
+          <div v-if="booking.paymentTerms?.version === 1">
+            <dt>{{ t("common.payment.onsiteAmount") }}</dt>
+            <dd>{{ money(booking.paymentTerms.onsiteAmount) }}</dd>
+          </div>
           <div>
             <dt>{{ t("public.checkin") }}</dt>
             <dd>{{ checkinLabel(booking) }}</dd>
@@ -267,6 +316,10 @@ onMounted(load);
           </span>
         </div>
         <div class="guest-booking-actions">
+          <BookingVoucher
+            v-if="!isDemo && canOpenVoucher(booking)"
+            :booking="booking"
+          />
           <RouterLink
             v-if="booking.payment?.receiptUrl"
             :to="booking.payment.receiptUrl"

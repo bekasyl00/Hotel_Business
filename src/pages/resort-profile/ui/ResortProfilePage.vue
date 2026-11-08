@@ -6,10 +6,17 @@ import { useRoute } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { MediaGallery } from "@/widgets/media-gallery";
 import { AvailabilityCalendar } from "@/widgets/availability-calendar";
+import { SeasonalPrices } from "@/widgets/seasonal-prices";
 import { dateAfter, validateSearch, nightsBetween } from "@/entities/booking";
 import { GeoMap } from "@/shared/ui";
 import { request } from "@/shared/api";
-import { money, dateLabel, categoryNames } from "@/shared/lib";
+import {
+  money,
+  dateLabel,
+  categoryNames,
+  whatsAppUrl,
+  twoGisUrl,
+} from "@/shared/lib";
 const route = useRoute();
 const data = ref(null),
   loading = ref(true),
@@ -143,6 +150,29 @@ watch(() => route.params.id, load, { immediate: true });
             </div>
             <h1>{{ resort.name }}</h1>
             <p>{{ resort.city }} · {{ resort.address }}</p>
+            <div
+              class="profile-contact-links"
+              v-if="
+                whatsAppUrl(resort.staffWhatsApp) || twoGisUrl(resort.twoGisUrl)
+              "
+            >
+              <a
+                v-if="whatsAppUrl(resort.staffWhatsApp)"
+                :href="whatsAppUrl(resort.staffWhatsApp)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="secondary button-link"
+                >{{ t("common.catalogContent.contactStaff") }}</a
+              >
+              <a
+                v-if="twoGisUrl(resort.twoGisUrl)"
+                :href="twoGisUrl(resort.twoGisUrl)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="secondary button-link"
+                >{{ t("common.catalogContent.openTwoGis") }}</a
+              >
+            </div>
           </div>
           <a v-if="rating" class="profile-rating" href="#reviews"
             ><strong>★ {{ rating }}</strong
@@ -151,7 +181,24 @@ watch(() => route.params.id, load, { immediate: true });
             t("public.noReviewsYet")
           }}</a>
         </header>
+        <section id="about" class="profile-section profile-introduction">
+          <span class="eyebrow">{{ t("public.aPlaceForYourBreak") }}</span>
+          <h2>{{ t("public.aboutTheResort") }}</h2>
+          <p class="profile-description">
+            {{
+              resort.description ||
+              t("public.aResortDescriptionWillBeAddedSoon")
+            }}
+          </p>
+        </section>
         <MediaGallery :media="resort.media || []" :title="resort.name" />
+        <section
+          v-if="resort.descriptionAfter"
+          class="profile-section profile-introduction"
+        >
+          <h2>{{ t("common.catalogContent.moreAboutStay") }}</h2>
+          <p class="profile-description">{{ resort.descriptionAfter }}</p>
+        </section>
         <nav
           class="profile-section-nav"
           :aria-label="t('public.resortPageSections')"
@@ -163,15 +210,7 @@ watch(() => route.params.id, load, { immediate: true });
         </nav>
         <div class="profile-columns">
           <div class="profile-content">
-            <section id="about" class="profile-section">
-              <span class="eyebrow">{{ t("public.aPlaceForYourBreak") }}</span>
-              <h2>{{ t("public.aboutTheResort") }}</h2>
-              <p class="profile-description">
-                {{
-                  resort.description ||
-                  t("public.aResortDescriptionWillBeAddedSoon")
-                }}
-              </p>
+            <section class="profile-section">
               <ul v-if="resort.amenities?.length" class="amenity-tags">
                 <li v-for="item in resort.amenities" :key="item">
                   ✓ {{ item }}
@@ -323,6 +362,11 @@ watch(() => route.params.id, load, { immediate: true });
                       >{{ t("public.chooseRoom") }}</RouterLink
                     >
                   </div>
+                  <SeasonalPrices
+                    :room="room"
+                    :start="dates.start"
+                    :end="dates.end"
+                  />
                 </div>
               </article>
             </section>

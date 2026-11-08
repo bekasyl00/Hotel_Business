@@ -143,7 +143,7 @@ test("payment confirms pending automatically; retry is idempotent and cancellati
     status: "cancelled",
   });
   const preview = await api("GET", `/cancellation-preview/${b.id}`);
-  assert.equal(preview.refundAmount, 99000);
+  assert.equal(preview.refundAmount, 9900);
   assert.equal(preview.finalized, true);
   assert.equal((await api("POST", "/payments/demo", pay)).status, "refunded");
 });
@@ -461,8 +461,12 @@ test("admin commission setting is frozen for each order and protected from manag
     (x) => x.id === b.id,
   );
   assert.equal(stored.commissionTerms.amount, 7178);
-  assert.equal(stored.commissionTerms.resortAmount, 91822);
+  assert.equal(stored.commissionTerms.resortAmount, 99000);
   assert.equal(stored.commissionTerms.percent, "7.25");
+  assert.equal(stored.commissionTerms.basis, "accommodation_markup");
+  assert.equal(stored.paymentTerms.onlineAmount, 7178);
+  assert.equal(stored.paymentTerms.total, 106178);
+  assert.equal(stored.paymentTerms.onsiteAmount, 99000);
   assert.equal(
     "commissionPercent" in (await api("GET", "/catalog")).resorts[0],
     false,
@@ -476,6 +480,119 @@ test("admin commission setting is frozen for each order and protected from manag
     }),
     (e) => e.status === 403,
   );
+});
+
+test("demo collects and refunds only the frozen online fee after accommodation and commission edits", async () => {
+  const { api, mutate } = await setup();
+  mutate((db) => {
+    db.resorts.find((r) => r.id === "altun").commissionPercent = "10";
+    Object.assign(
+      db.rooms.find((r) => r.id === "altun-111"),
+      { price: 10000, pricePeriods: [] },
+    );
+    Object.assign(
+      db.tariffs.find((t) => t.id === "altun-meals"),
+      { supplement: 0, priceKind: "regular", discountPercent: 0 },
+    );
+  });
+  const b = await api("POST", "/my-bookings", {
+    ...booking(),
+    end: dateAfter(8),
+    guests: 1,
+  });
+  assert.equal(b.total, 10000);
+  assert.deepEqual(b.paymentTerms, {
+    version: 1,
+    accommodationTotal: 10000,
+    onlineAmount: 1000,
+    onsiteAmount: 10000,
+    total: 11000,
+    mode: "percent",
+    value: "10",
+  });
+  await api("POST", "/auth/login", { accountId: "admin" });
+  const workspace = await api("GET", "/workspace");
+  const resort = workspace.resorts.find((r) => r.id === "altun");
+  const room = workspace.rooms.find((r) => r.id === "altun-111");
+  await api("PATCH", `/resorts/${resort.id}`, {
+    ...resort,
+    commissionPercent: "20",
+  });
+  await api("PATCH", `/rooms/${room.id}`, { ...room, price: 20000 });
+  const stored = (await api("GET", "/my-bookings")).find(
+    (item) => item.id === b.id,
+  );
+  assert.equal(stored.total, 10000);
+  assert.deepEqual(stored.paymentTerms, b.paymentTerms);
+  const p = await api("POST", "/payments/demo", {
+    bookingId: b.id,
+    requestId: crypto.randomUUID(),
+    outcome: "success",
+  });
+  assert.equal(p.amount, 1000);
+  const receipt = await api("GET", `/receipts/${p.id}`);
+  assert.equal(receipt.receipt.total, 1000);
+  const current = (await api("GET", "/my-bookings")).find(
+    (item) => item.id === b.id,
+  );
+  const cancelled = await api("PATCH", `/my-bookings/${b.id}`, {
+    status: "cancelled",
+    version: current.version,
+  });
+  assert.equal(cancelled.cancellation.refundPercent, 100);
+  assert.equal(cancelled.cancellation.refundAmount, 1000);
+  assert.equal(cancelled.payment.refundedAmount, 1000);
+  assert.deepEqual(cancelled.paymentTerms, b.paymentTerms);
+});
+
+test("legacy bookings retain full payment and old commission snapshots when new fees change", async () => {
+  const { api, mutate } = await setup();
+  const b = await api("POST", "/my-bookings", booking());
+  const legacyCommission = {
+    percent: "10",
+    amount: 9900,
+    resortAmount: 89100,
+    currency: "KZT",
+  };
+  mutate((db) => {
+    const stored = db.bookings.find((item) => item.id === b.id);
+    delete stored.paymentTerms;
+    stored.commissionTerms = legacyCommission;
+    db.resorts.find((r) => r.id === "altun").commissionPercent = null;
+    db.rooms.find((r) => r.id === b.roomId).price = 100;
+  });
+  const read = (await api("GET", "/my-bookings")).find(
+    (item) => item.id === b.id,
+  );
+  assert.equal(read.total, b.total);
+  assert.equal("paymentTerms" in read, false);
+  const p = await api("POST", "/payments/demo", {
+    bookingId: b.id,
+    requestId: crypto.randomUUID(),
+    outcome: "success",
+  });
+  assert.equal(p.amount, b.total);
+  await api("POST", "/auth/login", { accountId: "admin" });
+  const stored = (await api("GET", "/workspace")).bookings.find(
+    (item) => item.id === b.id,
+  );
+  assert.deepEqual(stored.commissionTerms, legacyCommission);
+  assert.equal("paymentTerms" in stored, false);
+});
+
+test("new demo bookings require a configured nonzero fee without modifying existing records", async () => {
+  const { api, mutate } = await setup();
+  for (const commissionPercent of [null, "0"]) {
+    mutate((db) => {
+      db.resorts.find((r) => r.id === "altun").commissionPercent =
+        commissionPercent;
+    });
+    await assert.rejects(
+      api("POST", "/my-bookings", booking()),
+      (error) => error.status === 409,
+    );
+    assert.equal((await api("GET", "/my-bookings")).length, 0);
+  }
 });
 
 test("staff-created demo orders are booked by payment, not approval", async () => {

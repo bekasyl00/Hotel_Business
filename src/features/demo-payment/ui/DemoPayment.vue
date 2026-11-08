@@ -58,7 +58,9 @@ async function pay(outcome) {
       <div class="payment-receipt">
         <span>{{ booking.resortName }}</span>
         <h3>{{ booking.roomName || t("public.room", [booking.unit]) }}</h3>
-        <strong>{{ money(booking.total) }}</strong>
+        <strong>{{
+          money(booking.paymentTerms?.onlineAmount ?? booking.total)
+        }}</strong>
       </div>
       <p>
         {{

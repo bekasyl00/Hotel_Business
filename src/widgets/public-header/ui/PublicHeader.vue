@@ -93,7 +93,7 @@ onMounted(load);
       }}</span>
     </div>
     <nav
-      v-if="!isMobile || route.path === '/'"
+      v-if="route.path === '/'"
       class="category-navigation"
       :aria-label="t('public.resortCategories')"
     >

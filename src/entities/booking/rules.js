@@ -8,3 +8,4 @@ export {
   validateChildren,
 } from "./model/rules.js";
 export { propertyToday, shiftDay } from "./model/occupancy.js";
+export { paymentTerms } from "./model/payment-terms.js";

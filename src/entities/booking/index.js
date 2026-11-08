@@ -1,4 +1,5 @@
 export { useBookingStore } from "./model/store.js";
+export { paymentTerms } from "./model/payment-terms.js";
 export {
   dateAfter,
   validateSearch,
