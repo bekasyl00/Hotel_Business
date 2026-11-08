@@ -1,31 +1,31 @@
-/* Tynys / Horizon. Presentation only; booking and payment states keep their colors. */
+/* Tynys / Sanatorium Garden. Presentation only; booking and payment states keep their colors. */
 :root {
-  --brand: #245dab;
-  --brand-hover: #194984;
-  --nav: #152e4e;
-  --ink: #1c2d43;
-  --muted: #5d6c7d;
-  --line: #dce3eb;
-  --cream: #f4f6f9;
-  --work-bg: #f3f5f9;
-  --accent: #f4b88a;
+  --brand: #53694a;
+  --brand-hover: #40553a;
+  --nav: #303e2f;
+  --ink: #30372f;
+  --muted: #666b5e;
+  --line: #dedfd2;
+  --cream: #f4f3ed;
+  --work-bg: #f4f3ec;
+  --accent: #c59b62;
   --green: var(--brand);
-  --green-dark: #183b68;
-  --lime: #eaf0fb;
-  --shadow: 0 12px 36px #192f5010;
+  --green-dark: #344a35;
+  --lime: #edf0e5;
+  --shadow: 0 12px 36px #3d472e10;
   --radius-control: 10px;
   --radius-panel: 18px;
   color: var(--ink);
-  background: #fafbfd;
+  background: #fbfaf6;
   font-feature-settings: "ss01";
   -webkit-font-smoothing: antialiased;
 }
 body {
-  background: #fafbfd;
+  background: #fbfaf6;
 }
 ::selection {
-  background: #dbe9ff;
-  color: #152e4e;
+  background: #e3e8d7;
+  color: #303e2f;
 }
 h1,
 h2,
@@ -51,7 +51,7 @@ input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 [tabindex]:focus-visible {
-  outline: 3px solid #b57532;
+  outline: 3px solid #9a6634;
   outline-offset: 3px;
 }
 .brand,
@@ -65,7 +65,7 @@ textarea:focus-visible,
   flex-shrink: 0;
 }
 .brand-dot {
-  color: #c78043;
+  color: #a87a46;
 }
 .primary,
 .work-main .primary,
@@ -76,7 +76,7 @@ textarea:focus-visible,
   color: white;
   font-weight: 700;
   min-height: 44px;
-  box-shadow: 0 2px 3px #183b6812;
+  box-shadow: 0 2px 3px #344a3512;
 }
 .primary:hover:not(:disabled) {
   background: var(--brand-hover);
@@ -88,8 +88,8 @@ textarea:focus-visible,
   color: var(--ink);
 }
 .secondary:hover:not(:disabled) {
-  background: #edf3fc;
-  border-color: #aebfd5;
+  background: #edf0e4;
+  border-color: #b3bda4;
 }
 .text-button {
   color: var(--brand);
@@ -97,7 +97,7 @@ textarea:focus-visible,
 .editor-form input:not([type="checkbox"]),
 .editor-form select,
 .editor-form textarea {
-  border-color: #cbd5e1;
+  border-color: #cbd0be;
   border-radius: var(--radius-control);
   background: white;
   color: var(--ink);
@@ -126,7 +126,7 @@ textarea:focus-visible,
 /* Discovery: the search remains the main action; illustration is decorative. */
 .public-site {
   min-height: 100dvh;
-  background: #fafbfd;
+  background: #fbfaf6;
 }
 .public-site .public-header {
   background: #fff;
@@ -139,14 +139,14 @@ textarea:focus-visible,
   min-height: 88px;
 }
 .public-header-top .brand {
-  color: #183b68;
+  color: #344a35;
   font-size: 29px;
 }
 .public-header-top nav {
   gap: 26px;
 }
 .public-header-top nav a {
-  color: #526277;
+  color: #616b59;
 }
 .public-header-top nav a[aria-current="page"] {
   color: var(--brand);
@@ -169,12 +169,12 @@ textarea:focus-visible,
   padding: 8px 18px;
 }
 .category-navigation a.selected {
-  background: #eaf1fb;
-  border-color: #b6ccea;
-  color: #1f508f;
+  background: #edf0e3;
+  border-color: #b7c2a8;
+  color: #405b36;
 }
 .category-navigation a:hover {
-  border-color: #9bb4d3;
+  border-color: #a1b08e;
 }
 .discovery-page .discovery-search {
   position: relative;
@@ -188,12 +188,12 @@ textarea:focus-visible,
   border: 0;
   border-radius: 24px;
   color: white;
-  background: #183b68 url("/assets/horizon.svg") right 32px bottom / 440px auto
-    no-repeat;
+  background: #344a35 url("/assets/botanical.svg") right 32px bottom / 440px
+    auto no-repeat;
   overflow: hidden;
 }
 .discovery-search .eyebrow {
-  color: #f4c9a7;
+  color: #d4b78d;
   font-size: 10px;
   letter-spacing: 0.15em;
   margin-bottom: 14px;
@@ -206,7 +206,7 @@ textarea:focus-visible,
   max-width: 650px;
 }
 .discovery-page .discovery-search p {
-  color: #d6e3f1;
+  color: #e2e8d9;
   font-size: 14px;
   line-height: 1.7;
   margin-top: 14px;
@@ -219,10 +219,10 @@ textarea:focus-visible,
   border: 2px solid white;
   padding: 9px 18px;
   border-radius: 12px;
-  box-shadow: 0 5px 14px #07182e20;
+  box-shadow: 0 5px 14px #303c2620;
 }
 .discovery-search .discovery-search-input:focus-within {
-  outline: 3px solid #f4b88a;
+  outline: 3px solid #c59b62;
   outline-offset: 4px;
 }
 .discovery-search-input input {
@@ -265,14 +265,14 @@ textarea:focus-visible,
   background: white;
   border-color: var(--line);
   border-radius: 18px;
-  box-shadow: 0 3px 8px #183b6805;
+  box-shadow: 0 3px 8px #344a3505;
   transition:
     box-shadow 0.2s,
     border-color 0.2s;
 }
 .catalogue-cards .discovery-card:hover {
-  border-color: #9db6d4;
-  box-shadow: 0 12px 30px #183b6812;
+  border-color: #a7b595;
+  box-shadow: 0 12px 30px #344a3512;
 }
 .catalogue-cards .discovery-card-image {
   height: 240px;
@@ -303,24 +303,24 @@ textarea:focus-visible,
   font-size: 13px;
 }
 .discovery-meta {
-  color: #566980;
+  color: #626f56;
   gap: 8px;
   font-size: 11px;
 }
 .discovery-meta > span {
-  background: #f1f5fa;
+  background: #f2f3e9;
   border-radius: 6px;
   padding: 5px 8px;
 }
 .catalogue-cards .discovery-card-bottom {
-  border-top: 1px solid #edf0f5;
+  border-top: 1px solid #eceee3;
   padding-top: 16px;
   margin-top: 7px;
   align-items: center;
 }
 .discovery-card-bottom strong {
   font-size: 18px;
-  color: #183b68;
+  color: #344a35;
 }
 .discovery-card-bottom small {
   font-size: 11px;
@@ -330,18 +330,18 @@ textarea:focus-visible,
   font-size: 12px;
 }
 .public-site .floating-map-button {
-  background: #183b68;
-  box-shadow: 0 8px 30px #152e4e38;
+  background: #344a35;
+  box-shadow: 0 8px 30px #303e2f38;
   border: 2px solid white;
   min-height: 56px;
   padding: 12px 25px;
 }
 .public-site .floating-map-button:hover {
-  background: #245dab;
+  background: #53694a;
 }
 .floating-map-dialog::backdrop,
 .app-dialog::backdrop {
-  background: #10213e94;
+  background: #28332394;
   backdrop-filter: blur(3px);
 }
 
@@ -351,28 +351,28 @@ textarea:focus-visible,
   padding-top: 30px;
 }
 .profile-heading h1 {
-  color: #183b68;
+  color: #344a35;
   font-size: 38px;
   letter-spacing: -1.4px;
 }
 .profile-chips span,
 .profile-class {
-  background: #eaf1fb;
-  color: #28558e;
+  background: #edf0e3;
+  color: #45613c;
   border-radius: 6px;
 }
 .profile-rating strong {
-  color: #183b68;
+  color: #344a35;
 }
 .media-main {
   border-radius: 20px;
-  background: #e7edf5;
+  background: #e8ebdf;
 }
 .media-thumbnails button {
   border-radius: 9px;
 }
 .profile-section-nav a {
-  color: #445d7c;
+  color: #546a45;
 }
 .profile-section h2 {
   font-size: 24px;
@@ -402,7 +402,7 @@ textarea:focus-visible,
   box-shadow: var(--shadow);
 }
 .stay-date-form {
-  background: #eef3f9;
+  background: #eff1e7;
   border-radius: 12px;
 }
 .public-site .guest-auth-main {
@@ -415,22 +415,22 @@ textarea:focus-visible,
   box-shadow: var(--shadow);
 }
 .public-site .guest-auth-card h1 {
-  color: #183b68;
+  color: #344a35;
 }
 .public-site .guest-auth-card .text-button {
   color: var(--brand);
 }
 .guest-booking-heading h2 {
-  color: #183b68;
+  color: #344a35;
 }
 .guest-booking-total,
 .receipt-total strong {
   font-variant-numeric: tabular-nums;
-  color: #183b68;
+  color: #344a35;
 }
 .app-dialog {
   border-radius: 20px;
-  box-shadow: 0 24px 100px #0b213a40;
+  box-shadow: 0 24px 100px #28342440;
 }
 
 /* Staff: quiet, compact workspace, with state colors independent of branding. */
@@ -438,9 +438,9 @@ textarea:focus-visible,
   grid-template-columns: 236px minmax(0, 1fr);
 }
 .staff-layout .staff-sidebar {
-  background: #152e4e;
+  background: #303e2f;
   padding: 28px 14px 18px;
-  color: #f0f5fc;
+  color: #f3f5e9;
   overflow-y: auto;
 }
 .staff-sidebar .staff-brand {
@@ -448,7 +448,7 @@ textarea:focus-visible,
   padding: 0 12px;
 }
 .staff-sidebar .sidebar-caption {
-  color: #a9bfd9;
+  color: #bac7aa;
   font-size: 10px;
   margin: 32px 14px 14px;
   letter-spacing: 0.09em;
@@ -457,19 +457,19 @@ textarea:focus-visible,
   gap: 4px;
 }
 .staff-sidebar nav a {
-  color: #c7d5e7;
+  color: #dae2cf;
   min-height: 44px;
   padding: 11px 14px;
   border-radius: 9px;
   font-size: 12px;
 }
 .staff-sidebar nav a > span {
-  color: #aac3e4;
+  color: #bfceb1;
 }
 .staff-sidebar nav a.selected {
-  background: #2c5d96;
+  background: #53694a;
   color: white;
-  box-shadow: inset 3px 0 #f4b88a;
+  box-shadow: inset 3px 0 #c59b62;
 }
 .staff-sidebar nav a.selected > span {
   color: white;
@@ -478,21 +478,21 @@ textarea:focus-visible,
   background: #ffffff12;
 }
 .staff-sidebar nav a.selected:hover {
-  background: #3569a3;
+  background: #647b56;
 }
 .staff-sidebar .sidebar-footer {
   margin-top: auto;
   padding-top: 20px;
 }
 .staff-sidebar .sidebar-footer small {
-  color: #a9bfd9;
+  color: #bac7aa;
 }
 .staff-sidebar .avatar {
-  background: #2c4c73;
+  background: #4b5c40;
   color: white;
 }
 .staff-sidebar .logout-button {
-  color: #c7d5e7;
+  color: #dae2cf;
 }
 .staff-layout .staff-topbar {
   padding: 16px 32px;
@@ -509,15 +509,15 @@ textarea:focus-visible,
 .staff-layout .work-title h1,
 .staff-layout .accounting-heading h1 {
   font-size: 30px;
-  color: #183b68;
+  color: #344a35;
   letter-spacing: -1px;
 }
 .staff-layout .demo-strip {
-  color: #59697f;
+  color: #606a57;
   margin-bottom: 22px;
 }
 .staff-layout .demo-dot {
-  background: #c4894d;
+  background: #a57b43;
 }
 .staff-layout .surface,
 .staff-layout .board-panel,
@@ -525,7 +525,7 @@ textarea:focus-visible,
 .staff-layout .analytics-report {
   border-color: var(--line);
   border-radius: 14px;
-  box-shadow: 0 2px 5px #152e4e04;
+  box-shadow: 0 2px 5px #303e2f04;
 }
 .staff-layout .surface-heading {
   padding: 20px 24px;
@@ -539,17 +539,17 @@ textarea:focus-visible,
   background: white;
 }
 .staff-layout .metrics article:first-child {
-  background: #eaf1fb;
-  border-color: #c8d9f0;
+  background: #edf0e3;
+  border-color: #cad4b9;
 }
 .staff-layout .metrics article:first-child span,
 .staff-layout .metrics article:first-child small {
-  color: #3e5f86;
+  color: #536c43;
 }
 .staff-layout .metrics strong,
 .staff-layout .board-summary strong,
 .staff-layout .finance-totals strong {
-  color: #183b68;
+  color: #344a35;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -559,44 +559,44 @@ textarea:focus-visible,
   color: var(--muted);
 }
 .staff-layout .finance-totals article {
-  border-top: 3px solid #b3c8e2;
+  border-top: 3px solid #b8c5a7;
 }
 .staff-layout .finance-totals article:first-child {
-  border-top-color: #245dab;
+  border-top-color: #53694a;
 }
 .staff-layout .accounting-heading p {
   font-size: 14px;
   line-height: 1.7;
 }
 .staff-layout th {
-  background: #f6f8fc;
-  color: #52657e;
+  background: #f5f5ed;
+  color: #606f53;
   font-weight: 700;
 }
 .staff-layout td,
 .staff-layout th {
-  border-bottom-color: #e9edf3;
+  border-bottom-color: #e9ecdf;
 }
 .staff-layout tbody tr:hover {
-  background: #f5f8fd;
+  background: #f3f5eb;
 }
 .staff-layout .board-head {
-  background: #f5f8fc;
+  background: #f4f5ed;
 }
 .staff-layout .board-toolbar {
   padding: 16px 18px;
 }
 .staff-layout .board-legend button[aria-pressed="true"] {
-  background: #eef3f9;
-  color: #243c5c;
-  border-color: #cbd7e6;
+  background: #eff1e7;
+  color: #3b4f31;
+  border-color: #cbd3bf;
 }
 .staff-layout .board-hint {
-  color: #586b80;
+  color: #5e7051;
 }
 .staff-layout .analytics-kpi.selected {
-  background: #edf3fc;
-  border-bottom-color: #245dab;
+  background: #edf0e4;
+  border-bottom-color: #53694a;
 }
 .staff-layout .analytics-filters {
   background: white;
@@ -605,7 +605,7 @@ textarea:focus-visible,
   padding: 20px;
 }
 .staff-layout .analytics-kpi strong {
-  color: #183b68;
+  color: #344a35;
 }
 .staff-layout .analytics-payment-note {
   background: #fff7ea;
@@ -616,9 +616,9 @@ textarea:focus-visible,
   border-radius: 12px;
 }
 
-/* Staff sign-in shares the horizon motif, not the catalogue layout. */
+/* Staff sign-in uses the same botanical identity. */
 .login-page .login-story {
-  background: #183b68;
+  background: #344a35;
   padding: 48px 56px;
   color: white;
 }
@@ -627,7 +627,7 @@ textarea:focus-visible,
   height: 255px;
   bottom: -30px;
   right: -70px;
-  background: url("/assets/horizon.svg") center / contain no-repeat;
+  background: url("/assets/botanical.svg") center / contain no-repeat;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -642,28 +642,28 @@ textarea:focus-visible,
   line-height: 1.16;
 }
 .login-page .login-story p {
-  color: #d2e1f2;
+  color: #dde7d2;
   max-width: 440px;
 }
 .login-page .login-story .eyebrow {
-  color: #f4c9a7;
+  color: #d4b78d;
 }
 .login-page .login-bottom {
-  color: #b9cce3;
+  color: #c1cfb3;
 }
 .login-page .login-panel {
-  background: #fafbfd;
+  background: #fbfaf6;
 }
 .login-page .login-box {
   max-width: 420px;
 }
 .login-page .login-box h2 {
-  color: #183b68;
+  color: #344a35;
   font-size: 34px;
   letter-spacing: -1px;
 }
 .login-page .role-explanation {
-  border-left-color: #d59a68;
+  border-left-color: #b18b55;
 }
 
 @media (max-width: 1380px) {
@@ -768,7 +768,7 @@ textarea:focus-visible,
     font-size: 18px;
   }
   .staff-sidebar nav a.selected {
-    box-shadow: inset 0 -2px #f4b88a;
+    box-shadow: inset 0 -2px #c59b62;
   }
   .staff-layout .staff-topbar {
     padding: 12px 16px;
@@ -978,30 +978,30 @@ textarea:focus-visible,
 }
 .staff-layout .board-view-toggle button[aria-pressed="true"],
 .staff-layout .board-date.today {
-  background: #245dab;
+  background: #53694a;
   color: white;
-  border-color: #245dab;
+  border-color: #53694a;
 }
 .staff-layout .board-date.today small {
-  color: #e2ecfa;
+  color: #edf3e5;
 }
 .staff-layout .board-cells button.today {
-  background: #f0f5fd;
-  border-left-color: #7298c9;
+  background: #f3f6ec;
+  border-left-color: #8caa71;
 }
 .staff-layout .board-cells button:not(:disabled):hover {
-  background: #e5eefb;
+  background: #eaf0df;
 }
 .staff-layout .accounting-page .finance-table th {
-  background: #f5f7fc;
-  color: #52657e;
+  background: #f5f5ed;
+  color: #606f53;
 }
 .staff-layout .accounting-page .finance-totals article {
   border-color: var(--line);
-  border-top-color: #b3c8e2;
+  border-top-color: #b8c5a7;
 }
 .staff-layout .accounting-page .finance-totals article:first-child {
-  border-top-color: #245dab;
+  border-top-color: #53694a;
 }
 
 .staff-layout .board-date:not(.today) small,
@@ -1010,26 +1010,115 @@ textarea:focus-visible,
 }
 .public-site .gallery-arrow,
 .public-site .gallery-expand {
-  background: #152e4ee8;
+  background: #303e2fe8;
 }
 .gallery-viewer {
-  background: #102239;
+  background: #263422;
 }
 .public-site .guest-auth-card .demo-note {
   background: #fff7ea;
   color: #75572c;
 }
 .finance-table:focus-visible {
-  outline: 3px solid #b57532;
+  outline: 3px solid #9a6634;
   outline-offset: 3px;
 }
 .public-site .media-gallery .gallery-arrow,
 .public-site .media-gallery .gallery-expand {
-  background: #152e4ee8;
+  background: #303e2fe8;
 }
 .staff-layout .analytics-chart [stroke="#245c4a"] {
-  stroke: #245dab;
+  stroke: #53694a;
 }
 .staff-layout .analytics-chart [fill="#245c4a"] {
-  fill: #245dab;
+  fill: #53694a;
+}
+
+/* Sanatorium identity: warm stone, foliage, natural light. */
+.discovery-page .discovery-search {
+  background-color: #f0efe3;
+  border: 1px solid #e1e2d3;
+  color: #344a35;
+}
+.discovery-search .eyebrow {
+  color: #7c623d;
+}
+.discovery-page .discovery-search h1 {
+  color: #344a35;
+  font-weight: 650;
+  letter-spacing: -1.8px;
+}
+.discovery-page .discovery-search p {
+  color: #626951;
+}
+.discovery-search .discovery-search-input {
+  border-color: #d6dbc9;
+  box-shadow: 0 3px 10px #3c492108;
+}
+.public-site .public-header {
+  background: #fffefb;
+}
+.staff-layout .staff-sidebar {
+  background: #eceee3;
+  color: #344a35;
+  border-right: 1px solid #dce1d1;
+}
+.staff-sidebar .staff-brand {
+  color: #344a35;
+}
+.staff-sidebar .sidebar-caption {
+  color: #59674c;
+}
+.staff-sidebar nav a {
+  color: #4f5f45;
+}
+.staff-sidebar nav a > span {
+  color: #5c6e4f;
+}
+.staff-sidebar nav a:hover {
+  background: #dfe5d3;
+  color: #344a35;
+}
+.staff-sidebar nav a.selected {
+  background: #53694a;
+  color: white;
+  box-shadow: none;
+}
+.staff-sidebar nav a.selected > span {
+  color: white;
+}
+.staff-sidebar nav a.selected:hover {
+  background: #40553a;
+}
+.staff-sidebar .sidebar-footer {
+  border-top-color: #d1d9c6;
+}
+.staff-sidebar .sidebar-footer small,
+.staff-sidebar .logout-button {
+  color: #58684b;
+}
+.login-page .login-story .staff-brand img {
+  background: #f5f3e8;
+  border-radius: 50%;
+  padding: 4px;
+}
+@media (max-width: 550px) {
+  .discovery-page .discovery-search h1 {
+    letter-spacing: -1px;
+  }
+}
+
+.catalogue-cards .discovery-card-image {
+  position: relative;
+}
+.catalogue-image-note {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: #fffef2f0;
+  color: #46523b;
+  font-size: 10px;
+  line-height: 1.4;
 }
