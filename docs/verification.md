@@ -269,3 +269,19 @@ Final Vercel READY deployments: api `dpl_D3wdzXCCivx8P9opFkVuwfLiWQb5`, staff `d
 - Staff: `dpl_9WAsXwqVu2NCRh7aqmMMxPYcXgof` — READY; https://tynys-staff.vercel.app.
 - Независимый браузер: опубликованные JS entrypoints соответствуют локальным артефактам, SHA-256 логотипов совпадает. Проверены каталог/API, вход тестового admin, workspace, уникальная навигация с клиентами, бухгалтерия, карта/Escape/focus, guest login и profile reload. 1440×1000 и 390×844: без переполнения документа и JS page errors. Использованы только существующие вымышленные QA-аккаунты; деловые записи не изменялись.
 - Артефакты проверки: `output/design-release/live.json` и PNG в той же папке. Существующий API https://tynys-api.vercel.app сохранён. LikeC4 и iPhone приложения не опубликованы; платёжные и SMS gates не менялись.
+
+## 08.11.2026 — повторная публикация всех web-сервисов
+
+По запросу владельца заново собраны и опубликованы public, staff и Django API из `62b58e85468c665ce072108ecaf125300275c515`. До публикации GitHub API подтвердил этот же commit в `main` и рабочей ветке. Новый дизайн и управление аккаунтами сохранены.
+
+- api: `dpl_2emcAfHZSefnzWNSJgMuSjLyfEQz` — READY, https://tynys-api.vercel.app.
+- staff: `dpl_y2rSqT5WzHf3PbMeWm92121fbF3j` — READY, https://tynys-staff.vercel.app.
+- site: `dpl_FSG8RsExrZYrpYatk4sqP4nWTZpi` — READY, https://vercel-site-puce-two.vercel.app.
+
+Проверки: 101 frontend test, 236 backend tests на PostgreSQL 17, FSD 123/313, build, API build:surfaces, LikeC4 validate. Migration drift отсутствует, Supabase migrations применены, check --deploy без замечаний. `/health/live`, `/health/ready`, Django Admin login возвращают HTTP 200. Публичные JS-файлы сверены по SHA-256 с выбранными артефактами, адреса соответствуют свежей сборке. Admin/manager/accountant read-scope повторно проверен без изменения деловых данных.
+
+Browser smoke: каталог, карта/клавиатура, staff login, план размещения, уникальная навигация и бухгалтерия проверены на 1440px/390px; скриншоты в `output/republish-20261108`. Полный smoke затем остановился на navigation timeout /profile; повторный запуск — на HTTP timeout главной страницы. Независимые curl/urllib проверки тех же адресов вернули 200 и совпадающие файлы. Эти тайм-ауты не считаются пройденным полным browser smoke.
+
+LikeC4 не опубликован; native iPhone/Android сборки не обновлены. Платёжные и SMS gates, данные и секреты окружения не изменены.
+
+Отдельная финальная browser-проверка гостя прошла: redirect на вход, вход существующего QA-аккаунта, профиль и reload на 390px, zero page errors. Для диагностического повтора Chromium запущен с отключёнными HTTP/2 и QUIC; этот результат отделён от двух предыдущих тайм-аутов. Evidence: `output/republish-20261108/profile-mobile.png`, `/tmp/republish-profile-check.log`.
