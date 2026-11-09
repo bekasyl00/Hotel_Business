@@ -25,7 +25,7 @@ test("monitoring dashboard has importable data source and unique panel layout", 
   for (const panel of dashboard.panels.filter(({ type }) => type !== "text")) {
     assert.equal(panel.datasource.uid, "${DS_PROMETHEUS}");
     assert.equal(panel.fieldConfig.defaults.noValue, "No data");
-    assert.ok(panel.targets.every(({ expr }) => expr.includes('job="$job"')));
+    assert.ok(panel.targets.every(({ expr }) => expr.includes('scrape_job="$job"')));
     assert.equal(panel.transformations, undefined);
     if (panel.type === "timeseries")
       assert.equal(panel.fieldConfig.defaults.custom.spanNulls, false);

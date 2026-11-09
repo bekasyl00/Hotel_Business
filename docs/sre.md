@@ -9,7 +9,7 @@
 
 | Механизм | Сейчас | Следующий критерий/действие |
 | --- | --- | --- |
-| Метрики | `/internal/metrics`, Bearer read-only; очереди, leases, просроченные holds, scheduler heartbeat, PostgreSQL connections/lock waits. Grafana Cloud dashboard в `ops/monitoring` | Сбор 60 s и фактическая доставка алертов; HTTP RED/traces требуют отдельного pipeline |
+| Метрики | Защищённый `/internal/metrics` и сбор Grafana Cloud каждые 60 s; 23 панели очереди/heartbeat/БД, шесть включённых правил. Email администратора: тест и отправка рабочего sandbox-сигнала подтверждены Grafana | Проверить получение в почтовом ящике; HTTP RED/traces требуют отдельного pipeline |
 | Rate limiting | Общие атомарные PostgreSQL-счётчики; 429/Retry-After; квоты входа, брони, календаря, экспорта | Edge-защита отдельно; видеть долю 429, NAT и стоимость DB-счётчиков; [контракт](rate-limits.md) |
 | CDN / cache | Vercel CDN для двух сайтов; годовой immutable только hash-assets, HTML revalidate; персональный API и актуальные цены/наличие no-store | Оптимизированные public media derivatives, каталог с версионированием; Redis только по измеренному bottleneck |
 | Load balancing / scaling | Stateless Django Functions, Vercel распределяет запросы; `icn1`, Supabase Seoul. Transaction pooler, `CONN_MAX_AGE=0`, TLS verify-full | Лимит primary DB — 60 connections на текущем Free. Нет доказательства безопасного autoscaling под пиками; не умножать соединения без бюджета |
@@ -37,6 +37,10 @@ Live Supabase: Free, PostgreSQL 17, ap-northeast-2, около 22 MB DB на м�
 Live Vercel: Hobby. По условиям тариф предназначен для personal/non-commercial use, поэтому сервису с реальными оплатами нужен Pro либо другой подходящий хостинг. Подписка автоматически не меняется. [Hobby](https://vercel.com/docs/plans/hobby). Ни бесплатные планы, ни наличие графиков не гарантируют HA/SLA или заявленную масштабируемость.
 
 Проверка 09.11.2026: cron за последний час запущен 60 раз, HTTP tick 200 во всех 60 ответах. Это свидетельство работы планировщика на тот момент, не тест оплаты/возврата и не пропускная способность.
+
+Действующий [дашборд Grafana](https://bekasyl00.grafana.net/d/tynys-operations) доступен после входа в аккаунт. Сборщик использует `scrape_job="tynys-api"`; его внутренний `job` отличается от выбранного имени. Все шесть правил оцениваются раз в минуту. `service=tynys-api` направляет уведомления и восстановления на согласованный email аккаунта через contact point `Tynys administrator email`, с группировкой по папке/правилу/provider/environment. Это один email-канал, не круглосуточная дежурная служба. Инструкция разбора — [runbooks/operations.md](runbooks/operations.md).
+
+При включении мониторинга найдено одно ожидающее задание `xpayment/sandbox/verify` старше суток. `TynysPaymentQueueDelayed` перешёл в Firing, Grafana отметила email как Delivered successfully. Production due/dead и просроченные holds в проверенном снимке — нулевые. Sandbox-задание не удалялось для получения зелёного статуса; подробности текущего состояния — в журнале проверки.
 
 ### Минимальные действия при сбое
 

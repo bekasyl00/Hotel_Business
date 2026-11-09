@@ -182,7 +182,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "min(up{job=\"$job\"})",
+          "expr": "min(up{scrape_job=\"$job\"})",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -252,7 +252,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "time() - max(tynys_metrics_snapshot_timestamp_seconds{job=\"$job\"})",
+          "expr": "time() - max(tynys_metrics_snapshot_timestamp_seconds{scrape_job=\"$job\"})",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -333,7 +333,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "min(tynys_worker_heartbeat_present{job=\"$job\",worker=\"payment_scheduler\"})",
+          "expr": "min(tynys_worker_heartbeat_present{scrape_job=\"$job\",worker=\"payment_scheduler\"})",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -403,7 +403,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "time() - max(tynys_worker_last_success_timestamp_seconds{job=\"$job\",worker=\"payment_scheduler\"} > 0)",
+          "expr": "time() - max(tynys_worker_last_success_timestamp_seconds{scrape_job=\"$job\",worker=\"payment_scheduler\"} > 0)",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -473,7 +473,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(tynys_payment_jobs_due{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "sum(tynys_payment_jobs_due{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -543,7 +543,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max(tynys_payment_job_oldest_due_seconds{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "max(tynys_payment_job_oldest_due_seconds{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -609,7 +609,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(tynys_payment_jobs{job=\"$job\",environment=~\"$environment\",state=\"dead\"})",
+          "expr": "sum(tynys_payment_jobs{scrape_job=\"$job\",environment=~\"$environment\",state=\"dead\"})",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -675,7 +675,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "tynys_booking_holds_overdue{job=\"$job\"}",
+          "expr": "tynys_booking_holds_overdue{scrape_job=\"$job\"}",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -744,7 +744,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (provider,environment)(tynys_payment_jobs_due{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "sum by (provider,environment)(tynys_payment_jobs_due{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": true,
           "instant": false,
@@ -810,7 +810,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (provider,environment,kind)(tynys_payment_job_oldest_due_seconds{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "max by (provider,environment,kind)(tynys_payment_job_oldest_due_seconds{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}} / {{kind}}",
           "range": true,
           "instant": false,
@@ -876,7 +876,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (provider,environment)(tynys_payment_job_expired_leases{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "sum by (provider,environment)(tynys_payment_job_expired_leases{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": true,
           "instant": false,
@@ -942,7 +942,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (provider,environment)(tynys_payment_job_invalid_leases{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "sum by (provider,environment)(tynys_payment_job_invalid_leases{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": true,
           "instant": false,
@@ -1008,7 +1008,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "tynys_booking_hold_oldest_overdue_seconds{job=\"$job\"}",
+          "expr": "tynys_booking_hold_oldest_overdue_seconds{scrape_job=\"$job\"}",
           "legendFormat": "Oldest overdue deadline",
           "range": true,
           "instant": false,
@@ -1074,7 +1074,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (provider,environment,status)(tynys_payments_active{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "sum by (provider,environment,status)(tynys_payments_active{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}} / {{status}}",
           "range": true,
           "instant": false,
@@ -1140,7 +1140,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (provider,environment,status)(tynys_refunds_active{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "sum by (provider,environment,status)(tynys_refunds_active{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}} / {{status}}",
           "range": true,
           "instant": false,
@@ -1206,7 +1206,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (provider,environment,status)(tynys_payment_oldest_active_seconds{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "max by (provider,environment,status)(tynys_payment_oldest_active_seconds{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}} / {{status}}",
           "range": true,
           "instant": false,
@@ -1272,7 +1272,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (provider,environment,status)(tynys_refund_oldest_active_seconds{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "max by (provider,environment,status)(tynys_refund_oldest_active_seconds{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}} / {{status}}",
           "range": true,
           "instant": false,
@@ -1331,7 +1331,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "tynys_database_connections{job=\"$job\"}",
+          "expr": "tynys_database_connections{scrape_job=\"$job\"}",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -1393,7 +1393,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "tynys_database_max_connections{job=\"$job\"}",
+          "expr": "tynys_database_max_connections{scrape_job=\"$job\"}",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -1463,7 +1463,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "tynys_database_lock_waits{job=\"$job\"}",
+          "expr": "tynys_database_lock_waits{scrape_job=\"$job\"}",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": false,
           "instant": true,
@@ -1532,7 +1532,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by(provider,environment)(tynys_webhook_deliveries_last_hour{job=\"$job\",environment=~\"$environment\"})",
+          "expr": "sum by(provider,environment)(tynys_webhook_deliveries_last_hour{scrape_job=\"$job\",environment=~\"$environment\"})",
           "legendFormat": "{{environment}} / {{provider}}",
           "range": true,
           "instant": false,
@@ -1598,7 +1598,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "tynys_metrics_collection_duration_seconds{job=\"$job\"}",
+          "expr": "tynys_metrics_collection_duration_seconds{scrape_job=\"$job\"}",
           "legendFormat": "Collection duration",
           "range": true,
           "instant": false,
