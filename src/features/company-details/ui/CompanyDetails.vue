@@ -49,6 +49,7 @@ async function load() {
         accountant: "",
         vatMode: "no_vat",
         vatRate: "0",
+        documentDelivery: "manual",
         ...data,
       };
   } catch (e) {
@@ -59,6 +60,8 @@ async function load() {
 }
 async function save() {
   if (busy.value || !form.value) return;
+  const run = generation,
+    id = props.resortId;
   busy.value = true;
   error.value = "";
   notice.value = "";
@@ -69,17 +72,19 @@ async function save() {
     body.bik = body.bik.trim().toUpperCase();
     const result = await request(
       "PATCH",
-      `/staff-profile/company/${encodeURIComponent(props.resortId)}`,
+      `/staff-profile/company/${encodeURIComponent(id)}`,
       body,
     );
+    if (run !== generation) return;
     form.value = { ...form.value, ...result };
     notice.value = t("common.staffProfile.companySaved");
     emit("saved", result);
   } catch (e) {
+    if (run !== generation) return;
     error.value = e.message;
     conflict.value = e.status === 409;
   } finally {
-    busy.value = false;
+    if (run === generation) busy.value = false;
   }
 }
 watch(() => props.resortId, load, { immediate: true });
@@ -148,6 +153,18 @@ onBeforeUnmount(() => {
               required
           /></label>
         </div>
+        <label class="company-delivery"
+          >{{ t("common.staffDocuments.delivery") }}
+          <select v-model="form.documentDelivery">
+            <option value="manual">
+              {{ t("common.staffDocuments.deliveryManual") }}
+            </option>
+            <option value="automatic">
+              {{ t("common.staffDocuments.deliveryAutomatic") }}
+            </option>
+          </select>
+        </label>
+        <p class="field-help">{{ t("common.staffDocuments.deliveryHelp") }}</p>
       </fieldset>
       <p class="field-help">{{ t("common.accounting.companyHint") }}</p>
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>
@@ -186,6 +203,11 @@ onBeforeUnmount(() => {
   width: 100%;
   box-sizing: border-box;
   min-height: 44px;
+}
+.company-delivery {
+  display: grid;
+  gap: 8px;
+  margin-top: 20px;
 }
 .company-notice {
   color: #245e4e;

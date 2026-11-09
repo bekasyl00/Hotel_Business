@@ -19,6 +19,11 @@ export const staffRoutes = [
     component: () => import("@/pages/accounting"),
     meta: { staff: true, accounting: true },
   },
+  {
+    path: "/staff/documents",
+    component: () => import("@/pages/staff-documents"),
+    meta: { staff: true, documents: true },
+  },
   { path: "/staff/tariffs", redirect: "/staff/rooms" },
   { path: "/staff/login", component: () => import("@/pages/login") },
   { path: "/staff", redirect: "/staff/bookings" },

@@ -92,3 +92,26 @@ test("malformed or unversioned server responses are not editable as a new docume
     assert.throws(() => documentGuestsForm(invalid));
   }
 });
+
+test("document roster responses must belong to the requested booking", () => {
+  const data = {
+    bookingId: "booking-a",
+    version: 3,
+    expectedGuests: 2,
+    guests: [documentGuest({ fullName: "Saved resident" })],
+    buyerIndex: 0,
+  };
+  assert.equal(
+    documentGuestsForm(data, "", "booking-a").guests[0].fullName,
+    "Saved resident",
+  );
+  assert.throws(
+    () => documentGuestsForm(data, "", "booking-b"),
+    /invalidResponse/,
+  );
+  assert.throws(
+    () =>
+      documentGuestsForm({ ...data, bookingId: undefined }, "", "booking-a"),
+    /invalidResponse/,
+  );
+});

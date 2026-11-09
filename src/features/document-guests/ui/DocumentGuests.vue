@@ -1,5 +1,6 @@
 <script setup>
-import { ref, watch, onBeforeUnmount } from "vue";
+import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
+import { onBeforeRouteLeave } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { request } from "@/shared/api";
 import { isDemo } from "@/shared/config";
@@ -12,22 +13,44 @@ import {
 const props = defineProps({
   bookingId: { type: String, required: true },
   guestName: { type: String, default: "" },
+  disabled: Boolean,
 });
-const emit = defineEmits(["saved", "busy"]);
+const emit = defineEmits(["saved", "busy", "dirty"]);
 const { t } = useI18n();
 const form = ref(null),
   loading = ref(false),
   saving = ref(false),
   error = ref(""),
   saved = ref(false),
-  conflict = ref(false);
+  conflict = ref(false),
+  baseline = ref("");
+const dirty = computed(
+  () =>
+    form.value &&
+    JSON.stringify(documentGuestsPayload(form.value)) !== baseline.value,
+);
+watch(dirty, (value) => emit("dirty", Boolean(value)));
+function canLeave() {
+  if (saving.value) return false;
+  return !dirty.value || window.confirm(t("common.documentGuests.discard"));
+}
+function beforeUnload(event) {
+  if (!dirty.value && !saving.value) return;
+  event.preventDefault();
+  event.returnValue = "";
+}
+onMounted(() => window.addEventListener("beforeunload", beforeUnload));
+onBeforeRouteLeave(canLeave);
+defineExpose({ canLeave });
 let generation = 0;
 const optionalFields = ["phone", "iban", "bank", "bik"];
 const limits = { phone: 32, iban: 20, bank: 100, bik: 11 };
 
 async function load() {
   const run = ++generation;
+  const id = props.bookingId;
   form.value = null;
+  baseline.value = "";
   error.value = "";
   saved.value = false;
   conflict.value = false;
@@ -38,21 +61,26 @@ async function load() {
   try {
     const result = await request(
       "GET",
-      `/bookings/${encodeURIComponent(props.bookingId)}/document-guests`,
+      `/bookings/${encodeURIComponent(id)}/document-guests`,
     );
-    if (run === generation)
-      form.value = documentGuestsForm(result, props.guestName);
+    if (run === generation) {
+      form.value = documentGuestsForm(result, props.guestName, id);
+      baseline.value = JSON.stringify(documentGuestsPayload(form.value));
+    }
   } catch (e) {
     if (run === generation)
       error.value =
         e.message === "invalidResponse"
           ? t("common.error.invalidResponse")
-          : e.message;
+          : e.message === "invalidResponse"
+            ? t("common.error.invalidResponse")
+            : e.message;
   } finally {
     if (run === generation) loading.value = false;
   }
 }
 async function save() {
+  if (saving.value || props.disabled || !form.value) return;
   saved.value = false;
   error.value = "";
   conflict.value = false;
@@ -62,19 +90,21 @@ async function save() {
     return;
   }
   const run = generation;
+  const id = props.bookingId;
   saving.value = true;
   emit("busy", true);
   try {
     const result = await request(
       "PUT",
-      `/bookings/${encodeURIComponent(props.bookingId)}/document-guests`,
+      `/bookings/${encodeURIComponent(id)}/document-guests`,
       documentGuestsPayload(form.value),
     );
     if (run !== generation) return;
-    form.value = documentGuestsForm(result);
+    form.value = documentGuestsForm(result, "", id);
+    baseline.value = JSON.stringify(documentGuestsPayload(form.value));
     saved.value = true;
     emit("saved", {
-      bookingId: props.bookingId,
+      bookingId: id,
       version: result.version,
       complete: result.complete,
     });
@@ -83,7 +113,9 @@ async function save() {
       conflict.value = e.status === 409;
       error.value = conflict.value
         ? t("common.documentGuests.conflict")
-        : e.message;
+        : e.message === "invalidResponse"
+          ? t("common.error.invalidResponse")
+          : e.message;
     }
   } finally {
     if (run === generation) {
@@ -94,14 +126,20 @@ async function save() {
 }
 watch(() => props.bookingId, load, { immediate: true });
 onBeforeUnmount(() => {
+  window.removeEventListener("beforeunload", beforeUnload);
   generation++;
   form.value = null;
+  baseline.value = "";
   emit("busy", false);
+  emit("dirty", false);
 });
 </script>
 <template>
   <section class="document-guests">
     <h3>{{ t("common.documentGuests.title") }}</h3>
+    <p class="document-guests-booking">
+      {{ t("common.documentGuests.booking", { id: bookingId.slice(0, 8) }) }}
+    </p>
     <p class="field-help">{{ t("common.documentGuests.hint") }}</p>
     <p v-if="isDemo" class="field-help" role="status">
       {{ t("common.documentGuests.demoUnavailable") }}
@@ -116,11 +154,43 @@ onBeforeUnmount(() => {
       @submit.prevent="save"
       @input="saved = false"
     >
+      <div class="document-guests-savebar">
+        <span role="status">{{
+          t(
+            dirty
+              ? "common.documentGuests.unsaved"
+              : saved
+                ? "common.documentGuests.saved"
+                : form.version > 0
+                  ? "common.documentGuests.loaded"
+                  : "common.documentGuests.newDraft",
+          )
+        }}</span>
+        <button class="primary" :disabled="saving || disabled || conflict">
+          {{
+            t(
+              saving
+                ? "common.documentGuests.saving"
+                : "common.documentGuests.save",
+            )
+          }}
+        </button>
+        <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+        <button
+          v-if="conflict"
+          class="secondary"
+          type="button"
+          :disabled="saving || disabled"
+          @click="canLeave() && load()"
+        >
+          {{ t("common.documentGuests.reload") }}
+        </button>
+      </div>
       <p class="field-help">{{ t("common.documentGuests.requiredHint") }}</p>
       <fieldset
         v-for="(guest, index) in form.guests"
         :key="index"
-        :disabled="saving"
+        :disabled="saving || disabled"
         class="document-guest-card"
       >
         <legend>
@@ -166,7 +236,7 @@ onBeforeUnmount(() => {
       </fieldset>
       <label
         >{{ t("common.documentGuests.buyer") }}
-        <select v-model="form.buyerIndex" :disabled="saving">
+        <select v-model="form.buyerIndex" :disabled="saving || disabled">
           <option :value="null">
             {{ t("common.documentGuests.chooseBuyer") }}
           </option>
@@ -189,7 +259,7 @@ onBeforeUnmount(() => {
         {{ t("common.documentGuests.saved") }}
       </p>
       <div class="document-guests-actions">
-        <button class="primary" :disabled="saving">
+        <button class="primary" :disabled="saving || disabled || conflict">
           {{
             t(
               saving
@@ -202,14 +272,14 @@ onBeforeUnmount(() => {
           v-if="conflict"
           class="secondary"
           type="button"
-          :disabled="saving"
-          @click="load"
+          :disabled="saving || disabled"
+          @click="canLeave() && load()"
         >
           {{ t("common.documentGuests.reload") }}
         </button>
       </div>
     </form>
-    <p v-if="error" class="form-error" role="alert">{{ error }}</p>
+    <p v-if="error && !form" class="form-error" role="alert">{{ error }}</p>
     <button
       v-if="!isDemo && !form && !loading"
       class="secondary"
@@ -283,5 +353,34 @@ onBeforeUnmount(() => {
   .document-guests-actions button {
     width: 100%;
   }
+}
+.document-guests-booking {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.document-guests-savebar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  background: #f1f6ed;
+  border: 1px solid #dbe4d5;
+  border-radius: 12px;
+  padding: 12px;
+}
+.document-guests-savebar .form-error {
+  flex-basis: 100%;
+  margin: 0;
+}
+.document-guests-savebar span {
+  font-size: 0.9rem;
+}
+.document-guests-savebar button {
+  min-height: 44px;
+  padding: 10px 16px;
 }
 </style>

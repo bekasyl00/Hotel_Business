@@ -163,7 +163,7 @@ onBeforeUnmount(() => generation++);
             </div>
           </form>
         </section>
-        <section class="staff-profile-card">
+        <section v-if="!session.isAccountant" class="staff-profile-card">
           <h2>{{ t("common.staffProfile.companyTitle") }}</h2>
           <p>{{ t("common.staffProfile.documentsHint") }}</p>
           <label v-if="resorts.length" class="profile-resort-label"

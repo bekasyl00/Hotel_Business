@@ -2,26 +2,18 @@
 import { ref, reactive, onMounted } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
-import { DocumentFiles } from "@/shared/ui";
 import { AccountingLedger } from "@/features/accounting-ledger";
-import { DocumentGuests } from "@/features/document-guests";
-import { CompanyDetails } from "@/features/company-details";
 import { StaffShell } from "@/widgets/staff-shell";
 import { useSessionStore } from "@/entities/session";
 import { request, requestFile } from "@/shared/api";
 import { isDemo, apiBase } from "@/shared/config";
 import { money, dateLabel } from "@/shared/lib";
-import { Modal } from "@/shared/ui";
 const { t } = useI18n(),
   router = useRouter(),
   session = useSessionStore();
 const data = ref(null),
   error = ref(""),
-  busy = ref(false),
-  company = ref(null),
-  companyBusy = ref(false),
-  documentBooking = ref(null),
-  documentGuestsBusy = ref(false);
+  busy = ref(false);
 const today = new Date().toLocaleDateString("en-CA", {
   timeZone: "Asia/Almaty",
 });
@@ -55,32 +47,6 @@ async function logout() {
   await session.logout();
   router.push("/staff/login");
 }
-async function create(bookingId, kind) {
-  busy.value = true;
-  error.value = "";
-  try {
-    await request("POST", "/accounting/documents", { bookingId, kind });
-    await load();
-  } catch (e) {
-    error.value = e.message;
-  } finally {
-    busy.value = false;
-  }
-}
-async function action(doc, name) {
-  busy.value = true;
-  error.value = "";
-  try {
-    await request("POST", `/accounting/documents/${doc.id}/${name}`, {
-      version: doc.version,
-    });
-    await load();
-  } catch (e) {
-    error.value = e.message;
-  } finally {
-    busy.value = false;
-  }
-}
 async function download(path, name, type) {
   error.value = "";
   try {
@@ -95,13 +61,6 @@ async function download(path, name, type) {
     error.value = e.message;
   }
 }
-function openCompany() {
-  if (filter.resortId) company.value = filter.resortId;
-}
-async function companySaved() {
-  company.value = null;
-  await load();
-}
 onMounted(() => load());
 </script>
 <template>
@@ -113,13 +72,6 @@ onMounted(() => load());
           <h1>{{ t("common.accounting.title") }}</h1>
           <p>{{ t("common.accounting.description") }}</p>
         </div>
-        <button
-          class="secondary"
-          :disabled="isDemo || !filter.resortId || companyBusy"
-          @click="openCompany"
-        >
-          {{ t("common.accounting.company") }}
-        </button>
       </header>
       <form class="accounting-filters" @submit.prevent="load(true)">
         <label
@@ -209,7 +161,6 @@ onMounted(() => load());
                   <th>{{ t("common.accounting.stay") }}</th>
                   <th>{{ t("common.accounting.amount") }}</th>
                   <th>{{ t("common.accounting.payment") }}</th>
-                  <th>{{ t("common.accounting.prepare") }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -243,29 +194,9 @@ onMounted(() => load());
                       {{ money(b.payment.refundedAmount) }}</small
                     >
                   </td>
-                  <td>
-                    <div class="document-actions">
-                      <button
-                        class="secondary"
-                        :disabled="busy || isDemo"
-                        @click="documentBooking = b"
-                      >
-                        {{ t("common.documentGuests.open") }}
-                      </button>
-                      <button
-                        v-for="kind in ['act', 'invoice', 'cash_order']"
-                        :key="kind"
-                        class="secondary"
-                        :disabled="busy || isDemo"
-                        @click="create(b.id, kind)"
-                      >
-                        {{ t(`common.accounting.kinds.${kind}`) }}
-                      </button>
-                    </div>
-                  </td>
                 </tr>
                 <tr v-if="!data.bookings.length">
-                  <td colspan="6">{{ t("common.accounting.empty") }}</td>
+                  <td colspan="5">{{ t("common.accounting.empty") }}</td>
                 </tr>
               </tbody>
             </table>
@@ -293,93 +224,9 @@ onMounted(() => load());
             </button>
           </div>
         </section>
-        <section class="finance-section">
-          <header>
-            <h2>
-              {{ t("common.accounting.documents") }} · {{ data.documentCount }}
-            </h2>
-          </header>
-          <p class="field-help">{{ t("common.accounting.documentHint") }}</p>
-          <div class="document-grid">
-            <article
-              v-for="doc in data.documents"
-              :key="doc.id"
-              class="document-card"
-            >
-              <span :class="['document-state', doc.state]">{{
-                t(`common.accounting.states.${doc.state}`)
-              }}</span>
-              <h3>{{ t(`common.accounting.kinds.${doc.kind}`) }}</h3>
-              <p>{{ doc.number }} · {{ doc.guest }}</p>
-              <strong>{{ money(doc.amount) }}</strong
-              ><small>{{
-                t(
-                  `common.accounting.${doc.paymentMode === "sandbox" ? "sandbox" : doc.paymentMode === "production" ? "production" : doc.paymentMode === "demo" ? "demo" : "unpaid"}`,
-                )
-              }}</small>
-              <div class="document-actions">
-                <DocumentFiles
-                  :path="`/accounting/documents/${doc.id}`"
-                  :number="doc.number"
-                />
-                <button
-                  v-if="doc.state === 'draft'"
-                  class="secondary"
-                  :disabled="busy"
-                  @click="action(doc, 'refresh')"
-                >
-                  {{ t("common.accounting.refresh") }}</button
-                ><button
-                  v-if="doc.state === 'draft' && doc.kind !== 'cash_order'"
-                  class="primary"
-                  :disabled="busy"
-                  @click="action(doc, 'release')"
-                >
-                  {{ t("common.accounting.release") }}</button
-                ><button
-                  v-if="doc.state !== 'voided'"
-                  class="text-button danger"
-                  :disabled="busy"
-                  @click="action(doc, 'void')"
-                >
-                  {{ t("common.accounting.void") }}
-                </button>
-              </div>
-            </article>
-            <p v-if="!data.documents.length">
-              {{ t("common.accounting.empty") }}
-            </p>
-          </div>
-          <p v-if="data.documentCount > 200" class="field-help">
-            {{ t("common.accounting.documentLimit") }}
-          </p>
-        </section>
       </template>
-      <Modal
-        v-if="documentBooking"
-        wide
-        :title="t('common.documentGuests.title')"
-        :busy="documentGuestsBusy"
-        @close="documentBooking = null"
-      >
-        <DocumentGuests
-          :booking-id="documentBooking.id"
-          :guest-name="documentBooking.guest"
-          @busy="documentGuestsBusy = $event"
-        />
-      </Modal>
-      <Modal
-        v-if="company"
-        :title="t('common.accounting.company')"
-        wide
-        :busy="companyBusy"
-        @close="company = null"
-        ><CompanyDetails
-          :resort-id="company"
-          @busy="companyBusy = $event"
-          @saved="companySaved"
-      /></Modal></main
-  ></StaffShell>
+    </main></StaffShell
+  >
 </template>
 <style scoped>
 .accounting-page {
@@ -471,44 +318,10 @@ onMounted(() => load());
   background: #f3f6f1;
   color: #405b4e;
 }
-.finance-table small,
-.document-card small {
+.finance-table small {
   display: block;
   color: var(--muted);
   margin-top: 6px;
-}
-.document-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-.document-actions button {
-  min-height: 44px;
-}
-.document-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
-  gap: 16px;
-}
-.document-card {
-  border: 1px solid #dfe6dc;
-  border-radius: 14px;
-  padding: 20px;
-  background: white;
-}
-.document-state {
-  display: inline-block;
-  padding: 5px 9px;
-  border-radius: 6px;
-  background: #f7edcf;
-  font-size: 12px;
-}
-.document-state.released {
-  background: #dcf1e5;
-}
-.document-state.voided {
-  background: #f5dddd;
 }
 .finance-pagination {
   display: flex;

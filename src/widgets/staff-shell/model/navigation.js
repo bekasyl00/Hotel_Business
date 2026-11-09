@@ -10,6 +10,7 @@ export function staffNavigation(role) {
     ["resorts", "⌖", "staff.resorts"],
     ["rooms", "▦", "staff.rooms"],
     planner,
+    ["documents", "▧", "common.staffDocuments.title"],
     ["reviews", "☆", "staff.reviews"],
     ...(role === "admin"
       ? [

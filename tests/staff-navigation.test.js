@@ -12,6 +12,7 @@ test("staff navigation has unique destinations and keeps accountant read-only de
     assert.equal(paths.includes("accounts"), role === "admin");
     assert.equal(paths.includes("history"), role === "admin");
     assert.equal(paths.includes("accounting"), role !== "manager");
+    assert.equal(paths.includes("documents"), role !== "accountant");
   }
   assert.deepEqual(
     staffNavigation("accountant").map(([path]) => path),
@@ -41,4 +42,15 @@ test("direct history and accounts links resolve to admin-only workspace routes",
     assert.equal(route.params.section, section);
   }
   assert.equal(router.resolve("/staff/bookings").meta.admin, undefined);
+});
+
+test("document workspace has a separate operational staff route", () => {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: staffRoutes,
+  });
+  const route = router.resolve("/staff/documents");
+  assert.equal(route.meta.staff, true);
+  assert.equal(route.meta.documents, true);
+  assert.equal(route.meta.accounting, undefined);
 });

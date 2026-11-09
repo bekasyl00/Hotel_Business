@@ -26,8 +26,9 @@ export function documentGuest(row = {}) {
   );
 }
 
-export function documentGuestsForm(data, leadName = "") {
+export function documentGuestsForm(data, leadName = "", bookingId = "") {
   if (
+    (bookingId && data?.bookingId !== bookingId) ||
     !Number.isInteger(data?.version) ||
     data.version < 0 ||
     !Number.isInteger(data.expectedGuests) ||

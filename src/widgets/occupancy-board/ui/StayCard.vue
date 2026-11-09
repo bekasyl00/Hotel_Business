@@ -24,6 +24,10 @@ const emit = defineEmits(["close", "action", "notes", "saved"]);
 const { t } = useI18n();
 const tab = ref("main"),
   documentGuestsBusy = ref(false),
+  documentGuestsDirty = ref(false),
+  documentGuestsEditor = ref(null),
+  documentsBusy = ref(false),
+  documentsRevision = ref(0),
   notes = ref(props.booking.staffNotes || "");
 const tabs = computed(() =>
   props.readOnly
@@ -37,6 +41,15 @@ const tabs = computed(() =>
         ...(props.canViewHistory ? ["history"] : []),
       ],
 );
+function canLeaveGuests() {
+  return !documentGuestsEditor.value || documentGuestsEditor.value.canLeave();
+}
+function close() {
+  if (canLeaveGuests()) emit("close");
+}
+function changeTab(next) {
+  if (next === tab.value || canLeaveGuests()) tab.value = next;
+}
 const state = computed(() => occupancyState(props.booking));
 const history = computed(() =>
   (props.audit || []).filter((a) => a.entityId === props.booking.id),
@@ -70,8 +83,8 @@ const actionName = (action) =>
   <Modal
     wide
     :title="t('staff.board.cardTitle', { room: booking.unit })"
-    :busy="busy || documentGuestsBusy"
-    @close="emit('close')"
+    :busy="busy || documentGuestsBusy || documentsBusy"
+    @close="close"
   >
     <div class="stay-card-intro">
       <div>
@@ -88,9 +101,9 @@ const actionName = (action) =>
       <button
         v-for="key in tabs"
         :key="key"
-        :disabled="documentGuestsBusy"
+        :disabled="documentGuestsBusy || documentsBusy"
         :aria-current="tab === key ? 'page' : undefined"
-        @click="tab = key"
+        @click="changeTab(key)"
       >
         {{ t(`staff.board.${key}`) }}
       </button>
@@ -172,9 +185,14 @@ const actionName = (action) =>
           >{{ t("staff.guestProfile") }}</RouterLink
         >
         <DocumentGuests
+          v-if="!readOnly"
+          ref="documentGuestsEditor"
+          :disabled="documentsBusy"
           :booking-id="booking.id"
           :guest-name="booking.guestLabel"
           @busy="documentGuestsBusy = $event"
+          @dirty="documentGuestsDirty = $event"
+          @saved="documentsRevision++"
         />
       </template>
       <template v-else-if="tab === 'calculation'"
@@ -298,7 +316,7 @@ const actionName = (action) =>
             v-model="notes"
             rows="6"
             maxlength="2000"
-            :disabled="busy || documentGuestsBusy"
+            :disabled="busy || documentGuestsBusy || documentsBusy"
           ></textarea>
         </label>
         <p class="field-help">
@@ -307,7 +325,10 @@ const actionName = (action) =>
         <button
           class="primary"
           :disabled="
-            busy || documentGuestsBusy || notes === (booking.staffNotes || '')
+            busy ||
+            documentGuestsBusy ||
+            documentsBusy ||
+            notes === (booking.staffNotes || '')
           "
         >
           {{ t("staff.board.saveNotes") }}
@@ -334,13 +355,17 @@ const actionName = (action) =>
           !booking.checkedOutAt
         "
         :booking="booking"
-        :disabled="busy || documentGuestsBusy"
+        :disabled="
+          busy || documentGuestsBusy || documentsBusy || documentGuestsDirty
+        "
         @saved="emit('saved', $event)"
       />
       <button
         v-if="canPay"
         class="primary"
-        :disabled="busy || documentGuestsBusy"
+        :disabled="
+          busy || documentGuestsBusy || documentsBusy || documentGuestsDirty
+        "
         @click="emit('action', 'pay')"
       >
         {{ t(isDemo ? "staff.demoPayment" : "common.payment.title") }}</button
@@ -350,21 +375,27 @@ const actionName = (action) =>
           isBankProvider(booking.payment?.provider)
         "
         class="secondary"
-        :disabled="busy || documentGuestsBusy"
+        :disabled="
+          busy || documentGuestsBusy || documentsBusy || documentGuestsDirty
+        "
         @click="emit('action', 'pay')"
       >
         {{ t("common.payment.details") }}</button
       ><button
         v-if="isDemo && canCheckIn"
         class="primary"
-        :disabled="busy || documentGuestsBusy"
+        :disabled="
+          busy || documentGuestsBusy || documentsBusy || documentGuestsDirty
+        "
         @click="emit('action', 'check-in')"
       >
         {{ t("staff.checkIn") }}</button
       ><button
         v-if="booking.stayStatus === 'in_house'"
         class="primary"
-        :disabled="busy || documentGuestsBusy"
+        :disabled="
+          busy || documentGuestsBusy || documentsBusy || documentGuestsDirty
+        "
         @click="emit('action', 'check-out')"
       >
         {{ t("staff.checkOut") }}</button
@@ -374,14 +405,16 @@ const actionName = (action) =>
           !booking.checkedInAt
         "
         class="text-button danger"
-        :disabled="busy || documentGuestsBusy"
+        :disabled="
+          busy || documentGuestsBusy || documentsBusy || documentGuestsDirty
+        "
         @click="emit('action', 'cancel')"
       >
         {{ t("staff.cancelBookingTitle") }}</button
       ><button
         class="secondary"
-        :disabled="busy || documentGuestsBusy"
-        @click="emit('close')"
+        :disabled="busy || documentGuestsBusy || documentsBusy"
+        @click="close"
       >
         {{ t("staff.close") }}
       </button>
@@ -389,9 +422,17 @@ const actionName = (action) =>
     <BookingVoucher
       v-if="!isDemo && canOpenVoucher(booking)"
       :booking="booking"
-      :allow-onsite="!readOnly"
+      :allow-onsite="!readOnly && !documentGuestsDirty && !documentsBusy"
       @saved="emit('saved', $event)"
     />
-    <BookingDocuments :booking-id="booking.id" />
+    <BookingDocuments
+      v-if="!readOnly"
+      :booking-id="booking.id"
+      :completed="Boolean(booking.checkedOutAt)"
+      :revision="documentsRevision"
+      manage
+      :blocked="documentGuestsDirty || documentGuestsBusy"
+      @busy="documentsBusy = $event"
+    />
   </Modal>
 </template>

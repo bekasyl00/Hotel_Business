@@ -87,6 +87,8 @@ router.beforeEach(async (to) => {
   )
     return "/staff/accounting";
   if (to.meta.admin && !session.isAdmin) return "/staff/bookings";
+  if (to.meta.documents && !["admin", "manager"].includes(session.user.role))
+    return "/staff/bookings";
   if (to.meta.accounting && !session.isAdmin && !session.isAccountant)
     return "/staff/bookings";
 });

@@ -217,7 +217,7 @@
     "title": "Accounting",
     "role": "Accountant",
     "accessRole": "Staff role",
-    "description": "All properties, cash transactions, expenses and documents in one workspace.",
+    "description": "Finances across all resorts: receipts, refunds, expenses and reconciliation.",
     "company": "Company details",
     "all": "All permitted resorts",
     "from": "From",
@@ -227,7 +227,7 @@
     "demo": "Demonstration",
     "search": "Guest or booking reference",
     "apply": "Apply",
-    "scopeHint": "All properties are shown. Select a property for its requisites or a separate report.",
+    "scopeHint": "All resorts are shown. Select a resort for an individual financial report.",
     "received": "Received",
     "refunded": "Refunded",
     "net": "Net receipts",
@@ -244,9 +244,9 @@
     "unpaid": "Unpaid",
     "empty": "No records in this period.",
     "documents": "Documents",
-    "documentHint": "Draft service acts and invoices are created after recorded checkout. Reviewed copies can be shared with the guest. These are not signed electronic invoices. A cash order remains a draft: a bank payment is not proof of cash received.",
+    "documentHint": "Service act and invoice drafts are created after actual checkout. Resort employees check and send them to guests. These are template copies without electronic signatures or ESF registration.",
     "refresh": "Refresh draft",
-    "release": "Make available to guest",
+    "release": "Send to guest",
     "void": "Void document",
     "documentLimit": "Showing the first 200 documents. Narrow the period to find others.",
     "vat": "VAT treatment",
@@ -254,7 +254,7 @@
     "vatIncluded": "VAT included",
     "vatRate": "VAT rate, %",
     "companyHint": "Enter verified company details and the applicable tax treatment. Publishing freezes the document. Signatures, digital signing and official electronic invoice registration are separate.",
-    "guestHint": "Prepared documents appear after the stay and accountant review.",
+    "guestHint": "Documents are available after actual checkout and delivery by a resort employee.",
     "demoHint": "Document preparation and downloads require the Django API.",
     "kinds": {
       "invoice": "Invoice",
@@ -293,9 +293,10 @@
     "downloadFile": "Download {format}",
     "openFile": "Open file",
     "copyHint": "A prepared template copy without signatures, digital signing or registration in the electronic invoice system.",
-    "guestEmpty": "No documents have been issued yet. After checkout, the accountant reviews the details and issues copies here.",
-    "staffDocumentsHint": "View documents for this booking. An accountant or administrator handles changes and guest issuance.",
-    "staffDocumentsEmpty": "No documents prepared yet. The act and invoice are drafted after recorded checkout."
+    "guestEmpty": "No documents yet. A resort employee will prepare and send them here after checkout.",
+    "staffDocumentsHint": "Resort employees prepare documents and send them after actual checkout. Released versions remain unchanged.",
+    "staffDocumentsEmpty": "No documents prepared yet. The act and invoice are drafted after recorded checkout.",
+    "sandbox": "Sandbox bank payments"
   },
   "children": {
     "iin": "Child {number}: IIN — 12 digits",
@@ -437,7 +438,12 @@
     "tooLong": "Check the field lengths for guest {number}.",
     "invalidIin": "Guest {number}: IIN must contain exactly 12 digits.",
     "invalidIban": "Guest {number}: IBAN must start with KZ followed by 18 letters or digits.",
-    "invalidBik": "Guest {number}: BIC must contain 8 or 11 letters or digits."
+    "invalidBik": "Guest {number}: BIC must contain 8 or 11 letters or digits.",
+    "booking": "Booking #{id}",
+    "loaded": "Details loaded from this booking.",
+    "unsaved": "You have unsaved changes.",
+    "discard": "Resident details have unsaved changes. Leave without saving?",
+    "newDraft": "No resident details have been saved for this booking yet."
   },
   "classPricing": {
     "title": "Seasonal price for a room class",
@@ -521,5 +527,26 @@
     "saveCompany": "Save company details",
     "companySaved": "Company details saved. Previously released documents will stay unchanged.",
     "demo": "Demo profile: changes are saved only in this browser."
+  },
+  "staffDocuments": {
+    "title": "Guest documents",
+    "description": "Resident details, invoices, service acts and cash-order drafts. Resort employees prepare documents and send them to guests after checkout.",
+    "filterHelp": "The period filters booking creation dates. Resident details are shared with the occupancy planner; each booking has its own saved roster.",
+    "bookings": "Bookings · {count}",
+    "openBooking": "Details and documents",
+    "bookingTitle": "Booking documents",
+    "loading": "Loading documents…",
+    "checkoutRequired": "Documents can be sent after actual checkout is recorded. Resident details can be saved beforehand.",
+    "releaseRequirements": "Before sending, check all resident details, the payer, resort company details and payment. The server will validate document readiness.",
+    "saveGuestsFirst": "Save the changes to resident details first.",
+    "prepareKind": "Prepare: {kind}",
+    "saved": "Document updated.",
+    "sent": "Document sent and available in the guest profile.",
+    "confirmVoid": "Void this document? The current version will remain in history but will no longer be valid.",
+    "cashDraft": "Cash orders are drafts only. Sending them is not available yet: a bank payment does not prove cash collection.",
+    "delivery": "Guest document delivery",
+    "deliveryManual": "Manual — use “Send to guest”",
+    "deliveryAutomatic": "Automatically after checkout",
+    "deliveryHelp": "Employees send documents manually by default. Automatic mode releases ready service acts and invoices after actual checkout. Incomplete documents remain drafts."
   }
 }
