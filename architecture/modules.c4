@@ -129,6 +129,10 @@ model {
     description 'Профиль физического номера, медиа, описание и тарифы.. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/room-profile 'Исходный код'
   }
+  pages_staff_documents = module 'pages/staff-documents' {
+    description 'Компоненты и действия среза pages/staff-documents. Файлов: 2'
+    link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/staff-documents 'Исходный код'
+  }
   pages_staff_guest = module 'pages/staff-guest' {
     description 'Профиль гостя с историей только доступных санаториев.. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/staff-guest 'Исходный код'
@@ -235,6 +239,7 @@ model {
   app -> pages_workspace 'import'
   app -> pages_clients 'import'
   app -> pages_accounting 'import'
+  app -> pages_staff_documents 'import'
   app -> pages_login 'import'
   app -> pages_staff_guest 'import'
   app -> pages_analytics 'import'
@@ -299,10 +304,7 @@ model {
   features_payment_receipt -> shared_native 'import'
   features_review_form -> shared_ui 'import'
   features_review_form -> shared_api 'import'
-  pages_accounting -> shared_ui 'import'
   pages_accounting -> features_accounting_ledger 'import'
-  pages_accounting -> features_document_guests 'import'
-  pages_accounting -> features_company_details 'import'
   pages_accounting -> widgets_staff_shell 'import'
   pages_accounting -> entities_session 'import'
   pages_accounting -> shared_api 'import'
@@ -372,6 +374,14 @@ model {
   pages_room_profile -> shared_config 'import'
   pages_room_profile -> entities_guest_account 'import'
   pages_room_profile -> shared_lib 'import'
+  pages_staff_documents -> widgets_staff_shell 'import'
+  pages_staff_documents -> features_document_guests 'import'
+  pages_staff_documents -> features_booking_documents 'import'
+  pages_staff_documents -> entities_session 'import'
+  pages_staff_documents -> shared_api 'import'
+  pages_staff_documents -> shared_config 'import'
+  pages_staff_documents -> shared_lib 'import'
+  pages_staff_documents -> shared_ui 'import'
   pages_staff_guest -> widgets_staff_shell 'import'
   pages_staff_guest -> widgets_guest_booking_history 'import'
   pages_staff_guest -> entities_session 'import'
@@ -448,6 +458,6 @@ model {
 views {
   view modules {
     title 'FSD: реальные зависимости срезов Vue'
-    include app, entities_booking, entities_guest_account, entities_resort, entities_session, features_accounting_ledger, features_arrival_check_in, features_booking_documents, features_booking_voucher, features_class_pricing, features_company_details, features_create_booking, features_demo_payment, features_document_guests, features_edit_account, features_edit_child_policy, features_edit_resort, features_edit_room, features_pay_booking, features_payment_receipt, features_review_form, pages_accounting, pages_analytics, pages_catalog, pages_clients, pages_guest_auth, pages_guest_profile, pages_login, pages_my_bookings, pages_receipt, pages_resort_profile, pages_room_profile, pages_staff_guest, pages_staff_menu, pages_staff_profile, pages_workspace, shared_api, shared_config, shared_i18n, shared_lib, shared_native, shared_ui, widgets_availability_calendar, widgets_guest_booking_history, widgets_guest_documents, widgets_media_gallery, widgets_mobile_navigation, widgets_occupancy_board, widgets_overview, widgets_payment_dialog, widgets_public_header, widgets_staff_mobile_navigation, widgets_staff_shell
+    include app, entities_booking, entities_guest_account, entities_resort, entities_session, features_accounting_ledger, features_arrival_check_in, features_booking_documents, features_booking_voucher, features_class_pricing, features_company_details, features_create_booking, features_demo_payment, features_document_guests, features_edit_account, features_edit_child_policy, features_edit_resort, features_edit_room, features_pay_booking, features_payment_receipt, features_review_form, pages_accounting, pages_analytics, pages_catalog, pages_clients, pages_guest_auth, pages_guest_profile, pages_login, pages_my_bookings, pages_receipt, pages_resort_profile, pages_room_profile, pages_staff_documents, pages_staff_guest, pages_staff_menu, pages_staff_profile, pages_workspace, shared_api, shared_config, shared_i18n, shared_lib, shared_native, shared_ui, widgets_availability_calendar, widgets_guest_booking_history, widgets_guest_documents, widgets_media_gallery, widgets_mobile_navigation, widgets_occupancy_board, widgets_overview, widgets_payment_dialog, widgets_public_header, widgets_staff_mobile_navigation, widgets_staff_shell
   }
 }

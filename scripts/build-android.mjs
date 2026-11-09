@@ -11,7 +11,7 @@ const audience = process.argv[2];
 if (!["guest", "staff"].includes(audience)) throw new Error("Choose guest or staff");
 const bundle = process.argv[3] === "bundle";
 const versionName = "1.1";
-const versionCode = 3;
+const versionCode = 4;
 if (process.argv[3] && !bundle) throw new Error("Optional output must be bundle");
 const project = join(root, audience === "staff" ? "android-staff" : "android");
 const surface = audience === "staff" ? "mobile-staff" : "mobile";

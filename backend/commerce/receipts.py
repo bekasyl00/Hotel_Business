@@ -149,16 +149,16 @@ def receipt_pdf(payload):
         ("Номер", f"{r['unit']} · {r['roomName']}"),
         ("Гость", r["guestLabel"]),
         ("Количество гостей", r["guests"]),
-        ("Проживание", f"{r['start']} — {r['end']} · ночей: {r['nights']}"),
+        ("Проживание", f"{r['start']} — {r['end']} · суток: {r['nights']}"),
         ("Время заезда", f"{dated(r['checkinAt'])} · {r['timeZone']}"),
         ("Тариф", r["tariffName"]),
-        ("Обычная цена / ночь", money(r["regularNightly"])),
+        ("Обычная цена / сутки", money(r["regularNightly"])),
         ("Скидка", f"{r['discountPercent']}%"),
-        ("Цена / ночь", money(r["nightly"])),
+        ("Цена / сутки", money(r["nightly"])),
         ("Демо-оплата", money(r["total"])),
     ]
     rows.extend(
-        (f"Ночь {line['date']}", money(line["nightly"])) for line in r.get("nightlyBreakdown", [])
+        (f"Сутки с {line['date']}", money(line["nightly"])) for line in r.get("nightlyBreakdown", [])
     )
     if r.get("freeChildren"):
         rows.append(("Детей с бесплатным тарифом", r["freeChildren"]))
