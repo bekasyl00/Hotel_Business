@@ -68,11 +68,12 @@ class DocumentGuestTests(TestCase):
             self.assertNotIn(guest["fullName"], output)
         self.assertNotIn("ciphertext", workspace)
 
-    def test_accountant_global_access_and_guest_owner_still_denied(self):
+    def test_accountant_and_guest_owner_cannot_access_document_identities(self):
         accountant = User.objects.create_user(username="doc-accountant", role="accountant")
         self.client.force_login(accountant)
         self.token = self.client.get("/api/auth/csrf").json()["token"]
-        self.assertEqual(self.save().status_code, 200)
+        self.assertEqual(self.save().status_code, 403)
+        self.assertEqual(self.client.get(self.path).status_code, 403)
         guest = APIClient()
         session = guest.session
         session["guest_owner"] = self.booking.owner
@@ -141,3 +142,19 @@ class DocumentGuestTests(TestCase):
         row = DocumentGuestRoster.objects.get(booking=self.booking)
         self.assertEqual(self.save({**self.payload, "version": row.version}).status_code, 200)
         require_complete_roster(self.booking)
+
+    def test_same_booking_roster_is_shared_between_staff_sessions_and_api_versions(self):
+        saved = self.save()
+        self.assertEqual(saved.status_code, 200)
+        admin = User.objects.create_user(username="document-platform-admin", role="admin")
+        other = APIClient(enforce_csrf_checks=True)
+        other.force_login(admin)
+        token = other.get("/api/auth/csrf").json()["token"]
+        versioned_path = self.path.replace("/api/", "/api/v1/")
+        self.assertEqual(other.get(versioned_path).json(), saved.json())
+        updated = {**self.payload, "version": 1, "buyerIndex": 1}
+        changed = other.put(versioned_path, updated, format="json", HTTP_X_CSRFTOKEN=token)
+        self.assertEqual(changed.status_code, 200, changed.content)
+        self.assertEqual(self.client.get(self.path).json(), changed.json())
+        self.assertEqual(DocumentGuestRoster.objects.filter(booking=self.booking).count(), 1)
+        self.assertEqual(self.save({**self.payload, "version": 1}).status_code, 409)

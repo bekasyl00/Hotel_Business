@@ -119,7 +119,9 @@ class StaffProfileTests(TestCase):
             "status": "active",
         }
         self.assertEqual(self.patch(f"/api/accounts/{self.manager.pk}", body).status_code, 409)
-        without_profile_version = {key: value for key, value in body.items() if key != "profileVersion"}
+        without_profile_version = {
+            key: value for key, value in body.items() if key != "profileVersion"
+        }
         self.assertEqual(
             self.patch(f"/api/accounts/{self.manager.pk}", without_profile_version).status_code,
             409,
@@ -141,19 +143,22 @@ class StaffProfileTests(TestCase):
     def test_admin_legacy_payload_without_name_change_can_keep_profile_version_omitted(self):
         self.assertEqual(self.patch("/api/staff-profile", self.fields()).status_code, 200)
         self.sign_in(self.admin)
-        result = self.patch(f"/api/accounts/{self.manager.pk}", {
-            "version": 1,
-            "name": "Fictional Employee",
-            "login": "changed@example.test",
-            "role": "manager",
-            "status": "active",
-        })
+        result = self.patch(
+            f"/api/accounts/{self.manager.pk}",
+            {
+                "version": 1,
+                "name": "Fictional Employee",
+                "login": "changed@example.test",
+                "role": "manager",
+                "status": "active",
+            },
+        )
         self.assertEqual(result.status_code, 200, result.content)
         self.manager.refresh_from_db()
         self.assertEqual(self.manager.email, "changed@example.test")
         self.assertEqual(self.manager.profile_version, 2)
 
-    def test_owned_issuer_settings_are_shared_without_granting_accounting_mutations(self):
+    def test_owned_issuer_settings_are_shared_only_with_operational_staff(self):
         path = f"/api/staff-profile/company/{self.resort.pk}"
         self.assertEqual(self.api.get(path).json()["version"], 0)
         saved = self.patch(path, COMPANY)
@@ -170,25 +175,29 @@ class StaffProfileTests(TestCase):
             self.patch(f"/api/staff-profile/company/{self.foreign.pk}", COMPANY).status_code, 403
         )
         self.assertEqual(self.api.get("/api/accounting").status_code, 403)
+        shared = self.api.get(f"/api/accounting/company/{self.resort.pk}")
+        self.assertEqual(shared.status_code, 200)
+        self.assertEqual(shared.json()["supplier"], COMPANY["supplier"])
         self.assertEqual(
             self.patch(
                 f"/api/accounting/company/{self.resort.pk}", {**COMPANY, "version": 1}
             ).status_code,
-            403,
+            200,
         )
-        denied = self.api.post(
+        prepared = self.api.post(
             "/api/accounting/documents",
             {"bookingId": self.booking.pk, "kind": "act"},
             format="json",
             HTTP_X_CSRFTOKEN=self.csrf,
         )
-        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(prepared.status_code, 201)
         self.sign_in(self.accountant)
-        shared = self.api.get(f"/api/accounting/company/{self.resort.pk}")
-        self.assertEqual(shared.status_code, 200)
-        self.assertEqual(shared.json()["supplier"], COMPANY["supplier"])
+        self.assertEqual(self.api.get(f"/api/accounting/company/{self.resort.pk}").status_code, 403)
         self.assertEqual(
-            self.patch(f"/api/staff-profile/company/{self.foreign.pk}", COMPANY).status_code, 200
+            self.api.get(f"/api/staff-profile/company/{self.resort.pk}").status_code, 403
+        )
+        self.assertEqual(
+            self.patch(f"/api/staff-profile/company/{self.foreign.pk}", COMPANY).status_code, 403
         )
         for event in Audit.objects.filter(entity="accountingCompany"):
             self.assertEqual(set(event.after), {"version"})

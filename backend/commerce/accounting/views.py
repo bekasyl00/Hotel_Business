@@ -17,7 +17,7 @@ from booking.authentication import bearer_or_csrf_protect
 from booking.errors import Problem
 from booking.guest_auth import enforce_limit
 from booking.models import Booking
-from booking.services import admin, guest_owner, require_staff
+from booking.services import guest_owner
 from commerce.models import AccountingDocument, DemoPayment, DemoRefund, PaymentEvent, RefundRequest
 from commerce.services import booking_payment_data
 
@@ -52,6 +52,7 @@ def bookings_data(query):
                 "onsitePayment": onsite,
                 "status": b.status,
                 "completed": bool(b.checked_out_at),
+                "checkedOutAt": b.checked_out_at.isoformat() if b.checked_out_at else None,
                 "payment": booking_payment_data(b),
             }
         )
@@ -69,8 +70,8 @@ def window(params):
     )
 
 
-def scope(request):
-    resorts = svc.resorts_for(request.user)
+def scope(request, *, documents=False):
+    resorts = svc.document_resorts_for(request.user) if documents else svc.resorts_for(request.user)
     resort_id = request.query_params.get("resortId")
     if resort_id:
         get_object_or_404(resorts, pk=resort_id)
@@ -84,7 +85,7 @@ class AccountingView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, resource="overview", pk=None, format_kind=None):
-        resorts = scope(request)
+        resorts = scope(request, documents=resource in ("documents", "file", "company"))
         if resource in ("file", "report", "export"):
             enforce_limit(request, "accounting-download", ip_limit=60, minutes=5)
         if resource == "company":
@@ -117,6 +118,33 @@ class AccountingView(APIView):
             raise Problem("Поиск: не более 100 символов.")
         if search:
             bookings = bookings.filter(Q(guest_label__icontains=search) | Q(id__icontains=search))
+        if resource == "documents":
+            page = serializers.IntegerField(min_value=1, max_value=10000).run_validation(
+                request.query_params.get("page", 1)
+            )
+            rows = bookings.order_by("-created_at")[(page - 1) * 50 : page * 50]
+            # List drafts and historical files for these bookings even if the file was
+            # prepared later than the booking period; never include another tenant.
+            docs = (
+                AccountingDocument.objects.filter(
+                    booking__in=rows, snapshot__paymentMode__in=[mode, "unpaid"]
+                )
+                .select_related("booking")
+                .order_by("-created_at")
+            )
+            return Response(
+                {
+                    "resorts": list(svc.document_resorts_for(request.user).values("id", "name")),
+                    "start": str(start),
+                    "end": str(end),
+                    "paymentMode": mode,
+                    "count": bookings.count(),
+                    "page": page,
+                    "bookings": bookings_data(rows),
+                    "documents": [svc.document_data(d) for d in docs[:200]],
+                    "documentCount": docs.count(),
+                }
+            )
         if mode == "demo":
             payments = DemoPayment.objects.filter(
                 booking__resort__in=resorts,
@@ -166,16 +194,6 @@ class AccountingView(APIView):
             response["Content-Disposition"] = 'attachment; filename="tynys-finance.xlsx"'
             response["Cache-Control"] = "private, no-store"
             return response
-        docs = (
-            AccountingDocument.objects.filter(
-                booking__resort__in=resorts,
-                created_at__gte=lower,
-                created_at__lt=upper,
-                snapshot__paymentMode__in=[mode, "unpaid"],
-            )
-            .select_related("booking")
-            .order_by("-created_at")
-        )
         if resource == "export":
             if bookings.count() > 5000:
                 raise Problem("Сократите период: выгрузка ограничена 5000 строк.", 422)
@@ -250,13 +268,16 @@ class AccountingView(APIView):
                 "bookings": bookings_data(
                     bookings.order_by("-created_at")[(page - 1) * 50 : page * 50]
                 ),
-                "documents": [svc.document_data(d) for d in docs[:200]],
-                "documentCount": docs.count(),
+                "documents": [],
+                "documentCount": 0,
             }
         )
 
     def post(self, request, resource, pk=None, action=None):
-        svc.require_accountant(request.user)
+        if resource == "expenses":
+            svc.require_accountant(request.user)
+        else:
+            svc.require_document_staff(request.user)
         enforce_limit(request, "accounting-write", ip_limit=60, minutes=5)
         if not isinstance(request.data, dict):
             raise Problem("Передайте JSON-объект.")
@@ -272,7 +293,7 @@ class AccountingView(APIView):
         booking = get_object_or_404(
             Booking.objects.select_related("resort", "room"),
             pk=str(request.data["bookingId"]),
-            resort__in=svc.resorts_for(request.user),
+            resort__in=svc.document_resorts_for(request.user),
         )
         kind = serializers.ChoiceField(choices=svc.KINDS).run_validation(request.data["kind"])
         return Response(
@@ -280,7 +301,7 @@ class AccountingView(APIView):
         )
 
     def patch(self, request, resource, pk):
-        svc.require_accountant(request.user)
+        svc.require_document_staff(request.user)
         enforce_limit(request, "accounting-write", ip_limit=60, minutes=5)
         if resource != "company":
             raise Problem("Не найдено.", 404)
@@ -310,7 +331,11 @@ class GuestDocumentsView(APIView):
 
     def get(self, request, pk=None, format_kind=None):
         docs = AccountingDocument.objects.filter(
-            booking__owner=guest_owner(request), booking__source="website", state="released"
+            booking__owner=guest_owner(request),
+            booking__source="website",
+            state="released",
+            booking__checked_out_at__isnull=False,
+            booking__status="confirmed",
         ).select_related("booking")
         if pk:
             enforce_limit(request, "accounting-download", ip_limit=60, minutes=5)
@@ -324,15 +349,12 @@ class GuestDocumentsView(APIView):
 @method_decorator(never_cache, name="dispatch")
 @method_decorator(bearer_or_csrf_protect, name="dispatch")
 class BookingDocumentsView(APIView):
-    """Operational read access without access to the accounting workspace."""
+    """Scoped operational document reads; financial permissions grant no file access."""
 
     permission_classes = [AllowAny]
 
     def get(self, request, booking_id, pk=None, format_kind=None):
-        require_staff(request.user, roles=("admin", "manager", "accountant"))
-        bookings = Booking.objects.all()
-        if not admin(request.user) and request.user.role != "accountant":
-            bookings = bookings.filter(resort__account=request.user)
+        bookings = Booking.objects.filter(resort__in=svc.document_resorts_for(request.user))
         booking = get_object_or_404(bookings, pk=booking_id)
         docs = AccountingDocument.objects.filter(booking=booking).select_related("booking")
         if pk:

@@ -4,7 +4,7 @@ from datetime import timedelta
 from io import BytesIO
 from zipfile import ZipFile
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 from openpyxl import load_workbook
 from rest_framework.test import APIClient
@@ -13,7 +13,7 @@ from booking.models import Audit, Resort, User
 from booking.test_helpers import unrelated_owner
 from commerce.accounting.rendering import amount_words, pdf_bytes, xlsx_bytes
 from commerce.accounting.services import prepare_after_stay
-from commerce.models import AccountingDocument, DemoPayment
+from commerce.models import AccountingDocument, DemoPayment, DocumentGuestRoster
 from commerce.test_document_helpers import complete_roster, document_key
 from commerce.tests import fixture
 
@@ -40,7 +40,11 @@ class AccountingTests(TestCase):
             resort=self.resort,
         )
         self.client = APIClient(enforce_csrf_checks=True)
-        self.client.force_login(self.accountant)
+        self.client.force_login(self.manager)
+        self.csrf = self.client.get("/api/auth/csrf").json()["token"]
+
+    def sign_in(self, user):
+        self.client.force_login(user)
         self.csrf = self.client.get("/api/auth/csrf").json()["token"]
 
     def write(self, path, data, method="post"):
@@ -59,7 +63,7 @@ class AccountingTests(TestCase):
         self.booking.checked_in_at = timezone.now() - timedelta(days=1)
         self.booking.checked_out_at = timezone.now()
         self.booking.save()
-        complete_roster(self.booking, self.accountant)
+        complete_roster(self.booking, self.manager)
 
     def doc(self, kind="act"):
         response = self.write(
@@ -69,6 +73,7 @@ class AccountingTests(TestCase):
         return AccountingDocument.objects.get(pk=response.json()["id"])
 
     def test_accountant_read_scope_and_no_operational_privileges(self):
+        self.sign_in(self.accountant)
         self.assertEqual(self.client.get("/api/accounting?paymentMode=demo").status_code, 200)
         self.assertEqual(self.client.get("/api/workspace").status_code, 200)
         self.assertEqual(self.client.get("/api/analytics").status_code, 200)
@@ -89,12 +94,13 @@ class AccountingTests(TestCase):
         )
         self.assertEqual(self.client.get("/api/accounting?resortId=" + other.pk).status_code, 200)
         self.assertEqual(
-            self.write("/api/accounting/company/" + other.pk, COMPANY, "patch").status_code, 200
+            self.write("/api/accounting/company/" + other.pk, COMPANY, "patch").status_code, 403
         )
         self.client.force_login(self.manager)
         self.assertEqual(self.client.get("/api/accounting").status_code, 403)
 
     def test_csrf_hashing_and_sql_injection(self):
+        self.sign_in(self.accountant)
         self.assertNotEqual(self.accountant.password, "fictional-accountant-password")
         self.assertTrue(self.accountant.check_password("fictional-accountant-password"))
         self.assertEqual(
@@ -154,6 +160,7 @@ class AccountingTests(TestCase):
 
     def test_actual_checkout_creates_only_act_and_invoice_drafts_once(self):
         self.paid()
+        self.write(f"/api/accounting/company/{self.resort.pk}", COMPANY, "patch")
         self.booking.checked_out_at = None
         self.booking.save()
         self.client.force_login(self.manager)
@@ -177,10 +184,12 @@ class AccountingTests(TestCase):
         self.paid()
         self.doc()
         self.assertEqual(
-            len(self.client.get("/api/accounting?paymentMode=demo").json()["documents"]), 1
+            len(self.client.get("/api/accounting/documents?paymentMode=demo").json()["documents"]),
+            1,
         )
         self.assertEqual(
-            self.client.get("/api/accounting?paymentMode=production").json()["documents"], []
+            self.client.get("/api/accounting/documents?paymentMode=production").json()["documents"],
+            [],
         )
 
     def test_release_requires_stay_company_payment_and_freezes_copy(self):
@@ -248,6 +257,7 @@ class AccountingTests(TestCase):
         doc = self.doc()
         cell = load_workbook(BytesIO(xlsx_bytes(doc))).active["E9"]
         self.assertEqual(cell.data_type, "s")
+        self.sign_in(self.accountant)
         response = self.client.get("/api/accounting/export?paymentMode=demo")
         self.assertEqual(response.status_code, 200)
         self.assertIn("'=HYPERLINK", response.content.decode())
@@ -263,6 +273,7 @@ class AccountingTests(TestCase):
         self.assertNotIn(COMPANY["supplier"], audits)
 
     def test_environment_totals_are_separate(self):
+        self.sign_in(self.accountant)
         self.paid()
         self.assertEqual(
             self.client.get("/api/accounting?paymentMode=demo").json()["totals"]["received"], 36000
@@ -296,3 +307,174 @@ class AccountingTests(TestCase):
         self.assertEqual(self.client.get(f"{base}/{doc.pk}/pdf/download").status_code, 404)
         self.client.logout()
         self.assertEqual(self.client.get(base).status_code, 401)
+
+    def test_document_workspace_and_all_file_operations_are_operational_only(self):
+        doc = self.doc()
+        path = f"/api/accounting/documents/{doc.pk}"
+        workspace = self.client.get("/api/accounting/documents", {"paymentMode": "demo"})
+        self.assertEqual(workspace.status_code, 200)
+        self.assertEqual([row["id"] for row in workspace.json()["bookings"]], [self.booking.pk])
+        self.assertIsNone(workspace.json()["bookings"][0]["checkedOutAt"])
+        self.assertEqual(self.write(path + "/refresh", {"version": doc.version}).status_code, 200)
+        self.sign_in(self.accountant)
+        for url in (
+            "/api/accounting/documents",
+            path + "/pdf/download",
+            path + "/xlsx/download",
+            f"/api/bookings/{self.booking.pk}/documents",
+            f"/api/bookings/{self.booking.pk}/documents/{doc.pk}/pdf/download",
+            f"/api/bookings/{self.booking.pk}/document-guests",
+            f"/api/accounting/company/{self.resort.pk}",
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 403)
+        self.assertEqual(
+            self.write(
+                "/api/accounting/documents", {"bookingId": self.booking.pk, "kind": "invoice"}
+            ).status_code,
+            403,
+        )
+        for action in ("release", "refresh", "void"):
+            self.assertEqual(self.write(path + "/" + action, {"version": 2}).status_code, 403)
+        finance = self.client.get("/api/accounting?paymentMode=demo")
+        self.assertEqual(finance.status_code, 200)
+        self.assertEqual(finance.json()["documents"], [])
+        self.assertEqual(
+            self.client.get("/api/accounting/export?paymentMode=demo").status_code, 200
+        )
+        other = unrelated_owner()
+        self.sign_in(other)
+        self.assertEqual(self.client.get("/api/accounting/documents").json()["count"], 0)
+        self.assertEqual(self.client.get(path + "/pdf/download").status_code, 404)
+        self.assertEqual(self.write(path + "/refresh", {"version": 2}).status_code, 404)
+        self.assertEqual(
+            self.write(
+                "/api/accounting/documents", {"bookingId": self.booking.pk, "kind": "invoice"}
+            ).status_code,
+            404,
+        )
+
+    def test_delivery_defaults_manual_and_legacy_company_edits_preserve_setting(self):
+        path = f"/api/staff-profile/company/{self.resort.pk}"
+        self.assertEqual(self.client.get(path).json()["documentDelivery"], "manual")
+        self.assertEqual(
+            self.write(path, {**COMPANY, "documentDelivery": "invalid"}, "patch").status_code, 422
+        )
+        response = self.write(path, {**COMPANY, "documentDelivery": "automatic"}, "patch")
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()["documentDelivery"], "automatic")
+        response = self.write(
+            path, {**COMPANY, "version": 1, "supplier": "Updated issuer"}, "patch"
+        )
+        self.assertEqual(response.json()["documentDelivery"], "automatic")
+        self.assertEqual(
+            self.client.get(f"/api/accounting/company/{self.resort.pk}").json()["version"], 2
+        )
+
+    def test_automatic_delivery_releases_after_actual_checkout_once(self):
+        self.paid()
+        self.booking.checked_out_at = None
+        self.booking.save()
+        self.write(
+            f"/api/accounting/company/{self.resort.pk}",
+            {**COMPANY, "documentDelivery": "automatic"},
+            "patch",
+        )
+        doc = self.doc()
+        self.assertEqual(doc.state, "draft")
+        self.assertEqual(
+            self.write(f"/api/accounting/documents/{doc.pk}/release", {"version": 1}).status_code,
+            409,
+        )
+        result = self.write(
+            f"/api/bookings/{self.booking.pk}/check-out", {"version": self.booking.version}
+        )
+        self.assertEqual(result.status_code, 200, result.content)
+        self.booking.refresh_from_db()
+        docs = list(AccountingDocument.objects.order_by("kind"))
+        self.assertEqual(
+            [(d.kind, d.state) for d in docs], [("act", "released"), ("invoice", "released")]
+        )
+        self.assertTrue(all(d.released_at and d.snapshot["checkedOutAt"] for d in docs))
+        before = [(d.pk, d.version, d.snapshot) for d in docs]
+        prepare_after_stay(self.booking, self.manager)
+        after = [(d.pk, d.version, d.snapshot) for d in AccountingDocument.objects.order_by("kind")]
+        self.assertEqual(before, after)
+        self.assertEqual(
+            Audit.objects.filter(entity="accountingDocuments", action="release").count(), 2
+        )
+
+    def test_incomplete_automatic_documents_do_not_undo_checkout(self):
+        self.paid()
+        DocumentGuestRoster.objects.filter(booking=self.booking).delete()
+        self.booking.checked_out_at = None
+        self.booking.save()
+        self.write(
+            f"/api/accounting/company/{self.resort.pk}",
+            {**COMPANY, "documentDelivery": "automatic"},
+            "patch",
+        )
+        result = self.write(
+            f"/api/bookings/{self.booking.pk}/check-out", {"version": self.booking.version}
+        )
+        self.assertEqual(result.status_code, 200, result.content)
+        self.booking.refresh_from_db()
+        self.assertIsNotNone(self.booking.checked_out_at)
+        self.assertEqual(AccountingDocument.objects.filter(state="draft").count(), 2)
+        self.assertFalse(AccountingDocument.objects.filter(state="released").exists())
+        complete_roster(self.booking, self.manager)
+        doc = AccountingDocument.objects.get(kind="act")
+        self.assertEqual(
+            self.write(
+                f"/api/accounting/documents/{doc.pk}/release", {"version": doc.version}
+            ).status_code,
+            200,
+        )
+
+    def test_unavailable_document_key_does_not_undo_checkout_or_publish_identity(self):
+        self.paid()
+        self.booking.checked_out_at = None
+        self.booking.save()
+        self.write(
+            f"/api/accounting/company/{self.resort.pk}",
+            {**COMPANY, "documentDelivery": "automatic"},
+            "patch",
+        )
+        with override_settings(DOCUMENT_DATA_ENCRYPTION_KEYS=[]):
+            result = self.write(
+                f"/api/bookings/{self.booking.pk}/check-out", {"version": self.booking.version}
+            )
+        self.assertEqual(result.status_code, 200, result.content)
+        self.booking.refresh_from_db()
+        self.assertIsNotNone(self.booking.checked_out_at)
+        self.assertFalse(AccountingDocument.objects.exists())
+        deferred = Audit.objects.filter(entity="accountingDocuments", action="delivery_deferred")
+        self.assertEqual(deferred.count(), 2)
+        self.assertTrue(all(set(a.after) == {"kind", "reason"} for a in deferred))
+
+    def test_guest_read_and_download_check_actual_checkout_in_addition_to_release(self):
+        self.paid()
+        doc = self.doc()
+        self.write(f"/api/accounting/company/{self.resort.pk}", COMPANY, "patch")
+        self.assertEqual(
+            self.write(
+                f"/api/accounting/documents/{doc.pk}/release", {"version": doc.version}
+            ).status_code,
+            200,
+        )
+        guest = APIClient()
+        session = guest.session
+        session["guest_owner"] = self.booking.owner
+        session.save()
+        self.assertEqual(len(guest.get("/api/my-documents").json()), 1)
+        self.booking.checked_out_at = None
+        self.booking.save()
+        self.assertEqual(guest.get("/api/my-documents").json(), [])
+        for kind in ("pdf", "xlsx"):
+            self.assertEqual(
+                guest.get(f"/api/my-documents/{doc.pk}/{kind}/download").status_code, 404
+            )
+        self.booking.checked_out_at = timezone.now()
+        self.booking.status = "cancelled"
+        self.booking.save()
+        self.assertEqual(guest.get("/api/my-documents").json(), [])

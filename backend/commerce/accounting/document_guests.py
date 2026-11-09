@@ -97,9 +97,9 @@ def audit_access(booking, user, action, version, count):
 
 
 def authorized_booking(request, pk):
-    require_staff(request.user, roles=("admin", "manager", "accountant"))
+    require_staff(request.user, roles=("admin", "manager"))
     booking = get_object_or_404(Booking.objects.select_related("resort"), pk=pk)
-    require_staff(request.user, booking.resort_id, roles=("admin", "manager", "accountant"))
+    require_staff(request.user, booking.resort_id, roles=("admin", "manager"))
     return booking
 
 

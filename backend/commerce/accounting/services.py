@@ -9,7 +9,7 @@ from rest_framework import serializers
 
 from booking.errors import Problem
 from booking.models import Audit, Resort
-from booking.services import require_staff, version_check
+from booking.services import require_staff, scoped_resorts, version_check
 from commerce.models import AccountingCompany, AccountingDocument, AccountingSequence
 from commerce.services import booking_payment_data
 
@@ -23,6 +23,15 @@ def require_accountant(user, resort_id=None):
 def resorts_for(user):
     require_accountant(user)
     return Resort.objects.all()
+
+
+def require_document_staff(user, resort_id=None):
+    require_staff(user, resort_id, roles=("admin", "manager"))
+
+
+def document_resorts_for(user):
+    require_document_staff(user)
+    return scoped_resorts(user)
 
 
 class StrictInput(serializers.Serializer):
@@ -42,6 +51,7 @@ class CompanyInput(StrictInput):
     bik = serializers.RegexField(r"^[A-Z0-9]{8}([A-Z0-9]{3})?$", allow_blank=True, default="")
     director = serializers.CharField(max_length=100, allow_blank=True, default="")
     accountant = serializers.CharField(max_length=100, allow_blank=True, default="")
+    documentDelivery = serializers.ChoiceField(choices=["manual", "automatic"], required=False)
     vatMode = serializers.ChoiceField(choices=["no_vat", "included"])
     vatRate = serializers.DecimalField(
         max_digits=5, decimal_places=2, min_value=0, max_value=100, default=0
@@ -60,16 +70,14 @@ def company_data(resort):
     return {
         "resortId": resort.pk,
         "version": item.version if item else 0,
+        "documentDelivery": "manual",
         **(item.details if item else {}),
     }
 
 
 @transaction.atomic
-def save_company(request, resort_id, *, allow_manager=False):
-    if allow_manager:
-        require_staff(request.user, resort_id, roles=("admin", "manager", "accountant"))
-    else:
-        require_accountant(request.user, resort_id)
+def save_company(request, resort_id):
+    require_document_staff(request.user, resort_id)
     resort = get_object_or_404(Resort.objects.select_for_update(), pk=resort_id)
     inp = CompanyInput(data=request.data)
     inp.is_valid(raise_exception=True)
@@ -79,6 +87,10 @@ def save_company(request, resort_id, *, allow_manager=False):
     if version != (item.version if item else 0):
         raise Problem("Реквизиты уже изменены. Обновите страницу.", 409)
     values["vatRate"] = str(values["vatRate"])
+    # Older clients omit this setting; editing requisites must not change delivery policy.
+    values.setdefault(
+        "documentDelivery", item.details.get("documentDelivery", "manual") if item else "manual"
+    )
     if item:
         item.details, item.version = values, item.version + 1
         item.save()
@@ -185,7 +197,7 @@ def snapshot(booking, number):
 
 @transaction.atomic
 def prepare_document(booking, kind, user):
-    # Callers own authorization; auto-preparation is triggered only by recorded checkout.
+    require_document_staff(user, booking.resort_id)
     if kind not in KINDS:
         raise Problem("Неизвестный шаблон.")
     Resort.objects.select_for_update().get(pk=booking.resort_id)
@@ -215,8 +227,29 @@ def prepare_document(booking, kind, user):
 
 
 def prepare_after_stay(booking, user):
+    automatic = company_data(booking.resort)["documentDelivery"] == "automatic"
     for kind in ("invoice", "act"):
-        prepare_document(booking, kind, user)
+        try:
+            doc = prepare_document(booking, kind, user)
+            if automatic and doc.state == "draft":
+                release_document(doc, user)
+        except Problem as exc:
+            # Incomplete documents must not undo a valid recorded checkout. Expected
+            # validation failures leave drafts; inaccessible identities fail closed.
+            if exc.status_code != 409 and exc.machine_code not in (
+                "document_encryption_unavailable",
+                "document_data_unavailable",
+            ):
+                raise
+            Audit.objects.create(
+                actor=user.name or user.username,
+                resort_id=booking.resort_id,
+                entity="accountingDocuments",
+                entity_id=booking.pk,
+                action="delivery_deferred",
+                label="Документ требует подготовки сотрудником",
+                after={"kind": kind, "reason": exc.machine_code or "document_not_ready"},
+            )
 
 
 def audit_document(doc, user, action):
@@ -231,59 +264,73 @@ def audit_document(doc, user, action):
     )
 
 
+def validate_release(doc):
+    from commerce.settlement import payment_terms
+
+    from .document_guests import require_complete_roster
+
+    require_complete_roster(doc.booking)
+    if doc.kind == "cash_order":
+        raise Problem(
+            "ПКО требует подтверждённого учёта наличных; банковская оплата его не заменяет.",
+            409,
+        )
+    if not doc.booking.checked_out_at or doc.booking.status != "confirmed":
+        raise Problem("Документы доступны гостю после фактического завершения проживания.", 409)
+    details = company_data(doc.booking.resort)
+    if not all(details.get(k) for k in ["supplier", "bin", "address", "vatMode"]):
+        raise Problem("Сначала заполните реквизиты и настройки НДС.", 409)
+    payment = booking_payment_data(doc.booking)
+    if not payment or payment.get("status") != "paid" or payment.get("refundStatus"):
+        raise Problem("Сначала завершите сверку оплаты и возвратов.", 409)
+    terms = payment_terms(doc.booking)
+    onsite = getattr(doc.booking, "onsite_settlement", None)
+    if (
+        terms["version"] == 1
+        and terms["onsiteAmount"] > 0
+        and (onsite is None or onsite.amount != terms["onsiteAmount"])
+    ):
+        raise Problem("Сначала сотрудник должен отметить оплату проживания в санатории.", 409)
+
+
+@transaction.atomic
+def release_document(doc, user):
+    require_document_staff(user, doc.booking.resort_id)
+    doc.refresh_from_db()
+    doc.booking.refresh_from_db()
+    if doc.state != "draft":
+        raise Problem("Опубликованный документ неизменяем; отмените и создайте новый.", 409)
+    validate_release(doc)
+    doc.snapshot = snapshot(doc.booking, doc.number)
+    doc.state, doc.released_at = "released", timezone.now()
+    doc.version += 1
+    doc.save()
+    audit_document(doc, user, "release")
+    return document_data(doc)
+
+
 @transaction.atomic
 def change_document(request, pk, action):
-    require_accountant(request.user)
     doc = get_object_or_404(
         AccountingDocument.objects.select_related("booking__resort", "booking__room"),
         pk=pk,
-        booking__resort__in=resorts_for(request.user),
+        booking__resort__in=document_resorts_for(request.user),
     )
-    Resort.objects.select_for_update().get(pk=doc.booking.resort_id)
+    require_document_staff(request.user, doc.booking.resort_id)
     doc.refresh_from_db()
     doc.booking.refresh_from_db()
     if set(request.data) != {"version"}:
         raise Problem("Передайте только версию документа.")
     version_check(doc, request.data)
+    if action == "release":
+        return release_document(doc, request.user)
     if action == "void":
         if doc.state == "voided":
             raise Problem("Документ уже отменён.", 409)
         doc.state, doc.voided_at = "voided", timezone.now()
-    elif action in ("refresh", "release"):
+    elif action == "refresh":
         if doc.state != "draft":
             raise Problem("Опубликованный документ неизменяем; отмените и создайте новый.", 409)
-        if action == "release":
-            from .document_guests import require_complete_roster
-
-            require_complete_roster(doc.booking)
-            if doc.kind == "cash_order":
-                raise Problem(
-                    "ПКО требует подтверждённого учёта наличных; банковская оплата его не заменяет.",
-                    409,
-                )
-            if not doc.booking.checked_out_at or doc.booking.status != "confirmed":
-                raise Problem(
-                    "Документы доступны гостю после фактического завершения проживания.", 409
-                )
-            details = company_data(doc.booking.resort)
-            if not all(details.get(k) for k in ["supplier", "bin", "address", "vatMode"]):
-                raise Problem("Сначала заполните реквизиты и настройки НДС.", 409)
-            payment = booking_payment_data(doc.booking)
-            if not payment or payment.get("status") != "paid" or payment.get("refundStatus"):
-                raise Problem("Сначала завершите сверку оплаты и возвратов.", 409)
-            from commerce.settlement import payment_terms
-
-            terms = payment_terms(doc.booking)
-            onsite = getattr(doc.booking, "onsite_settlement", None)
-            if (
-                terms["version"] == 1
-                and terms["onsiteAmount"] > 0
-                and (onsite is None or onsite.amount != terms["onsiteAmount"])
-            ):
-                raise Problem(
-                    "Сначала сотрудник должен отметить оплату проживания в санатории.", 409
-                )
-            doc.state, doc.released_at = "released", timezone.now()
         doc.snapshot = snapshot(doc.booking, doc.number)
     else:
         raise Problem("Не найдено.", 404)

@@ -105,6 +105,8 @@ class AccountingFeeTests(TestCase):
         self.assertEqual(result["platformFeeRefundedAmount"], 2520)
 
     def test_release_waits_for_onsite_attestation_and_keeps_released_copy_immutable(self):
+        self.client.force_login(self.manager)
+        self.token = self.client.get("/api/auth/csrf").json()["token"]
         complete_roster(self.booking, self.manager)
         self.paid_fee()
         self.booking.checked_in_at = timezone.now() - timedelta(days=1)

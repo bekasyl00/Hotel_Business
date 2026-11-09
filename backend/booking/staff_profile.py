@@ -110,10 +110,10 @@ class StaffCompanyView(APIView):
 
     @transaction.atomic
     def get(self, request, resort_id):
-        require_staff(request.user, resort_id, roles=("admin", "manager", "accountant"))
+        require_staff(request.user, resort_id, roles=("admin", "manager"))
         return Response(company_data(get_object_or_404(Resort, pk=resort_id)))
 
     def patch(self, request, resort_id):
-        require_staff(request.user, roles=("admin", "manager", "accountant"))
+        require_staff(request.user, roles=("admin", "manager"))
         enforce_limit(request, "staff-company-write", ip_limit=60, minutes=5)
-        return Response(save_company(request, resort_id, allow_manager=True))
+        return Response(save_company(request, resort_id))
