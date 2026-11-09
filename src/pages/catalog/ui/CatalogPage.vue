@@ -124,11 +124,18 @@ onBeforeUnmount(() => window.removeEventListener("storage", storageChanged));
     <main id="public-main">
       <section class="discovery-search" :aria-label="t('public.findAResort')">
         <div>
-          <span class="eyebrow">{{
+          <span class="eyebrow discovery-intro">{{
             t("public.yourBreakStartsWithAPlace")
           }}</span>
-          <h1>{{ t("public.findYourResort") }}</h1>
-          <p>
+          <h1>
+            <span class="discovery-desktop-title">{{
+              t("public.findYourResort")
+            }}</span
+            ><span class="discovery-mobile-title">{{
+              t("public.findAResort")
+            }}</span>
+          </h1>
+          <p class="discovery-intro">
             {{ t("public.chooseAPlaceSelectDatesAndARoomOnItsResortPage") }}
           </p>
         </div>
@@ -138,6 +145,7 @@ onBeforeUnmount(() => window.removeEventListener("storage", storageChanged));
           ><input
             v-model="query"
             type="search"
+            enterkeyhint="search"
             :placeholder="t('public.cityResortOrAddress')"
         /></label>
       </section>
@@ -148,8 +156,7 @@ onBeforeUnmount(() => window.removeEventListener("storage", storageChanged));
               loading
                 ? t("public.loading")
                 : t("public.resorts", [filtered.length])
-            }}</strong
-            ><span class="small muted">{{ t("public.openMapToExplore") }}</span>
+            }}</strong>
           </div>
           <div class="discovery-filters">
             <label

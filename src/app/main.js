@@ -25,6 +25,7 @@ if (isMobile) {
   const { isNative, clearReceiptCache } = await import("@/shared/native");
   if (isNative()) await clearReceiptCache();
 }
+await import("./styles/compact-mobile.css");
 const app = createApp(App);
 app.use(i18n);
 syncDocumentLanguage();

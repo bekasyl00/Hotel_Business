@@ -26,7 +26,6 @@ onBeforeUnmount(() => {
     >
       <div class="modal-heading">
         <div>
-          <span class="eyebrow">ТЫНЫС</span>
           <h2 :id="titleId">{{ title }}</h2>
         </div>
         <button

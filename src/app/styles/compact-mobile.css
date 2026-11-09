@@ -1,0 +1,789 @@
+.discovery-search-input svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  color: var(--muted);
+}
+
+/* Phone layouts share a calm type scale and controls sized for touch.
+   Loaded after native styles so the web and both apps use the same density. */
+@media (max-width: 760px) {
+  :root {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 16px;
+    font-optical-sizing: auto;
+    --cream: #f7f8f6;
+    --work-bg: #f7f8f6;
+    --line: #e3e7e1;
+    --muted: #657067;
+    --radius-control: 12px;
+    --radius-panel: 16px;
+    --shadow: 0 2px 12px #1d332808;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    font-size: 15px;
+    line-height: 1.45;
+    background: var(--cream);
+  }
+  html body :is(.public-site, .staff-layout, .login-page) h1 {
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1.18;
+    letter-spacing: -0.65px;
+    text-wrap: pretty;
+  }
+  html body :is(.public-site, .staff-layout, .app-dialog) h2 {
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.35px;
+  }
+  html body :is(.public-site, .staff-layout, .app-dialog) h3 {
+    font-size: 17px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.15px;
+  }
+  html body :is(input, select, textarea) {
+    font-size: 16px;
+    line-height: 1.35;
+  }
+  html body .editor-form :is(input:not([type="checkbox"]), select, textarea) {
+    min-height: 46px;
+    padding: 10px 12px;
+    font-size: 16px;
+    border-color: #dce2da;
+    border-radius: 12px;
+  }
+  html body .editor-form label {
+    font-size: 13px;
+    font-weight: 500;
+    gap: 6px;
+  }
+  html body .editor-form {
+    gap: 16px;
+  }
+  html body .form-grid {
+    gap: 12px;
+  }
+  html body :is(.field-help, .small, .muted, .demo-note) {
+    line-height: 1.5;
+  }
+  html body :is(.field-help, .small) {
+    font-size: 13px;
+  }
+  html body :is(.primary, .secondary, .button-link) {
+    min-height: 44px;
+    padding: 11px 16px;
+    gap: 8px;
+    font-size: 14px;
+    line-height: 1.3;
+    font-weight: 600;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+  button,
+  [role="button"],
+  .category-navigation a,
+  .mobile-tabs a {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+  html body .icon-button {
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    min-width: 44px;
+    flex: 0 0 44px;
+    border-radius: 50%;
+    font-size: 24px;
+  }
+  html body :is(.public-site, .staff-layout) {
+    background: var(--cream);
+  }
+
+  /* The catalog starts with the task, not a full-screen marketing hero. */
+  html .public-header .public-header-top {
+    min-height: 64px;
+    padding: 8px 16px;
+    gap: 10px;
+  }
+  html .public-header-top .brand {
+    gap: 7px;
+    font-size: 24px;
+    letter-spacing: -0.9px;
+  }
+  html .public-header-top .brand img {
+    width: 30px;
+    height: 30px;
+  }
+  html .public-header-top .public-brand-note,
+  html .public-header-top .public-staff-link {
+    display: none;
+  }
+  html .public-header-top .language-switcher {
+    max-width: 122px;
+  }
+  html .public-header-top .language-switcher select {
+    min-height: 44px;
+    padding: 8px 22px 8px 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    font-size: 16px;
+  }
+  html .public-header-top nav {
+    gap: 20px;
+  }
+  html .public-header-top nav a {
+    font-weight: 500;
+    font-size: 13px;
+  }
+  html .public-header .category-navigation {
+    gap: 6px;
+    padding: 0 16px 8px;
+    scrollbar-width: none;
+  }
+  html .category-navigation::-webkit-scrollbar {
+    display: none;
+  }
+  html .category-navigation a {
+    min-height: 44px;
+    padding: 9px 13px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+  }
+  html .category-navigation a.selected {
+    background: #edf2ea;
+    color: #344a35;
+  }
+  html .discovery-page .discovery-search {
+    margin: 0;
+    padding: 20px 16px 14px;
+    gap: 14px;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+  .discovery-mobile-title {
+    display: inline;
+  }
+  .discovery-desktop-title,
+  .discovery-intro {
+    display: none;
+  }
+  html .discovery-page .discovery-search h1 {
+    font-size: 26px;
+    max-width: none;
+    font-weight: 600;
+    letter-spacing: -0.65px;
+  }
+  html .discovery-search .discovery-search-input {
+    min-height: 48px;
+    padding: 0 12px;
+    gap: 10px;
+    border: 1px solid #e0e5dd;
+    border-radius: 12px;
+    box-shadow: none;
+  }
+  html .discovery-search-input input {
+    min-height: 46px;
+    padding: 10px 0;
+  }
+  .discovery-search-input svg {
+    width: 20px;
+    height: 20px;
+    flex: 0 0 20px;
+    color: var(--muted);
+  }
+  html .discovery-page .catalogue-grid-layout {
+    padding: 0 16px 90px;
+  }
+  html .catalogue-grid-layout .discovery-results {
+    padding: 0;
+  }
+  html .results-heading {
+    margin: 0 0 10px;
+  }
+  html .results-heading strong {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0;
+    color: var(--muted);
+  }
+  html .discovery-filters {
+    gap: 8px;
+    padding: 0;
+    margin: 0 0 16px;
+    border: 0;
+  }
+  html .discovery-filters select {
+    min-height: 44px;
+    padding: 10px 8px;
+    border-radius: 12px;
+    font-size: 16px;
+    background: #fff;
+  }
+  html .catalogue-cards {
+    gap: 16px;
+  }
+  html .catalogue-cards .discovery-card {
+    border: 1px solid #e7eae4;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+  html .catalogue-cards .discovery-card-image {
+    height: 180px;
+  }
+  html .catalogue-cards .discovery-card-content {
+    padding: 14px 16px;
+    gap: 8px;
+  }
+  html .discovery-card-content h2 {
+    font-size: 19px;
+  }
+  html .discovery-card-content .small {
+    font-size: 13px;
+  }
+  html .discovery-card-content .discovery-summary {
+    display: none;
+  }
+  html .discovery-meta {
+    gap: 6px;
+    font-size: 12px;
+  }
+  html .discovery-meta > span {
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: #f2f5ef;
+  }
+  html .catalogue-cards .discovery-card-bottom {
+    margin-top: 2px;
+    padding-top: 10px;
+    gap: 4px;
+  }
+  html .discovery-card-bottom strong {
+    font-size: 18px;
+    font-weight: 600;
+  }
+  html .discovery-card-bottom small {
+    display: inline;
+    font-size: 12px;
+  }
+  html .discovery-card-bottom .text-button {
+    min-height: 44px;
+    font-size: 13px;
+    padding: 8px 0 8px 8px;
+  }
+  html .catalogue-image-note {
+    left: 10px;
+    bottom: 10px;
+    font-size: 11px;
+    padding: 4px 7px;
+  }
+  html .public-data-note {
+    margin-top: 20px;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  html .public-site .floating-map-button {
+    min-height: 44px;
+    padding: 10px 18px;
+    gap: 8px;
+    border: 0;
+    border-radius: 24px;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 3px 14px #23382b26;
+  }
+  html .floating-map-button > span {
+    font-size: 21px;
+    line-height: 1;
+  }
+
+  /* Profiles and personal pages share the same rhythm as the catalog. */
+  html .public-site .profile-main {
+    padding: 12px 16px 32px;
+  }
+  html .profile-main .profile-back {
+    min-height: 44px;
+    margin: 0 0 4px;
+    font-size: 13px;
+  }
+  html .profile-main .profile-heading {
+    margin-bottom: 16px;
+    gap: 10px;
+  }
+  html .profile-main .profile-heading h1 {
+    margin-block: 6px;
+  }
+  html .profile-heading > div > .eyebrow,
+  html .guest-auth-card > .eyebrow {
+    display: none;
+  }
+  html .profile-heading > div > p {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  html .profile-chips {
+    gap: 6px;
+  }
+  html .profile-chips span,
+  html .profile-class {
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  html .profile-main .profile-section {
+    padding-block: 20px;
+  }
+  html .profile-main .profile-description {
+    font-size: 15px;
+    line-height: 1.55;
+  }
+  html .profile-main .profile-introduction {
+    padding-block: 0;
+    margin: 0 0 16px;
+  }
+  html .profile-main .profile-introduction h2 {
+    display: none;
+  }
+  html .profile-section-nav {
+    gap: 16px;
+    padding: 0;
+  }
+  html .profile-section-nav a {
+    min-height: 44px;
+    font-size: 13px;
+    font-weight: 500;
+  }
+  html .profile-main .media-main {
+    border-radius: 16px;
+  }
+  html .profile-room-card {
+    padding: 14px;
+    border-radius: 14px;
+    gap: 12px;
+  }
+  html .profile-room-card h3 {
+    font-size: 18px;
+  }
+  html .profile-room-card p {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  html .profile-room-card .eyebrow {
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    font-weight: 500;
+  }
+  html
+    .profile-main
+    :is(
+      .stay-summary,
+      .profile-tariff,
+      .guest-booking,
+      .guest-contact-panel,
+      .receipt-sheet
+    ) {
+    padding: 16px;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+  html .stay-date-form {
+    padding: 12px;
+    gap: 10px;
+    background: #f3f5f0;
+  }
+  html .profile-main .stay-summary > p {
+    margin-block: 8px;
+    font-size: 13px;
+  }
+  html .profile-main .guest-booking {
+    margin-bottom: 14px;
+  }
+  html .guest-booking-heading {
+    gap: 8px;
+  }
+  html .guest-booking-heading h2 {
+    font-size: 19px;
+  }
+  html .guest-booking-total {
+    font-size: 21px;
+    font-weight: 600;
+  }
+  html .guest-booking-facts {
+    gap: 12px;
+    margin-block: 16px;
+  }
+  html .guest-booking-facts dt {
+    font-size: 12px;
+    margin-bottom: 3px;
+  }
+  html .guest-booking-facts dd {
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  html .guest-booking-actions {
+    gap: 8px;
+  }
+  html .guest-profile-columns {
+    margin-top: 16px;
+    gap: 20px;
+  }
+  html .guest-contact-panel .editor-form {
+    margin-top: 16px;
+  }
+  html .guest-avatar-panel {
+    flex-direction: row;
+    align-items: center;
+    margin: 16px 0;
+    gap: 12px;
+  }
+  html .guest-avatar {
+    width: 64px;
+    height: 64px;
+    flex-basis: 64px;
+  }
+  html .guest-avatar-placeholder {
+    font-size: 24px;
+    font-weight: 500;
+  }
+  html .guest-avatar-controls {
+    flex: 1;
+    min-width: 0;
+  }
+  html .guest-avatar-controls label {
+    font-size: 13px;
+  }
+  html .profile-account-banner {
+    padding: 16px;
+    margin: 16px 0;
+    gap: 12px;
+    border-radius: 14px;
+  }
+  html .profile-account-banner p {
+    font-size: 13px;
+  }
+  html .public-site .guest-auth-main {
+    padding: 16px;
+  }
+  html .public-site .guest-auth-card {
+    margin-top: 8px;
+    padding: 20px 16px;
+    gap: 16px;
+    border-radius: 16px;
+    box-shadow: none;
+  }
+  html .public-site .guest-auth-card > p {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  html .receipt-sheet-heading {
+    margin-bottom: 16px;
+    gap: 12px;
+  }
+  html .receipt-facts {
+    gap: 14px;
+    margin: 18px 0;
+  }
+  html .receipt-total {
+    padding-block: 16px;
+    gap: 12px;
+  }
+  html .receipt-total strong {
+    font-size: 23px;
+    font-weight: 600;
+  }
+  html .receipt-identifiers {
+    margin-block: 16px;
+    gap: 12px;
+  }
+  html .receipt-demo-warning {
+    padding: 12px 16px;
+    margin-block: 16px;
+    border-radius: 12px;
+  }
+
+  /* Dialogs remain scrollable, with a reachable close control and no extra branding. */
+  html .app-dialog,
+  html .app-dialog.wide {
+    width: calc(100vw - 20px);
+    max-height: calc(
+      100dvh - 24px - env(safe-area-inset-top, 0px) -
+        env(safe-area-inset-bottom, 0px)
+    );
+    padding: 16px;
+    border-radius: 20px;
+    overscroll-behavior: contain;
+  }
+  html .app-dialog .modal-heading {
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  html .app-dialog .modal-heading > div {
+    min-width: 0;
+  }
+  html .app-dialog .modal-heading h2 {
+    margin: 0;
+    font-size: 21px;
+    line-height: 1.25;
+  }
+  html .app-dialog fieldset {
+    border-color: var(--line);
+    border-radius: 12px;
+  }
+  html .app-dialog legend {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  html .app-dialog .quote {
+    padding: 14px;
+    border-radius: 12px;
+  }
+  html .app-dialog .quote strong {
+    font-size: 23px;
+    font-weight: 600;
+  }
+  html .app-dialog .quote small {
+    font-size: 12px;
+  }
+  html .app-dialog .payment-summary {
+    padding-block: 12px;
+  }
+  html .app-dialog .payment-amount {
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  html .app-dialog .payment-provider {
+    padding: 8px 12px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+  html .app-dialog .payment-status {
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 14px;
+  }
+  html .app-dialog .payment-breakdown {
+    gap: 8px;
+    font-size: 14px;
+  }
+  html .app-dialog .payment-help {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  html .app-dialog .payment-help summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+
+  /* Operational pages retain information; their framing becomes lighter. */
+  html
+    .staff-layout
+    :is(
+      .work-main,
+      .accounting-page,
+      .staff-profile-page,
+      .staff-documents-page,
+      .analytics-page,
+      .staff-guest-main,
+      .mobile-management
+    ) {
+    padding: 18px 14px 32px;
+  }
+  html
+    .staff-layout
+    :is(
+      .work-title,
+      .accounting-heading,
+      .staff-profile-heading,
+      .documents-heading
+    ) {
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+  html
+    .staff-layout
+    :is(
+      .work-title,
+      .accounting-heading,
+      .staff-profile-heading,
+      .documents-heading
+    )
+    > .eyebrow,
+  html
+    .staff-layout
+    :is(
+      .work-title,
+      .accounting-heading,
+      .staff-profile-heading,
+      .documents-heading
+    )
+    > div
+    > .eyebrow {
+    display: none;
+  }
+  html
+    .staff-layout
+    :is(
+      .staff-profile-card,
+      .document-card,
+      .finance-totals article,
+      .metrics article,
+      .board-summary > div,
+      .analytics-filters
+    ) {
+    padding: 14px;
+    border-radius: 14px;
+    box-shadow: none;
+  }
+  html .staff-layout .staff-profile-card {
+    margin-bottom: 16px;
+  }
+  html
+    .staff-layout
+    :is(.metrics strong, .finance-totals strong, .board-summary strong) {
+    font-size: 24px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+  }
+  html
+    .staff-layout
+    :is(.metrics span, .finance-totals span, .board-summary span) {
+    font-size: 12px;
+    line-height: 1.4;
+  }
+  html .staff-layout .surface-heading {
+    padding: 14px 16px;
+  }
+  html .staff-layout .board-toolbar {
+    padding: 12px;
+    gap: 8px;
+  }
+  html .staff-layout .staff-topbar {
+    min-height: 56px;
+    padding: 8px 14px;
+    gap: 8px;
+  }
+  html .staff-layout .staff-topbar > span {
+    display: none;
+  }
+  html .staff-layout .staff-topbar-actions {
+    flex: 1;
+    gap: 8px 12px;
+  }
+  html .staff-layout .staff-topbar-actions > a,
+  html .staff-layout .staff-topbar-actions > button {
+    font-size: 13px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+  html .staff-layout .language-switcher select {
+    min-height: 44px;
+    font-size: 16px;
+    border: 0;
+    background: transparent;
+  }
+  html .staff-layout .workspace-table td {
+    font-size: 14px;
+  }
+  html .staff-layout .workspace-table td::before {
+    font-size: 12px;
+  }
+  html .mobile-management-grid {
+    gap: 10px;
+    margin-top: 18px;
+  }
+  html .mobile-management-grid a {
+    padding: 15px 14px;
+    border-radius: 12px;
+    font-size: 15px;
+  }
+  html .login-page .login-panel {
+    padding: 24px 18px;
+  }
+  html .login-page .login-box h2 {
+    font-size: 26px;
+    font-weight: 600;
+  }
+  html .login-page .login-story {
+    display: none;
+  }
+  html .login-page {
+    display: block;
+  }
+
+  /* Native tabs use a quiet material; labels remain readable and hit areas stay 44+. */
+  html .mobile-tabs {
+    padding-top: 5px;
+    padding-bottom: calc(5px + var(--mobile-safe-area-bottom, 0px));
+    border-color: #e3e7e1a8;
+    background: #fffffff0;
+  }
+  html .mobile-tabs a {
+    min-height: 47px;
+    gap: 3px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  html .mobile-tabs a.router-link-exact-active {
+    background: transparent;
+    color: #344a35;
+  }
+  html .mobile-tabs a.router-link-exact-active svg {
+    stroke-width: 2.1;
+  }
+  html .mobile-tabs svg {
+    width: 22px;
+    height: 22px;
+  }
+  html.mobile-app .public-site {
+    padding-bottom: calc(65px + var(--mobile-safe-area-bottom));
+  }
+  html.mobile-app .floating-map-button {
+    bottom: calc(72px + var(--mobile-safe-area-bottom));
+  }
+  html.mobile-app .route-recovery {
+    bottom: calc(66px + var(--mobile-safe-area-bottom));
+  }
+}
+@media (min-width: 761px) {
+  .discovery-mobile-title {
+    display: none;
+  }
+}
+@media (hover: none) {
+  /* Touch has no persistent hover; avoid cards/buttons staying visually pressed. */
+  .catalogue-cards .discovery-card:hover {
+    box-shadow: none;
+    border-color: var(--line);
+  }
+  .primary:hover:not(:disabled) {
+    background: var(--brand);
+  }
+  .secondary:hover:not(:disabled) {
+    background: white;
+    border-color: var(--line);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .mobile-tabs {
+    background: white;
+    backdrop-filter: none;
+  }
+}
