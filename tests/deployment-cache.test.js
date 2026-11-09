@@ -10,7 +10,8 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { packageWeb } from "../scripts/package-web.mjs";
+import { packageWeb, validateWebRelease } from "../scripts/package-web.mjs";
+import { productionWebEnvironment } from "../scripts/build-web.mjs";
 
 const configs = await Promise.all(
   ["vercel.json", "vercel.staff.json"].map(async (name) => ({
@@ -20,6 +21,87 @@ const configs = await Promise.all(
     ),
   })),
 );
+
+test("production web commands override conflicting demo and native build settings", () => {
+  for (const surface of ["public", "staff"]) {
+    const env = productionWebEnvironment(surface, {
+      VITE_DATA_MODE: "demo",
+      VITE_APP_SURFACE: "mobile",
+      VITE_API_BASE: "https://wrong.example/api",
+      VITE_UPLOAD_MAX_BYTES: "",
+      VITE_PUBLIC_URL: "https://old.example",
+      VITE_STAFF_URL: "https://old-staff.example",
+    });
+    assert.equal(env.VITE_DATA_MODE, "api");
+    assert.equal(env.VITE_APP_SURFACE, surface);
+    assert.equal(env.VITE_API_BASE, "/api");
+    assert.equal(env.VITE_UPLOAD_MAX_BYTES, "4000000");
+    assert.equal(
+      env.VITE_PUBLIC_URL,
+      "https://vercel-site-puce-two.vercel.app",
+    );
+    assert.equal(
+      env.VITE_STAFF_URL,
+      "https://tynys-staff.vercel.app/staff/login",
+    );
+  }
+  assert.throws(() => productionWebEnvironment("mobile"), /public or staff/);
+  assert.equal(configs[0].value.buildCommand, "npm run build:release:public");
+  assert.equal(configs[1].value.buildCommand, "npm run build:release:staff");
+});
+
+test("release validation rejects stale metadata, demo transport and the wrong audience", async () => {
+  const root = await mkdtemp(join(tmpdir(), "tynys-web-contract-"));
+  try {
+    for (const surface of ["site", "staff"]) {
+      const metadata = join(root, "dist", surface, ".vite");
+      await mkdir(metadata, { recursive: true });
+      await writeFile(join(metadata, "manifest.json"), "{}");
+      await assert.rejects(
+        validateWebRelease(surface, root),
+        /Missing website release/,
+      );
+      const release = {
+        version: 1,
+        surface: surface === "site" ? "public" : "staff",
+        dataMode: "api",
+        apiBase: "/api",
+      };
+      const save = (value) =>
+        writeFile(join(metadata, "release.json"), JSON.stringify(value));
+      for (const changed of [
+        { dataMode: "demo" },
+        { surface: "combined" },
+        { apiBase: "https://other.example/api" },
+        { version: 0 },
+      ]) {
+        await save({ ...release, ...changed });
+        await assert.rejects(
+          validateWebRelease(surface, root),
+          /Only an API website/,
+        );
+      }
+      await save(release);
+      for (const manifest of [
+        { "src/app/providers/demo.js": { file: "assets/demo-AbCd1234.js" } },
+        { "index.html": { dynamicImports: ["src/app/providers/demo.js"] } },
+      ]) {
+        await writeFile(
+          join(metadata, "manifest.json"),
+          JSON.stringify(manifest),
+        );
+        await assert.rejects(
+          validateWebRelease(surface, root),
+          /Demo transport/,
+        );
+      }
+      await writeFile(join(metadata, "manifest.json"), "{}");
+      assert.deepEqual(await validateWebRelease(surface, root), {});
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("only hashed assets have immutable caching; API paths are never cached", () => {
   for (const { value } of configs) {
@@ -77,6 +159,15 @@ test("selected website packaging uses tracked proxy policy and excludes source, 
     const source = join(root, "dist/site");
     await mkdir(join(source, "assets"), { recursive: true });
     await mkdir(join(source, ".vite"));
+    await writeFile(
+      join(source, ".vite/release.json"),
+      JSON.stringify({
+        version: 1,
+        surface: "public",
+        dataMode: "api",
+        apiBase: "/api",
+      }),
+    );
     const pages = [
       "catalog",
       "resort-profile",

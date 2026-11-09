@@ -10,13 +10,16 @@
 | --- | --- | --- |
 | `npm run dev` | Оба интерфейса локально | localhost:4173 |
 | `npm run build` | Combined для локальной проверки | dist/site |
-| `npm run build:public` | Гостевой сайт | dist/site |
-| `npm run build:staff` | Кабинет сотрудников | dist/staff |
-| `npm run build:surfaces` | Обе сборки и проверка их границ | оба каталога |
+| `npm run build:public` | Локальная гостевая сборка; demo по умолчанию | dist/site |
+| `npm run build:staff` | Локальная рабочая сборка; demo по умолчанию | dist/staff |
+| `npm run build:surfaces` | Обе локальные сборки и проверка их границ | оба каталога |
+| `npm run build:release:public` | Гостевой сайт для Vercel, только API | dist/site |
+| `npm run build:release:staff` | Рабочий сайт для Vercel, только API | dist/staff |
+| `npm run build:release` | Обе production-сборки и проверка их границ | оба каталога |
 
 `VITE_PUBLIC_URL` задаёт внешний адрес гостевого сайта в кабинете. `VITE_STAFF_URL` задаёт адрес входа сотрудников на гостевом сайте. Это публичные build-time параметры, а не секреты. `VITE_DATA_MODE=api` включает HTTP, по умолчанию используется demo. `VITE_API_BASE=/api` — рекомендуемая граница прокси. `VITE_APP_SURFACE` может явно переопределить режим; допустимы только public/staff/combined/mobile/mobile-staff.
 
-Для Git-connected Vercel public-проекта используется `vercel.json`; для staff-проекта нужны команда `npm run build:staff`, output `dist/staff` и правила `vercel.staff.json`. Текущая production-публикация выполнена CLI из подготовленных статических артефактов. У public-проекта наблюдается работающая GitHub-интеграция с PR preview; staff-проект пока публикуется CLI. В Vercel production/preview сохранены публичные `VITE_STAFF_URL` для гостевого проекта и `VITE_PUBLIC_URL` для staff-проекта. В публикуемые файлы не входят backend, `.env`, исходная архитектура или LikeC4.
+Для Git-connected Vercel public-проекта используется `vercel.json` с `npm run build:release:public`; для staff-проекта — `npm run build:release:staff`, output `dist/staff` и правила `vercel.staff.json`. `scripts/build-web.mjs` явно задаёт API-режим, `/api`, нужную аудиторию, действующие адреса сайтов и ограничение загрузки Vercel 4 000 000 байт. Конфликтующие локальные demo/native-параметры не могут заменить эти значения. При смене доменов нужно обновить этот единый release-конфиг. У public-проекта работает GitHub-интеграция, staff-проект публикуется CLI из выбранного статического артефакта. В публикуемые файлы не входят backend, `.env`, исходная архитектура или LikeC4.
 
 ## CDN и подготовка публикации
 
@@ -24,14 +27,14 @@ Vercel уже раздаёт статические файлы через CDN. �
 
 Все `/api/*` запросы остаются `private, no-store`, также явно запрещено CDN-кеширование. Это относится к авторизации, персональным данным, файлам, доступности и изменяемым сезонным ценам. HTTP-транспорт браузера, native-транспорт и получение документов используют `cache: no-store`. Не добавлять общий `s-maxage` для API без отдельного публичного контракта и тестов на утечку сессий. Создание оплаты не повторяется автоматически при сетевой ошибке.
 
-После `npm run build:surfaces` статический артефакт готовится из выбранной сборки и **текущей** конфигурации в Git:
+После `npm run build:release` статический артефакт готовится из выбранной сборки и **текущей** конфигурации в Git:
 
 ```sh
 node scripts/package-web.mjs site output/deploy-site-<release>
 node scripts/package-web.mjs staff output/deploy-staff-<release>
 ```
 
-Скрипт проверяет manifest на разделение клиентских/рабочих страниц, копирует только `index.html` и `assets`, исключает служебные/секретные файлы и отказывается перезаписывать существующий релиз. Он не развёртывает сайт и не выбирает аккаунт Vercel. Связь с уже существующим правильным проектом `.vercel/project.json` добавляется отдельно оператором. Нельзя переносить `vercel.json` из старого каталога `output/`: это теряет новые правила прокси/кеша. После публикации проверяются заголовки HTML, хешированного JS и `/api`, а не только успешный статус сборки.
+Скрипт проверяет приватную build-metadata `.vite/release.json` на фактический API-режим, `/api` и аудиторию; отсутствие metadata или demo transport в manifest блокирует публикацию. Дополнительно проверяется разделение клиентских/рабочих страниц. Копируются только `index.html` и `assets`, служебные/секретные файлы исключаются, существующий релиз не перезаписывается. Скрипт не развёртывает сайт и не выбирает аккаунт Vercel. Связь с уже существующим правильным проектом `.vercel/project.json` добавляется отдельно оператором. Нельзя переносить `vercel.json` из старого каталога `output/`: это теряет новые правила прокси/кеша. После публикации проверяются заголовки HTML, хешированного JS и `/api`, вход через сервер и загрузка рабочего пространства. Совпадение хешей доказывает только соответствие артефакту, но не правильный источник данных.
 
 Основание политики: [Vercel Cache-Control](https://vercel.com/docs/caching/cache-control-headers), [настройка headers в routes](https://vercel.com/docs/project-configuration/vercel-json#headers).
 

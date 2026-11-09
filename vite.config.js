@@ -40,7 +40,25 @@ export default defineConfig(({ mode }) => {
         "/media": "http://127.0.0.1:8000",
       },
     },
-    plugins: [vue()],
+    plugins: [
+      vue(),
+      {
+        name: "tynys-build-contract",
+        apply: "build",
+        generateBundle() {
+          this.emitFile({
+            type: "asset",
+            fileName: ".vite/release.json",
+            source: JSON.stringify({
+              version: 1,
+              surface,
+              dataMode: env.VITE_DATA_MODE === "api" ? "api" : "demo",
+              apiBase: env.VITE_API_BASE || "/api",
+            }),
+          });
+        },
+      },
+    ],
     resolve: {
       alias: {
         "@": fileURLToPath(new URL("./src", import.meta.url)),

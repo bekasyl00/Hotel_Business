@@ -11,6 +11,50 @@ import { fileURLToPath } from "node:url";
 
 const repository = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
+export async function validateWebRelease(surface, root = repository) {
+  if (!["site", "staff"].includes(surface))
+    throw new Error("Choose exactly one website: site or staff");
+  const source = resolve(root, "dist", surface);
+  let release;
+  try {
+    release = JSON.parse(
+      await readFile(resolve(source, ".vite/release.json"), "utf8"),
+    );
+  } catch {
+    throw new Error(
+      "Missing website release metadata; rebuild with build:release:public or build:release:staff",
+    );
+  }
+  if (
+    release.version !== 1 ||
+    release.dataMode !== "api" ||
+    release.apiBase !== "/api" ||
+    release.surface !== (surface === "site" ? "public" : "staff")
+  )
+    throw new Error(
+      "Only an API website with the selected audience and /api proxy can be published",
+    );
+  const manifest = JSON.parse(
+    await readFile(resolve(source, ".vite/manifest.json"), "utf8"),
+  );
+  if (
+    Object.entries(manifest).some(([key, chunk]) =>
+      [
+        key,
+        chunk.src,
+        ...(chunk.imports || []),
+        ...(chunk.dynamicImports || []),
+      ]
+        .filter(Boolean)
+        .some((name) => name.startsWith("src/app/providers/demo")),
+    )
+  )
+    throw new Error(
+      "Demo transport found in production website; rebuild in API mode",
+    );
+  return manifest;
+}
+
 export async function packageWeb(surface, destination, root = repository) {
   if (!["site", "staff"].includes(surface))
     throw new Error("Choose exactly one website: site or staff");
@@ -21,9 +65,7 @@ export async function packageWeb(surface, destination, root = repository) {
     throw new Error(
       "The deployment artifact must be a new directory in output/",
     );
-  const manifest = JSON.parse(
-    await readFile(resolve(source, ".vite/manifest.json"), "utf8"),
-  );
+  const manifest = await validateWebRelease(surface, root);
   const pages = Object.keys(manifest).filter((key) =>
     key.startsWith("src/pages/"),
   );
@@ -47,7 +89,7 @@ export async function packageWeb(surface, destination, root = repository) {
   const forbidden = surface === "site" ? staffPages : publicPages;
   if (required.some((name) => !includes(name)) || forbidden.some(includes))
     throw new Error(
-      "Build audience does not match selected website; run build:surfaces",
+      "Build audience does not match selected website; run build:release",
     );
   const assets = resolve(source, "assets");
   async function validate(path) {
