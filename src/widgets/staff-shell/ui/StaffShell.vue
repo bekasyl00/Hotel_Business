@@ -180,6 +180,62 @@ const nav = computed(() =>
   gap: 16px;
 }
 @media (max-width: 760px) {
+  .staff-layout .staff-sidebar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 12px;
+  }
+  .staff-sidebar .staff-brand {
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .staff-sidebar .sidebar-footer {
+    position: static;
+    inset: auto;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .staff-sidebar .sidebar-profile {
+    min-height: 44px;
+    padding: 6px 8px;
+    gap: 8px;
+  }
+  .sidebar-profile .avatar {
+    display: grid;
+    flex-basis: 32px;
+    width: 32px;
+    height: 32px;
+  }
+  .sidebar-profile strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 11px;
+  }
+  .sidebar-profile-action {
+    margin-top: 2px;
+    font-size: 10px;
+  }
+  .staff-sidebar .sidebar-footer .logout-button,
+  .sidebar-profile small {
+    display: none;
+  }
+  .staff-sidebar nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    width: 100%;
+    margin-top: 0;
+    padding-top: 0;
+  }
   .staff-topbar {
     min-height: 52px;
   }
