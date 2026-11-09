@@ -159,7 +159,7 @@ export function createMobileClient({
     if (current !== generation) throw problem(401, "invalid_token");
     const publicRead =
       method === "GET" &&
-      /^\/(categories|catalog|resorts|rooms|availability|reviews|media\/files)(\/|\?|$)/.test(
+      /^\/(categories|catalog|resorts|rooms|availability|availability-calendar|reviews|media\/files)(\/|\?|$)/.test(
         path,
       );
     if (!token && !publicRead) throw problem(401, "invalid_token");

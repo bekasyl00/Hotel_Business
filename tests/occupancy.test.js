@@ -94,3 +94,22 @@ test("civil dates use property timezone and do not drift at month/year boundarie
     "2026-01-02",
   );
 });
+
+test("property date remains ISO when a device Intl locale uses slash ordering", () => {
+  const DateTimeFormat = Intl.DateTimeFormat;
+  Intl.DateTimeFormat = function (_locale, options) {
+    return new DateTimeFormat("en-US", options);
+  };
+  try {
+    assert.equal(
+      propertyToday("Asia/Almaty", new Date("2026-01-01T20:00:00Z")),
+      "2026-01-02",
+    );
+    assert.equal(
+      propertyToday("America/Los_Angeles", new Date("2026-01-01T02:00:00Z")),
+      "2025-12-31",
+    );
+  } finally {
+    Intl.DateTimeFormat = DateTimeFormat;
+  }
+});

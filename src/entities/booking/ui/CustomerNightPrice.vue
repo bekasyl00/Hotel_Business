@@ -40,19 +40,18 @@ const { t } = useI18n();
   gap: 0.35rem 0.5rem;
 }
 .customer-price-line strong {
-  font-size: 1.2rem;
+  font-size: 1.125rem;
+  font-weight: 600;
 }
 .price-discount .customer-price-line strong {
   color: #176247;
 }
 .price-seasonal .customer-price-line strong {
-  color: #805018;
-  background: #fff5e7;
-  border-radius: 5px;
-  padding: 0.1rem 0.3rem;
+  color: #805f38;
 }
 .prominent .customer-price-line strong {
-  font-size: 1.8rem;
+  font-size: 1.5rem;
+  letter-spacing: -0.02em;
 }
 .customer-price-line del {
   font-size: 0.8rem;
@@ -68,11 +67,11 @@ const { t } = useI18n();
   margin-top: 0.2rem;
 }
 .customer-season-badge {
-  background: #fff1da;
-  color: #795121;
-  border-radius: 5px;
-  padding: 0.2rem 0.4rem;
-  font-size: 0.65rem;
+  background: #fbf5eb;
+  color: #805f38;
+  border-radius: 6px;
+  padding: 0.15rem 0.35rem;
+  font-size: 0.6875rem;
   line-height: 1.4;
 }
 </style>

@@ -4,6 +4,7 @@ import { useI18n } from "vue-i18n";
 import { request, requestFile } from "@/shared/api";
 import { apiBase, isDemo } from "@/shared/config";
 import { Modal } from "@/shared/ui";
+import { propertyToday } from "@/entities/booking";
 import { money } from "@/shared/lib";
 const props = defineProps({
   finance: Object,
@@ -49,7 +50,7 @@ let attempt,
 function create() {
   Object.assign(form, {
     resortId: props.resortId || null,
-    date: new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Almaty" }),
+    date: propertyToday("Asia/Almaty"),
     amount: "",
     category: "operations",
     description: "",

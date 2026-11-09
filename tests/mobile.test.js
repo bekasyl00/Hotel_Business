@@ -137,6 +137,33 @@ test("unauthenticated app can browse but cannot create anonymous cookie-owned bo
     code: "native_web_auth_required",
   });
 });
+test("anonymous Android and iOS calendars reach the public API without unlocking private data", async () => {
+  for (const platform of ["android", "ios"]) {
+    const calendar = {
+      days: [{ date: "2026-11-25", availableRooms: 2 }],
+      totalRooms: 2,
+    };
+    const x = setup(() => response(calendar), null, "guest", platform);
+    const path =
+      "/availability-calendar?resortId=altun&category=standard&month=2026-11&guests=2";
+    assert.deepEqual(await x.client.request("GET", path), calendar);
+    assert.equal(x.calls[0].url, base + path);
+    assert.equal(x.calls[0].headers.Authorization, undefined);
+    assert.equal(x.calls[0].credentials, "omit");
+    for (const [method, forbidden] of [
+      ["POST", "/availability-calendar"],
+      ["GET", "/availability-calendar-private"],
+      ["GET", "/my-bookings"],
+      ["GET", "/profile"],
+      ["GET", "/workspace"],
+    ])
+      await assert.rejects(x.client.request(method, forbidden), {
+        status: 401,
+      });
+    assert.equal(x.calls.length, 1);
+    assert.equal(x.stored(), null);
+  }
+});
 test("logout erases credentials even when remote revocation cannot be reached", async () => {
   const x = setup((url) => {
     if (url.endsWith("/logout")) throw new Error("offline");

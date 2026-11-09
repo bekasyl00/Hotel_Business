@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import { StaffShell } from "@/widgets/staff-shell";
 import { DocumentGuests } from "@/features/document-guests";
 import { BookingDocuments } from "@/features/booking-documents";
+import { propertyToday } from "@/entities/booking";
 import { useSessionStore } from "@/entities/session";
 import { request } from "@/shared/api";
 import { isDemo } from "@/shared/config";
@@ -22,9 +23,7 @@ const data = ref(null),
   rosterDirty = ref(false),
   documentsBusy = ref(false),
   revision = ref(0);
-const today = new Date().toLocaleDateString("en-CA", {
-  timeZone: "Asia/Almaty",
-});
+const today = propertyToday("Asia/Almaty");
 const filter = reactive({
   resortId: "",
   start: today.slice(0, 8) + "01",

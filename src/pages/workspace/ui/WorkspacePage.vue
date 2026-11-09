@@ -11,7 +11,7 @@ import {
 import { useRoute, useRouter } from "vue-router";
 import { useSessionStore } from "@/entities/session";
 import { useResortStore } from "@/entities/resort";
-import { useBookingStore } from "@/entities/booking";
+import { useBookingStore, propertyToday } from "@/entities/booking";
 import { StaffShell } from "@/widgets/staff-shell";
 import { Overview } from "@/widgets/overview";
 import { ResortEditor } from "@/features/edit-resort";
@@ -179,9 +179,7 @@ const stayNames = computed(() => ({
   checked_out: t("staff.checkedOut"),
 }));
 function canCheckIn(booking) {
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: current.value?.timeZone || "Asia/Almaty",
-  }).format(new Date());
+  const today = propertyToday(current.value?.timeZone || "Asia/Almaty");
   return (
     booking.status === "confirmed" &&
     booking.payment?.status === "paid" &&

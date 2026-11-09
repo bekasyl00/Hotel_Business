@@ -4,6 +4,7 @@ import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { AccountingLedger } from "@/features/accounting-ledger";
 import { StaffShell } from "@/widgets/staff-shell";
+import { propertyToday } from "@/entities/booking";
 import { useSessionStore } from "@/entities/session";
 import { request, requestFile } from "@/shared/api";
 import { isDemo, apiBase } from "@/shared/config";
@@ -14,9 +15,7 @@ const { t } = useI18n(),
 const data = ref(null),
   error = ref(""),
   busy = ref(false);
-const today = new Date().toLocaleDateString("en-CA", {
-  timeZone: "Asia/Almaty",
-});
+const today = propertyToday("Asia/Almaty");
 const filter = reactive({
   resortId: "",
   paymentMode: isDemo ? "demo" : "production",

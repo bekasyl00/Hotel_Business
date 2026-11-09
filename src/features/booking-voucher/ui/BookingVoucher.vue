@@ -6,6 +6,7 @@ import { apiBase } from "@/shared/config";
 import { Modal } from "@/shared/ui";
 import { money, dateLabel, timeLabel } from "@/shared/lib";
 import { isNative, shareNativeFile } from "@/shared/native";
+import { propertyToday } from "@/entities/booking";
 import { canRecordOnsite } from "../model/access.js";
 const props = defineProps({
   booking: { type: Object, required: true },
@@ -31,12 +32,7 @@ const path = computed(
 const canRecord = computed(() => {
   let today;
   try {
-    today = new Intl.DateTimeFormat("en-CA", {
-      timeZone: voucher.value?.timeZone || "Asia/Almaty",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).format(new Date());
+    today = propertyToday(voucher.value?.timeZone || "Asia/Almaty");
   } catch {
     return false;
   }

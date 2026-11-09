@@ -1,4 +1,5 @@
 import { ownerOf, normalizePhone } from "./demo-guest-auth.js";
+import { propertyToday } from "../../entities/booking/rules.js";
 import { ApiError } from "../../shared/api/index.js";
 
 const fail = (message, status = 422) => {
@@ -215,9 +216,7 @@ export function demoGuestRequest({
     version(b);
     if (b.status !== "confirmed" || b.payment?.status !== "paid")
       fail("Нужна подтверждённая и оплаченная бронь.", 409);
-    const today = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Almaty",
-    }).format(new Date());
+    const today = propertyToday("Asia/Almaty");
     if (
       stay[2] === "check-in" &&
       (b.checkedInAt || today < b.start || today >= b.end)

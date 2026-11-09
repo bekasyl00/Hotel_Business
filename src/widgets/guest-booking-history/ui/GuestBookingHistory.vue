@@ -5,6 +5,7 @@ const { t } = useI18n();
 import { money, dateLabel, statusNames } from "@/shared/lib";
 import { BookingVoucher, canOpenVoucher } from "@/features/booking-voucher";
 import { isDemo } from "@/shared/config";
+import { propertyToday } from "@/entities/booking";
 defineProps({ bookings: { type: Array, default: () => [] }, staff: Boolean });
 const stayNames = computed(() => ({
   not_arrived: t("public.notCheckedIn"),
@@ -16,12 +17,9 @@ function stayLabel(booking) {
     return stayNames.value[booking.stayStatus] || "—";
   if (booking.status === "cancelled") return t("public.stayCancelled");
   if (booking.status === "rejected") return t("public.stayNotConfirmed");
-  const today = new Intl.DateTimeFormat("en-CA", {
-    timeZone: booking.cancellationPolicy?.timeZone || "Asia/Almaty",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  const today = propertyToday(
+    booking.cancellationPolicy?.timeZone || "Asia/Almaty",
+  );
   if (booking.end <= today) return t("public.endedNoCheckinRecorded");
   return stayNames.value.not_arrived;
 }

@@ -5,7 +5,18 @@ export function shiftDay(day, offset) {
     .slice(0, 10);
 }
 export function propertyToday(timeZone = "Asia/Almaty", now = new Date()) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone }).format(now);
+  const parts = new Intl.DateTimeFormat("en", {
+    timeZone,
+    calendar: "gregory",
+    numberingSystem: "latn",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const values = Object.fromEntries(
+    parts.map(({ type, value }) => [type, value]),
+  );
+  return `${values.year}-${values.month}-${values.day}`;
 }
 export function occupancyState(booking, now = Date.now()) {
   if (["cancelled", "rejected", "expired"].includes(booking.status))

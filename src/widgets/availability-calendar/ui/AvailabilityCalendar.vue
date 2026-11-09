@@ -116,7 +116,10 @@ async function load() {
     const result = await request("GET", `/availability-calendar?${query}`);
     if (run === generation) data.value = result;
   } catch {
-    if (run === generation) failed.value = true;
+    if (run === generation) {
+      failed.value = true;
+      data.value = null;
+    }
   } finally {
     if (run === generation) loading.value = false;
   }
@@ -176,8 +179,9 @@ function label(day) {
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${day.date}T12:00:00Z`));
-  const state =
-    anchor.value && day.departureRooms > 0
+  const state = !data.value
+    ? t(loading.value ? "public.calendar.loading" : "public.calendar.unknown")
+    : anchor.value && day.departureRooms > 0
       ? t("public.calendar.departure", { count: day.departureRooms })
       : !day.bookable
         ? t("public.calendar.unavailable")
@@ -317,15 +321,19 @@ onBeforeUnmount(() => generation++);
           :disabled="!selectable(day)"
           :aria-label="label(day)"
           :title="label(day)"
-          :aria-pressed="day.date === anchor || inRange(day.date)"
+          :aria-pressed="
+            Boolean(data) && (day.date === anchor || inRange(day.date))
+          "
           :class="{
             free: day.availableRooms > 0,
             busy: day.bookable && !day.availableRooms,
             departure: anchor && day.departureRooms > 0,
-            selected: day.date === anchor || inRange(day.date),
+            selected: data && (day.date === anchor || inRange(day.date)),
             endpoint:
-              day.date === anchor ||
-              (!anchor && [start, end].includes(day.date)),
+              data &&
+              (day.date === anchor ||
+                (!anchor && [start, end].includes(day.date))),
+            unknown: !data,
             discount: day.priceDisplay?.kind === 'discount',
             seasonal: day.priceDisplay?.kind === 'seasonal',
           }"
@@ -347,7 +355,7 @@ onBeforeUnmount(() => generation++);
                   ? "↗"
                   : day.priceDisplay.kind === "discount"
                     ? "↓"
-                    : "~"
+                    : "◆"
               }}</span
             ></span
           >
@@ -357,14 +365,14 @@ onBeforeUnmount(() => generation++);
             aria-hidden="true"
             >{{ compactCalendarPrice(day.priceDisplay.amount, locale) }}</small
           >
-          <small v-else aria-hidden="true">{{
+          <small v-else-if="data" aria-hidden="true">{{
             anchor && day.departureRooms
               ? "↗"
               : !day.bookable
                 ? "—"
                 : day.availableRooms
                   ? "•"
-                  : "×"
+                  : "—"
           }}</small>
         </button>
         <span
@@ -391,6 +399,7 @@ onBeforeUnmount(() => generation++);
           }}<small v-if="selectedPriceDay.priceDisplay.kind !== 'regular'">
             ·
             {{
+              selectedPriceDay.priceDisplay.periodLabel ||
               t(`public.calendar.${selectedPriceDay.priceDisplay.kind}`)
             }}</small
           ></span
@@ -410,17 +419,21 @@ onBeforeUnmount(() => generation++);
         </button>
       </div>
       <div class="availability-legend">
-        <span class="legend-free">● {{ t("public.calendar.free") }}</span>
-        <span>× {{ t("public.calendar.busy") }}</span>
+        <span class="legend-free"
+          ><i aria-hidden="true"></i>{{ t("public.calendar.free") }}</span
+        >
+        <span class="legend-busy"
+          ><i aria-hidden="true"></i>{{ t("public.calendar.busy") }}</span
+        >
         <span
           v-if="priceDays.some((day) => day.priceDisplay?.kind === 'discount')"
           class="legend-discount"
-          >↓ {{ t("public.calendar.discount") }}</span
+          ><i aria-hidden="true">↓</i>{{ t("public.calendar.discount") }}</span
         >
         <span
           v-if="priceDays.some((day) => day.priceDisplay?.kind === 'seasonal')"
           class="legend-seasonal"
-          >~ {{ t("public.calendar.seasonal") }}</span
+          ><i aria-hidden="true">◆</i>{{ t("public.calendar.seasonal") }}</span
         >
       </div>
       <details class="availability-help">
@@ -436,67 +449,80 @@ onBeforeUnmount(() => generation++);
 
 <style scoped>
 .availability-calendar {
-  padding: 12px;
-  margin: 12px 0;
-  border: 1px solid #dbe4de;
-  border-radius: 14px;
-  background: #fff;
-  width: 100%;
-  min-width: 0;
-  max-width: 460px;
   box-sizing: border-box;
+  width: 100%;
+  max-width: 460px;
+  min-width: 0;
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px solid #e7ebe7;
+  border-radius: 16px;
+  background: #fff;
+  color: #263b2e;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 .availability-title,
 .availability-month {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
 }
 .availability-title h3 {
-  font-size: 15px;
-  line-height: 1.4;
   margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
 }
 .availability-title .small {
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 12px;
+  color: #728076;
 }
 .availability-month {
   margin-top: 6px;
   text-transform: capitalize;
 }
 .availability-month strong {
-  font-size: 15px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
-.availability-month button {
-  border: 1px solid #dbe4de;
-  border-radius: 10px;
-  background: #f7faf8;
+.availability-month button,
+.availability-prompt button {
+  appearance: none;
+  -webkit-appearance: none;
   flex: 0 0 44px;
   width: 44px;
   height: 44px;
-  font-size: 20px;
-  padding: 0;
-}
-.availability-prompt {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 44px;
-  align-items: center;
-  min-height: 44px;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #45584e;
-}
-.availability-prompt button {
-  width: 44px;
   min-height: 44px;
   padding: 0;
   border: 0;
+  border-radius: 50%;
   background: transparent;
-  border-radius: 8px;
+  color: #34513d;
+  font-size: 24px;
+  font-weight: 400;
+  box-shadow: none;
+}
+.availability-month button:disabled {
+  opacity: 0.3;
+}
+.availability-prompt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 36px;
+  align-items: center;
+  min-height: 36px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #66766b;
+}
+.availability-prompt button {
+  width: 36px;
+  min-height: 36px;
+  height: 36px;
   font-size: 20px;
-  color: #285e46;
 }
 .availability-prompt button:disabled {
   visibility: hidden;
@@ -513,68 +539,76 @@ onBeforeUnmount(() => generation++);
   min-width: 0;
 }
 .availability-weekday {
+  padding: 0 0 6px;
   text-align: center;
   font-size: 11px;
-  color: #617267;
-  padding-bottom: 5px;
+  color: #839087;
 }
 .calendar-padding-day {
   display: grid;
   place-items: center;
   min-height: 46px;
-  border-radius: 9px;
-  background: #fafbf9;
-  color: #abb3ac;
-  font-size: 13px;
+  color: #bec5c0;
+  font-size: 14px;
 }
 .availability-grid button {
   appearance: none;
   -webkit-appearance: none;
-  min-width: 0;
-  border: 1px solid transparent;
-  border-radius: 9px;
-  background: #f4f5f4;
-  color: #929c96;
-  width: 100%;
-  min-height: 46px;
-  padding: 4px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 4px 0;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: #f7f8f7;
+  color: #a1aaa4;
+  box-shadow: none;
   font: inherit;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 400;
   line-height: 1.1;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    background-color 120ms ease-out,
+    color 120ms ease-out;
 }
 .availability-grid button small {
+  margin-top: 4px;
   font-size: 10px;
-  margin-top: 3px;
 }
 .availability-grid .calendar-day-price {
-  font-size: 10px;
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-  white-space: nowrap;
-  letter-spacing: -0.03em;
   max-width: 100%;
+  font-size: 10px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
 }
 .calendar-day-number {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 .calendar-kind-mark {
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 7px;
+  font-weight: 500;
 }
 .availability-price-caption {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  margin: 0 0 10px;
+  color: #839087;
   font-size: 11px;
-  color: #45584e;
-  margin: 0 0 8px;
+  line-height: 1.3;
 }
 .calendar-loading {
   flex-shrink: 0;
@@ -590,39 +624,37 @@ onBeforeUnmount(() => generation++);
     transform: rotate(360deg);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .calendar-loading {
-    animation: none;
-  }
-}
 .calendar-price-detail {
   display: grid;
-  gap: 4px;
-  margin-top: 8px;
-  padding: 8px 10px;
+  gap: 3px;
+  margin-top: 10px;
+  padding: 9px 11px;
   border-radius: 10px;
-  background: #f3f6f4;
-  font-size: 11px;
+  background: #f7f8f6;
+  font-size: 12px;
+  line-height: 1.35;
 }
 .calendar-price-detail > div {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 7px;
 }
 .calendar-price-detail strong {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
 }
 .calendar-price-detail del {
-  color: #657168;
+  color: #839087;
+  font-size: 12px;
 }
 .calendar-price-detail.discount {
-  background: #eaf5ec;
-  color: #176538;
+  background: #f0f7f1;
+  color: #326444;
 }
 .calendar-price-detail.seasonal {
-  background: #fff4e3;
-  color: #845410;
+  background: #fcf6ed;
+  color: #816036;
 }
 .calendar-price-detail small {
   font-size: inherit;
@@ -636,89 +668,146 @@ onBeforeUnmount(() => generation++);
   white-space: nowrap;
 }
 .availability-grid .free {
-  background: #eaf5ec;
-  color: #28673d;
+  background: #f1f6f2;
+  color: #3d6349;
 }
-.availability-grid .free.discount {
-  background: #dff1e3;
-  color: #176538;
+.availability-grid .free.discount .calendar-day-price {
+  color: #267843;
 }
 .availability-grid .free.seasonal {
-  background: #fff1d9;
-  color: #845410;
+  background: #fcf7ee;
+  color: #816036;
 }
 .availability-grid .busy {
-  background: #fbeeed;
-  color: #9f4541;
+  background: #fbefef;
+  color: #b05b5b;
+}
+.availability-grid .unknown {
+  background: #fafbfa;
+  color: #b4bcb6;
 }
 .availability-grid .selected {
-  box-shadow: inset 0 0 0 1px #439571;
+  background: #e4eee6;
 }
 .availability-grid .departure {
-  border-color: #285e46;
+  border-color: #bccfbe;
 }
-.availability-grid .endpoint.free {
-  background: #24593f;
+.availability-grid .endpoint {
+  background: #34513d;
+  color: white;
+}
+.availability-grid .endpoint .calendar-day-price {
   color: white;
 }
 .availability-grid button:disabled {
   cursor: default;
   opacity: 1;
 }
-.availability-grid button:not(:disabled):hover {
-  box-shadow: inset 0 0 0 2px #24593f;
+.availability-calendar button:not(:disabled):active {
+  background: #dfe9e1;
+  color: #263b2e;
 }
-.availability-calendar button:focus-visible {
-  outline: 3px solid #4579d2;
+@media (hover: hover) and (pointer: fine) {
+  .availability-calendar button:not(:disabled):hover {
+    box-shadow: inset 0 0 0 1px #73937b;
+  }
+}
+.availability-calendar button:focus-visible,
+.availability-help summary:focus-visible {
+  outline: 2px solid #4579d2;
   outline-offset: 2px;
 }
 .availability-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 12px;
+  gap: 7px 12px;
+  margin-top: 12px;
+  color: #66766b;
   font-size: 11px;
-  margin-top: 10px;
-  color: #45584e;
+  line-height: 1.3;
 }
-.legend-free {
-  color: #28673d;
+.availability-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.availability-legend i {
+  width: 7px;
+  height: 7px;
+  font-size: 9px;
+  line-height: 7px;
+  font-style: normal;
+}
+.legend-free i {
+  background: #729d7e;
+  border-radius: 50%;
+}
+.legend-busy i {
+  background: #cc7c7c;
+  border-radius: 2px;
 }
 .legend-discount {
-  color: #176538;
-  font-weight: 600;
+  color: #267843;
 }
 .legend-seasonal {
-  color: #845410;
+  color: #816036;
 }
 .availability-help {
-  margin-top: 6px;
-  color: #45584e;
+  margin-top: 2px;
+  color: #7b887f;
   font-size: 11px;
 }
 .availability-help summary {
   cursor: pointer;
-  min-height: 24px;
-  padding: 4px 0;
-}
-.availability-help summary:focus-visible {
-  outline: 3px solid #4579d2;
-  outline-offset: 2px;
+  min-height: 32px;
+  padding: 8px 0 4px;
 }
 .availability-calendar .field-help {
-  margin-bottom: 0;
-  font-size: 11px;
-  line-height: 1.5;
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
 }
 .availability-error {
-  padding: 16px 0;
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fcf6ed;
+  color: #816036;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.availability-error p {
+  margin: 0;
+}
+.availability-error button {
+  flex-shrink: 0;
+  min-height: 40px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 8px;
+  color: #34513d;
+  background: white;
+  font: inherit;
+  font-weight: 500;
 }
 @media (max-width: 380px) {
   .availability-calendar {
-    padding: 10px 8px;
+    padding: 12px 9px;
   }
   .availability-grid {
     gap: 2px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .calendar-loading {
+    animation: none;
+  }
+  .availability-grid button {
+    transition: none;
   }
 }
 </style>
