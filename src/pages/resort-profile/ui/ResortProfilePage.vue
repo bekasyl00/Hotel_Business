@@ -196,7 +196,6 @@ watch(() => route.params.id, load, { immediate: true });
           }}</a>
         </header>
         <section id="about" class="profile-section profile-introduction">
-          <span class="eyebrow">{{ t("public.aPlaceForYourBreak") }}</span>
           <h2>{{ t("public.aboutTheResort") }}</h2>
           <p class="profile-description">
             {{
@@ -250,7 +249,6 @@ watch(() => route.params.id, load, { immediate: true });
             <section id="rooms" class="profile-section">
               <div class="section-title-row">
                 <div>
-                  <span class="eyebrow">{{ t("public.aRoomForYou") }}</span>
                   <h2>{{ t("public.chooseDatesAndARoom") }}</h2>
                 </div>
                 <label

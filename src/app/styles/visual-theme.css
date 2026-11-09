@@ -932,6 +932,71 @@ textarea:focus-visible,
   .app-dialog {
     border-radius: 16px;
   }
+  .public-site .profile-main {
+    padding-top: 8px;
+  }
+  .profile-back {
+    margin-bottom: 4px;
+  }
+  .profile-heading {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .profile-heading h1 {
+    font-size: 26px;
+    line-height: 1.25;
+    margin-block: 6px;
+  }
+  .profile-section {
+    padding-block: 20px;
+  }
+  .profile-section h2 {
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+  .profile-section.profile-introduction {
+    margin-block: 0 16px;
+    padding-block: 8px 0;
+    border-bottom: 0;
+  }
+  .profile-description {
+    font-size: 13px;
+  }
+  .profile-section .profile-description {
+    line-height: 1.6;
+  }
+  .profile-section-nav {
+    gap: 16px;
+    padding-top: 4px;
+  }
+  .profile-section-nav a {
+    min-height: 44px;
+    padding-block: 12px;
+    font-size: 12px;
+  }
+  .amenity-tags {
+    margin-block: 0 12px;
+    gap: 8px 14px;
+  }
+  .checkin-facts {
+    margin-top: 12px;
+    padding-top: 12px;
+    gap: 12px 24px;
+  }
+  .section-title-row h2 {
+    margin: 0;
+  }
+  .stay-date-form {
+    margin-top: 12px;
+    padding: 12px;
+  }
+  .profile-room-card {
+    gap: 12px;
+  }
+  .stay-summary {
+    gap: 12px;
+    padding: 16px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   *,

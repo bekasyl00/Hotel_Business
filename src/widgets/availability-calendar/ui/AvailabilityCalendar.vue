@@ -4,7 +4,7 @@ import { useI18n } from "vue-i18n";
 import { propertyToday, shiftDay } from "@/entities/booking";
 import { request } from "@/shared/api";
 import { money } from "@/shared/lib";
-import { calendarDayPrice } from "../model/price.js";
+import { calendarDayPrice, compactCalendarPrice } from "../model/price.js";
 
 const props = defineProps({
   resortId: { type: String, required: true },
@@ -46,14 +46,46 @@ const weekdays = computed(() =>
   Array.from({ length: 7 }, (_, i) => t(`public.calendar.weekday${i}`)),
 );
 const padding = computed(() => (monthDate.value.getUTCDay() + 6) % 7);
+const leadingDays = computed(() =>
+  Array.from({ length: padding.value }, (_, index) =>
+    Number(shiftDay(`${month.value}-01`, index - padding.value).slice(-2)),
+  ),
+);
 const firstMonth = computed(() => today.value.slice(0, 7));
 const lastMonth = computed(() => shiftDay(today.value, 365).slice(0, 7));
 const previewDate = ref(props.start);
+const calendarIdentity = computed(() =>
+  JSON.stringify([
+    props.resortId,
+    props.category,
+    props.roomId,
+    props.guests,
+    props.timeZone,
+    month.value,
+  ]),
+);
+const emptyDays = computed(() => {
+  const count = new Date(
+    Date.UTC(
+      monthDate.value.getUTCFullYear(),
+      monthDate.value.getUTCMonth() + 1,
+      0,
+    ),
+  ).getUTCDate();
+  return Array.from({ length: count }, (_, index) => ({
+    date: `${month.value}-${String(index + 1).padStart(2, "0")}`,
+    bookable: false,
+    availableRooms: 0,
+  }));
+});
 const priceDays = computed(() =>
-  (data.value?.days || []).map((day) => ({
+  (data.value?.days || emptyDays.value).map((day) => ({
     ...day,
     priceDisplay: calendarDayPrice(day),
   })),
+);
+const trailingDays = computed(
+  () => (7 - ((padding.value + priceDays.value.length) % 7)) % 7,
 );
 const selectedPriceDay = computed(() =>
   priceDays.value.find(
@@ -63,9 +95,11 @@ const selectedPriceDay = computed(() =>
   ),
 );
 let generation = 0;
+let dataIdentity = "";
 async function load() {
   const run = ++generation;
-  data.value = null;
+  if (dataIdentity !== calendarIdentity.value) data.value = null;
+  dataIdentity = calendarIdentity.value;
   failed.value = false;
   loading.value = false;
   if (!hasClass.value || !validGuests.value) return;
@@ -98,6 +132,7 @@ function moveMonth(offset) {
 function selectable(day) {
   return (
     !loading.value &&
+    !failed.value &&
     (anchor.value ? day.departureRooms > 0 : day.availableRooms > 0)
   );
 }
@@ -123,6 +158,16 @@ function priceText(day) {
       amount: money(day.priceDisplay.amount),
     },
   );
+}
+function shortDate(date) {
+  return new Intl.DateTimeFormat(locale.value, {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+  }).format(new Date(`${date}T12:00:00Z`));
+}
+function restart() {
+  anchor.value = "";
 }
 function label(day) {
   const date = new Intl.DateTimeFormat(locale.value, {
@@ -212,152 +257,169 @@ onBeforeUnmount(() => generation++);
           ›
         </button>
       </div>
-      <p class="availability-prompt" aria-live="polite">
-        {{
-          loading
-            ? t("public.calendar.loading")
-            : anchor
-              ? t("public.calendar.selectDeparture", { date: anchor })
+      <div class="availability-prompt">
+        <p aria-live="polite">
+          {{
+            anchor
+              ? t("public.calendar.selectDeparture", {
+                  date: shortDate(anchor),
+                })
               : t("public.calendar.selectArrival")
-        }}
+          }}
+        </p>
         <button
-          v-if="anchor"
           type="button"
           class="text-button"
-          @click="anchor = ''"
+          :disabled="!anchor"
+          :aria-label="t('public.calendar.restart')"
+          :title="t('public.calendar.restart')"
+          @click="restart"
         >
-          {{ t("public.calendar.restart") }}
+          <span aria-hidden="true">↺</span>
         </button>
+      </div>
+      <p v-if="data && !data.totalRooms" class="field-help">
+        {{ t("public.calendar.noRooms") }}
       </p>
+      <p class="availability-price-caption">
+        {{
+          t(
+            roomId
+              ? "public.calendar.priceCaption"
+              : "public.calendar.classPriceCaption",
+          )
+        }}
+        <span v-if="loading" class="calendar-loading" role="status">
+          <span class="calendar-sr-only">{{
+            t("public.calendar.loading")
+          }}</span>
+        </span>
+      </p>
+      <div class="availability-grid">
+        <span
+          v-for="(day, index) in weekdays"
+          :key="`weekday-${index}`"
+          class="availability-weekday"
+          aria-hidden="true"
+          >{{ day }}</span
+        >
+        <span
+          v-for="day in leadingDays"
+          :key="`leading-${day}`"
+          class="calendar-padding-day"
+          aria-hidden="true"
+          >{{ day }}</span
+        >
+        <button
+          v-for="day in priceDays"
+          :key="day.date"
+          type="button"
+          :disabled="!selectable(day)"
+          :aria-label="label(day)"
+          :title="label(day)"
+          :aria-pressed="day.date === anchor || inRange(day.date)"
+          :class="{
+            free: day.availableRooms > 0,
+            busy: day.bookable && !day.availableRooms,
+            departure: anchor && day.departureRooms > 0,
+            selected: day.date === anchor || inRange(day.date),
+            endpoint:
+              day.date === anchor ||
+              (!anchor && [start, end].includes(day.date)),
+            discount: day.priceDisplay?.kind === 'discount',
+            seasonal: day.priceDisplay?.kind === 'seasonal',
+          }"
+          @click="select(day)"
+          @focus="preview(day)"
+        >
+          <span class="calendar-day-number"
+            >{{ Number(day.date.slice(-2))
+            }}<span
+              v-if="
+                day.priceDisplay &&
+                (day.priceDisplay.kind !== 'regular' ||
+                  (anchor && day.departureRooms > 0))
+              "
+              class="calendar-kind-mark"
+              aria-hidden="true"
+              >{{
+                anchor && day.departureRooms > 0
+                  ? "↗"
+                  : day.priceDisplay.kind === "discount"
+                    ? "↓"
+                    : "~"
+              }}</span
+            ></span
+          >
+          <small
+            v-if="day.priceDisplay"
+            class="calendar-day-price"
+            aria-hidden="true"
+            >{{ compactCalendarPrice(day.priceDisplay.amount, locale) }}</small
+          >
+          <small v-else aria-hidden="true">{{
+            anchor && day.departureRooms
+              ? "↗"
+              : !day.bookable
+                ? "—"
+                : day.availableRooms
+                  ? "•"
+                  : "×"
+          }}</small>
+        </button>
+        <span
+          v-for="day in trailingDays"
+          :key="`trailing-${day}`"
+          class="calendar-padding-day"
+          aria-hidden="true"
+          >{{ day }}</span
+        >
+      </div>
+      <div
+        v-if="selectedPriceDay"
+        class="calendar-price-detail"
+        :class="selectedPriceDay.priceDisplay.kind"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <span
+          >{{
+            t("public.calendar.nightOf", {
+              date: shortDate(selectedPriceDay.date),
+            })
+          }}<small v-if="selectedPriceDay.priceDisplay.kind !== 'regular'">
+            ·
+            {{
+              t(`public.calendar.${selectedPriceDay.priceDisplay.kind}`)
+            }}</small
+          ></span
+        >
+        <div>
+          <del v-if="selectedPriceDay.priceDisplay.kind === 'discount'"
+            ><span class="calendar-sr-only"
+              >{{ t("public.calendar.previousPrice") }} </span
+            >{{ money(selectedPriceDay.priceDisplay.regular) }}</del
+          ><strong>{{ priceText(selectedPriceDay) }}</strong>
+        </div>
+      </div>
       <div v-if="failed" class="availability-error" role="alert">
         <p>{{ t("public.calendar.error") }}</p>
         <button type="button" @click="load">
           {{ t("public.calendar.retry") }}
         </button>
       </div>
-      <template v-else-if="data">
-        <p v-if="!data.totalRooms" class="field-help">
-          {{ t("public.calendar.noRooms") }}
-        </p>
-        <p class="availability-price-caption">
-          {{
-            t(
-              roomId
-                ? "public.calendar.priceCaption"
-                : "public.calendar.classPriceCaption",
-            )
-          }}
-        </p>
-        <div class="availability-grid">
-          <span
-            v-for="(day, index) in weekdays"
-            :key="`weekday-${index}`"
-            class="availability-weekday"
-            aria-hidden="true"
-            >{{ day }}</span
-          >
-          <span
-            v-for="empty in padding"
-            :key="`empty-${empty}`"
-            aria-hidden="true"
-          ></span>
-          <button
-            v-for="day in priceDays"
-            :key="day.date"
-            type="button"
-            :disabled="!selectable(day)"
-            :aria-label="label(day)"
-            :title="label(day)"
-            :aria-pressed="day.date === anchor || inRange(day.date)"
-            :class="{
-              free: day.availableRooms > 0,
-              busy: day.bookable && !day.availableRooms,
-              departure: anchor && day.departureRooms > 0,
-              selected: day.date === anchor || inRange(day.date),
-              endpoint:
-                day.date === anchor ||
-                (!anchor && [start, end].includes(day.date)),
-              discount: day.priceDisplay?.kind === 'discount',
-              seasonal: day.priceDisplay?.kind === 'seasonal',
-            }"
-            :style="
-              day.priceDisplay
-                ? { '--price-digits': String(day.priceDisplay.amount).length }
-                : undefined
-            "
-            @click="select(day)"
-            @focus="preview(day)"
-          >
-            <span class="calendar-day-number"
-              >{{ Number(day.date.slice(-2))
-              }}<span
-                v-if="
-                  day.priceDisplay &&
-                  (day.priceDisplay.kind !== 'regular' ||
-                    (anchor && day.departureRooms > 0))
-                "
-                class="calendar-kind-mark"
-                aria-hidden="true"
-                >{{
-                  anchor && day.departureRooms > 0
-                    ? "↗"
-                    : day.priceDisplay.kind === "discount"
-                      ? "↓"
-                      : "~"
-                }}</span
-              ></span
-            >
-            <small
-              v-if="day.priceDisplay"
-              class="calendar-day-price"
-              aria-hidden="true"
-              >{{ day.priceDisplay.amount }}</small
-            >
-            <small v-else aria-hidden="true">{{
-              anchor && day.departureRooms
-                ? "↗"
-                : !day.bookable
-                  ? "—"
-                  : day.availableRooms
-                    ? "•"
-                    : "×"
-            }}</small>
-          </button>
-        </div>
-        <div
-          v-if="selectedPriceDay"
-          class="calendar-price-detail"
-          :class="selectedPriceDay.priceDisplay.kind"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <span
-            >{{ t("public.calendar.nightOf", { date: selectedPriceDay.date })
-            }}<small v-if="selectedPriceDay.priceDisplay.kind !== 'regular'">
-              ·
-              {{
-                t(`public.calendar.${selectedPriceDay.priceDisplay.kind}`)
-              }}</small
-            ></span
-          >
-          <div>
-            <del v-if="selectedPriceDay.priceDisplay.kind === 'discount'"
-              ><span class="calendar-sr-only"
-                >{{ t("public.calendar.previousPrice") }} </span
-              >{{ money(selectedPriceDay.priceDisplay.regular) }}</del
-            ><strong>{{ priceText(selectedPriceDay) }}</strong>
-          </div>
-        </div>
-      </template>
-      <div v-else class="availability-placeholder" aria-hidden="true"></div>
       <div class="availability-legend">
         <span class="legend-free">● {{ t("public.calendar.free") }}</span>
         <span>× {{ t("public.calendar.busy") }}</span>
-        <span class="legend-discount"
+        <span
+          v-if="priceDays.some((day) => day.priceDisplay?.kind === 'discount')"
+          class="legend-discount"
           >↓ {{ t("public.calendar.discount") }}</span
         >
-        <span class="legend-seasonal"
+        <span
+          v-if="priceDays.some((day) => day.priceDisplay?.kind === 'seasonal')"
+          class="legend-seasonal"
           >~ {{ t("public.calendar.seasonal") }}</span
         >
       </div>
@@ -366,6 +428,7 @@ onBeforeUnmount(() => generation++);
         <p class="field-help">
           {{ t(roomId ? "public.calendar.roomHint" : "public.calendar.hint") }}
         </p>
+        <p class="field-help">{{ t("public.calendar.compactHint") }}</p>
       </details>
     </template>
   </section>
@@ -373,12 +436,13 @@ onBeforeUnmount(() => generation++);
 
 <style scoped>
 .availability-calendar {
-  padding: 18px;
-  margin: 18px 0;
+  padding: 12px;
+  margin: 12px 0;
   border: 1px solid #dbe4de;
-  border-radius: 18px;
+  border-radius: 14px;
   background: #fff;
   width: 100%;
+  min-width: 0;
   max-width: 460px;
   box-sizing: border-box;
 }
@@ -390,55 +454,90 @@ onBeforeUnmount(() => generation++);
   gap: 10px;
 }
 .availability-title h3 {
-  font-size: 16px;
+  font-size: 15px;
+  line-height: 1.4;
   margin: 0;
 }
+.availability-title .small {
+  flex-shrink: 0;
+  font-size: 11px;
+}
 .availability-month {
-  margin-top: 14px;
+  margin-top: 6px;
   text-transform: capitalize;
+}
+.availability-month strong {
+  font-size: 15px;
 }
 .availability-month button {
   border: 1px solid #dbe4de;
   border-radius: 10px;
   background: #f7faf8;
-  width: 40px;
-  height: 40px;
-  font-size: 24px;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
+  padding: 0;
 }
 .availability-prompt {
-  min-height: 38px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px;
+  align-items: center;
+  min-height: 44px;
   font-size: 12px;
   line-height: 1.5;
   color: #45584e;
 }
 .availability-prompt button {
-  display: block;
+  width: 44px;
+  min-height: 44px;
   padding: 0;
   border: 0;
   background: transparent;
-  text-decoration: underline;
+  border-radius: 8px;
+  font-size: 20px;
   color: #285e46;
+}
+.availability-prompt button:disabled {
+  visibility: hidden;
+}
+.availability-prompt p {
+  margin: 0;
+  line-height: 1.4;
 }
 .availability-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 4px;
+  gap: 3px;
+  width: 100%;
+  min-width: 0;
 }
 .availability-weekday {
   text-align: center;
   font-size: 11px;
   color: #617267;
-  padding-bottom: 8px;
+  padding-bottom: 5px;
+}
+.calendar-padding-day {
+  display: grid;
+  place-items: center;
+  min-height: 46px;
+  border-radius: 9px;
+  background: #fafbf9;
+  color: #abb3ac;
+  font-size: 13px;
 }
 .availability-grid button {
-  container-type: inline-size;
+  appearance: none;
+  -webkit-appearance: none;
   min-width: 0;
   border: 1px solid transparent;
   border-radius: 9px;
   background: #f4f5f4;
   color: #929c96;
-  min-height: 48px;
-  padding: 5px 0 2px;
+  width: 100%;
+  min-height: 46px;
+  padding: 4px 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -452,8 +551,7 @@ onBeforeUnmount(() => generation++);
   margin-top: 3px;
 }
 .availability-grid .calendar-day-price {
-  font-size: 9px;
-  font-size: min(10px, calc(150cqw / var(--price-digits, 5)));
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   font-weight: 600;
   white-space: nowrap;
@@ -470,15 +568,38 @@ onBeforeUnmount(() => generation++);
   font-weight: 700;
 }
 .availability-price-caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   font-size: 11px;
   color: #45584e;
-  margin: 0 0 9px;
+  margin: 0 0 8px;
+}
+.calendar-loading {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #dbe4de;
+  border-top-color: #285e46;
+  border-radius: 50%;
+  animation: calendar-loading 0.8s linear infinite;
+}
+@keyframes calendar-loading {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .calendar-loading {
+    animation: none;
+  }
 }
 .calendar-price-detail {
   display: grid;
-  gap: 5px;
-  margin-top: 12px;
-  padding: 10px 12px;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 8px 10px;
   border-radius: 10px;
   background: #f3f6f4;
   font-size: 11px;
@@ -556,7 +677,7 @@ onBeforeUnmount(() => generation++);
   flex-wrap: wrap;
   gap: 6px 12px;
   font-size: 11px;
-  margin-top: 14px;
+  margin-top: 10px;
   color: #45584e;
 }
 .legend-free {
@@ -570,7 +691,7 @@ onBeforeUnmount(() => generation++);
   color: #845410;
 }
 .availability-help {
-  margin-top: 10px;
+  margin-top: 6px;
   color: #45584e;
   font-size: 11px;
 }
@@ -588,11 +709,16 @@ onBeforeUnmount(() => generation++);
   font-size: 11px;
   line-height: 1.5;
 }
-.availability-placeholder {
-  min-height: 250px;
-}
 .availability-error {
   padding: 16px 0;
   font-size: 13px;
+}
+@media (max-width: 380px) {
+  .availability-calendar {
+    padding: 10px 8px;
+  }
+  .availability-grid {
+    gap: 2px;
+  }
 }
 </style>

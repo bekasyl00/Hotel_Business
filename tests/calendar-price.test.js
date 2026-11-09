@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calendarDayPrice } from "../src/widgets/availability-calendar/model/price.js";
+import {
+  calendarDayPrice,
+  compactCalendarPrice,
+} from "../src/widgets/availability-calendar/model/price.js";
 
 const day = {
   bookable: true,
@@ -36,4 +39,24 @@ test("price markers and old-price comparison follow actual lower versus seasonal
     calendarDayPrice({ ...day, price: 1100000, regularPrice: 1000000 }).amount,
     1100000,
   );
+});
+
+test("narrow calendars use short labels while retaining exact amounts for quotes and accessibility", () => {
+  for (const [amount, expected] of [
+    [0, "0"],
+    [999, "999"],
+    [1000, "1K"],
+    [26400, "26.4K"],
+    [26401, "26.4K"],
+    [999950, "1M"],
+    [1100000, "1.1M"],
+  ]) {
+    assert.equal(compactCalendarPrice(amount, "en"), expected);
+    const price = calendarDayPrice({ ...day, price: amount });
+    assert.equal(price.amount, amount);
+  }
+  assert.equal(compactCalendarPrice(26400, "ru"), "26,4K");
+  assert.equal(compactCalendarPrice(26400, "kk"), "26,4K");
+  for (const invalid of [null, undefined, -1, 1.1, Infinity, NaN])
+    assert.equal(compactCalendarPrice(invalid, "en"), "");
 });
