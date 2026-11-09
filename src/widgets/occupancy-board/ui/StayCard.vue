@@ -44,9 +44,18 @@ const tabs = computed(() =>
 function canLeaveGuests() {
   return !documentGuestsEditor.value || documentGuestsEditor.value.canLeave();
 }
-function close() {
-  if (canLeaveGuests()) emit("close");
+function canLeave() {
+  return (
+    !props.busy &&
+    !documentGuestsBusy.value &&
+    !documentsBusy.value &&
+    canLeaveGuests()
+  );
 }
+function close() {
+  if (canLeave()) emit("close");
+}
+defineExpose({ canLeave });
 function changeTab(next) {
   if (next === tab.value || canLeaveGuests()) tab.value = next;
 }

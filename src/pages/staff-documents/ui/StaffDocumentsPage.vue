@@ -1,5 +1,5 @@
 <script setup>
-import { ref, reactive, onMounted, onBeforeUnmount } from "vue";
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from "vue";
 import { useI18n } from "vue-i18n";
 import { useRouter } from "vue-router";
 import { StaffShell } from "@/widgets/staff-shell";
@@ -61,8 +61,20 @@ function close() {
   if (!editor.value || editor.value.canLeave()) selected.value = null;
 }
 async function logout() {
-  await session.logout();
-  router.replace("/staff/login");
+  if (
+    rosterBusy.value ||
+    documentsBusy.value ||
+    (editor.value && !editor.value.canLeave())
+  )
+    return;
+  selected.value = null;
+  await nextTick();
+  try {
+    await session.logout();
+    await router.replace("/staff/login");
+  } catch (e) {
+    error.value = e.message;
+  }
 }
 onMounted(() => load());
 onBeforeUnmount(() => generation++);

@@ -72,15 +72,13 @@ async function load() {
       error.value =
         e.message === "invalidResponse"
           ? t("common.error.invalidResponse")
-          : e.message === "invalidResponse"
-            ? t("common.error.invalidResponse")
-            : e.message;
+          : e.message;
   } finally {
     if (run === generation) loading.value = false;
   }
 }
 async function save() {
-  if (saving.value || props.disabled || !form.value) return;
+  if (saving.value || props.disabled || conflict.value || !form.value) return;
   saved.value = false;
   error.value = "";
   conflict.value = false;

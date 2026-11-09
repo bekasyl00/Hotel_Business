@@ -36,23 +36,37 @@ const nav = computed(() =>
         >
       </nav>
       <div class="sidebar-footer">
-        <span class="avatar">{{ session.user?.name[0] }}</span>
-        <div>
-          <strong>{{
-            session.isAdmin
-              ? t("staff.admin")
-              : session.isAccountant
-                ? t("common.accounting.role")
-                : t("staff.manager")
-          }}</strong
-          ><small>{{ session.user?.login }}</small>
-        </div>
+        <RouterLink
+          class="sidebar-profile"
+          to="/staff/profile"
+          :aria-current="section === 'profile' ? 'page' : undefined"
+        >
+          <span class="avatar" aria-hidden="true">{{
+            session.user?.name?.[0] || "•"
+          }}</span>
+          <div class="sidebar-profile-copy">
+            <strong>{{
+              session.user?.name ||
+              t(
+                session.isAdmin
+                  ? "staff.admin"
+                  : session.isAccountant
+                    ? "common.accounting.role"
+                    : "staff.manager",
+              )
+            }}</strong>
+            <small>{{ session.user?.login }}</small>
+            <span class="sidebar-profile-action"
+              >{{ t("common.staffProfile.title") }} →</span
+            >
+          </div>
+        </RouterLink>
         <button
           class="logout-button"
           :aria-label="t('staff.signOut')"
           @click="emit('logout')"
         >
-          ↪
+          {{ t("common.mobile.logout") }}
         </button>
       </div>
     </aside>
@@ -88,6 +102,70 @@ const nav = computed(() =>
   </div>
 </template>
 <style scoped>
+.staff-sidebar {
+  overflow-y: auto;
+}
+.sidebar-footer {
+  margin-top: 24px;
+  padding: 12px 0 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+}
+.sidebar-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  color: inherit;
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+.sidebar-profile .avatar {
+  flex: 0 0 36px;
+  height: 36px;
+  background: #53694a1a;
+}
+.sidebar-profile-copy {
+  min-width: 0;
+}
+.sidebar-profile strong {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.sidebar-profile small {
+  max-width: none;
+  font-size: 11px;
+}
+.sidebar-profile-action {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.sidebar-profile:hover,
+.sidebar-profile[aria-current="page"],
+.sidebar-footer .logout-button:hover {
+  background: #53694a18;
+}
+.sidebar-profile:focus-visible,
+.sidebar-footer .logout-button:focus-visible {
+  outline: 2px solid #53694a;
+  outline-offset: 2px;
+}
+.sidebar-footer .logout-button {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #53694a40;
+  border-radius: 9px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+  text-align: center;
+}
+
 .staff-topbar {
   height: auto;
   min-height: 76px;

@@ -1,6 +1,13 @@
 <script setup>
 import { useI18n } from "vue-i18n";
-import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
+import {
+  computed,
+  ref,
+  watch,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+} from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useSessionStore } from "@/entities/session";
 import { useResortStore } from "@/entities/resort";
@@ -21,7 +28,8 @@ import { request } from "@/shared/api";
 import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
 import { isDemo, isStaffApp } from "@/shared/config";
 const { t } = useI18n();
-const paymentDialog = ref(null);
+const paymentDialog = ref(null),
+  stayCard = ref(null);
 const canPayStaff = (b) =>
   !session.isAccountant &&
   b.source === "staff" &&
@@ -303,6 +311,9 @@ async function load(quiet = false) {
   }
 }
 async function logout() {
+  if (stayCard.value && !stayCard.value.canLeave()) return;
+  focusedId.value = null;
+  await nextTick();
   try {
     await session.logout();
     catalog.clear();
@@ -1279,6 +1290,7 @@ onBeforeUnmount(() => {
     </main></StaffShell
   >
   <StayCard
+    ref="stayCard"
     :read-only="session.isAccountant"
     :can-view-history="session.isAdmin"
     v-if="focusedBooking"
