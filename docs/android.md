@@ -2,9 +2,9 @@
 
 ## Скачать APK
 
-[Тыныс — клиент](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.3/tynys-guest-1.1-3.apk) · [Тыныс Команда — сотрудники](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.3/tynys-staff-1.1-3.apk)
+[Тыныс — клиент](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.4/tynys-guest-1.1-4.apk) · [Тыныс Команда — сотрудники](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.4/tynys-staff-1.1-4.apk)
 
-Предварительный выпуск 1.1 (3), бесплатные файлы без входа в GitHub. Открыть ссылку на Android, скачать APK и установить; при запросе Android разрешить установку из выбранного браузера. На [странице выпуска](https://github.com/bekasyl00/Hotel_Business/releases/tag/android-v1.1.3) также опубликованы SHA-256. Код выпуска: c5f46eb. Прямые ссылки скачаны анонимно и сверены с локальными сборками 10.11.2026. Проверки и оставшиеся ограничения — в verification.md.
+Предварительный выпуск 1.1 (4), бесплатные файлы без входа в GitHub. Открыть ссылку на Android, скачать APK и установить; при запросе Android разрешить установку из выбранного браузера. На [странице выпуска](https://github.com/bekasyl00/Hotel_Business/releases/tag/android-v1.1.4) также опубликованы SHA-256. Код выпуска: db4b6d1 (изменения документов и мобильного интерфейса; подписи сохранены от 1.1 (3)). Прямые ссылки скачаны анонимно и сверены с локальными сборками 10.11.2026. Проверки и оставшиеся ограничения — в verification.md.
 
 ## Объём текущего этапа
 

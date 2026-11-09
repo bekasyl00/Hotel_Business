@@ -30,6 +30,24 @@ Open http://127.0.0.1:4173/staff/login. Vite proxies `/api` and `/media` to loca
 
 Compose API alternative: `docker compose build api`, `docker compose run --rm api python manage.py migrate`, `docker compose up -d api`. Migrations are an explicit deployment step, not something every Gunicorn worker executes. `.env` is excluded from image/git.
 
+## Vercel API publication
+
+Publish a separate source-only Django artifact, linked to the existing `tynys-api` project. Include `backend/vercel.json` and pinned `requirements.txt`; exclude credentials, local storage, virtual environments, tests and the lint-only `pyproject.toml` according to `.vercelignore`. Never upload the repository root as the API artifact.
+
+Run the CLI from the **actual artifact directory**, with an explicit absolute config path. CLI 65.12.1 reads configuration before applying `--cwd`; using only that flag from the repository root can inherit the website rewrite and cause `/api` to proxy to itself (HTTP 508).
+
+```sh
+cd /absolute/path/to/the/api-artifact
+vercel --local-config "$PWD/vercel.json" deploy --prod --skip-domain --yes
+# Inspect the deployment: Django framework, no frontend /api rewrite.
+# Verify the candidate where host/protection settings permit, then promote its ID.
+vercel promote DEPLOYMENT_ID --yes
+curl --fail https://tynys-api.vercel.app/health/ready
+curl --fail https://tynys-api.vercel.app/api/v1/auth/csrf
+```
+
+Keep the previous deployment ID for rollback. A READY build or `/health/live` response alone is insufficient: check API routes, browser proxy, authentication and role boundaries after promotion. Do not broaden Django `ALLOWED_HOSTS` or disable deployment protection merely to probe a candidate URL. Use the same actual-directory/explicit-config rule when publishing selected website artifacts.
+
 ## Workflows and ownership
 
 - New website/manual orders: `pending` with a bounded payment hold. Successful server-side online payment confirms atomically; staff cannot manually confirm/reject. Expired/cancelled holds release inventory; checked-in stays and bookings with recorded onsite collection cannot be cancelled through the normal workflow. Provider deployment evidence is maintained separately in verification.md.
