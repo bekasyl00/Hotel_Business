@@ -67,3 +67,8 @@ RU/KK/EN: `shared/i18n`, JSON namespaces common/auth/public/staff. Язык хр
 `MediaEditor` принимает файлы с устройства: JPEG/PNG/WebP до 8 MiB, MP4/WebM до 40 MiB для каталога. Санаторий нужно сначала сохранить, чтобы сервер мог проверить область доступа управляющего. В профиле зарегистрированного гостя можно загрузить, заменить и удалить аватар. Ошибки/ограничения переведены на RU/KK/EN; во время запроса повторное действие блокируется.
 
 API-режим отправляет multipart через `shared/api`; права, реальный тип и размер проверяет Django. В demo Blob хранится отдельно в IndexedDB, а не в localStorage; транспорт восстанавливает временные object URL для отображения и сохраняет устойчивые ссылки в метаданных. Demo имеет лимит 100 MiB, очистку заброшенных загрузок и освобождение object URL. Такие файлы остаются только в браузере конкретного origin.
+
+
+## Guest documents (10.11.2026)
+
+`/profile` links to the separate authenticated `/documents` page. Public, combined and guest mobile routes share this page; staff bundles do not contain it. The guest documents widget distinguishes loading/error/demo/empty/list states, provides refresh and authorized PDF/XLSX downloads, and reloads when returning to the app. Only actual checkout plus server release makes a document available. The profile no longer embeds the document registry below booking history.
