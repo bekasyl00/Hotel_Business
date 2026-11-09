@@ -86,7 +86,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/features/review-form 'Исходный код'
   }
   pages_accounting = module 'pages/accounting' {
-    description 'Финансы всей платформы, расходы, документы и XLSX/CSV.. Файлов: 2'
+    description 'Финансы всей платформы, расходы и финансовые XLSX/CSV.. Файлов: 2'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/accounting 'Исходный код'
   }
   pages_analytics = module 'pages/analytics' {

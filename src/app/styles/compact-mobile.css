@@ -277,7 +277,9 @@
   }
   html .discovery-card-bottom small {
     display: inline;
+    margin-inline-start: 5px;
     font-size: 12px;
+    font-weight: 400;
   }
   html .discovery-card-bottom .text-button {
     min-height: 44px;

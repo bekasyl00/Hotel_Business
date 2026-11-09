@@ -561,12 +561,13 @@
     "saveGuestsFirst": "Save the changes to resident details first.",
     "prepareKind": "Prepare: {kind}",
     "saved": "Document updated.",
-    "sent": "Document sent and available in the guest profile.",
+    "sent": "Available to the guest in Profile → Documents.",
     "confirmVoid": "Void this document? The current version will remain in history but will no longer be valid.",
     "cashDraft": "Cash orders are drafts only. Sending them is not available yet: a bank payment does not prove cash collection.",
     "delivery": "Guest document delivery",
     "deliveryManual": "Manual — use “Send to guest”",
     "deliveryAutomatic": "Automatically after checkout",
-    "deliveryHelp": "Employees send documents manually by default. Automatic mode releases ready service acts and invoices after actual checkout. Incomplete documents remain drafts."
+    "deliveryHelp": "Employees send documents manually by default. Automatic mode releases ready service acts and invoices after actual checkout. Incomplete documents remain drafts.",
+    "notSent": "Draft · not sent"
   }
 }

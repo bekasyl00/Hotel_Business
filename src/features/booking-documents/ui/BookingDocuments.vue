@@ -132,7 +132,9 @@ onBeforeUnmount(() => {
             {{ t(`common.accounting.kinds.${doc.kind}`) }} · {{ doc.number }}
           </h4>
           <span :class="['document-state', doc.state]">{{
-            t(`common.accounting.states.${doc.state}`)
+            t(doc.state === 'draft'
+              ? 'common.staffDocuments.notSent'
+              : `common.accounting.states.${doc.state}`)
           }}</span>
         </header>
         <DocumentFiles
