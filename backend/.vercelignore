@@ -1,5 +1,8 @@
 .env*
 .venv/
+# This file contains lint configuration only, not runtime dependencies.
+# Let the Python builder install the pinned requirements.txt instead.
+pyproject.toml
 __pycache__/
 **/__pycache__/
 *.pyc
