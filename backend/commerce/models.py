@@ -126,6 +126,7 @@ class WebhookDelivery(models.Model):
     received_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        indexes = [models.Index(fields=["received_at"], name="webhook_received_at_idx")]
         constraints = [
             models.UniqueConstraint(
                 fields=["merchant_scope", "delivery_id"], name="xpayment_delivery_unique"
@@ -181,6 +182,7 @@ class RefundRequest(Record):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        indexes = [models.Index(fields=["status", "created_at"], name="refund_status_age_idx")]
         constraints = [
             models.CheckConstraint(condition=Q(percent__lte=100), name="bank_refund_percent"),
         ]
@@ -239,7 +241,37 @@ class PaymentJob(Record):
         constraints = [
             models.UniqueConstraint(fields=["payment", "kind"], name="one_bank_job_kind")
         ]
-        indexes = [models.Index(fields=["state", "available_at"])]
+        indexes = [
+            models.Index(fields=["state", "available_at"]),
+        ]
+
+
+class OperationalHeartbeat(models.Model):
+    """Latest bounded worker run metadata, never provider payloads or customer data."""
+
+    name = models.CharField(max_length=32, primary_key=True)
+    run_token = models.UUIDField()
+    status = models.CharField(
+        max_length=12,
+        choices=[(state, state) for state in ("running", "succeeded", "failed")],
+    )
+    last_started_at = models.DateTimeField()
+    last_success_at = models.DateTimeField(null=True)
+    last_failure_at = models.DateTimeField(null=True)
+    duration_seconds = models.FloatField(default=0)
+    processed = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(name__in=["payment_scheduler", "payment_worker"]),
+                name="operations_heartbeat_name",
+            ),
+            models.CheckConstraint(
+                condition=Q(status__in=["running", "succeeded", "failed"]),
+                name="operations_heartbeat_status",
+            ),
+        ]
 
 
 class DocumentGuestRoster(Record):

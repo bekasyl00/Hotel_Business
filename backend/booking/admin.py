@@ -2,16 +2,13 @@
 
 import hashlib
 import json
-from datetime import timedelta
 from urllib.parse import urlencode, urlsplit
 
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.admin.forms import AdminAuthenticationForm
 from django.core.exceptions import ValidationError
-from django.db import transaction
 from django.urls import reverse
-from django.utils import timezone
 from django.utils.html import format_html
 
 from .models import (
@@ -19,7 +16,6 @@ from .models import (
     Booking,
     GuestAccount,
     GuestProfile,
-    LoginAttempt,
     MediaAsset,
     Resort,
     Review,
@@ -27,6 +23,7 @@ from .models import (
     Tariff,
     User,
 )
+from .rate_limits import RateLimited, client_ip, consume_limits
 
 
 def workspace_url(path=""):
@@ -40,25 +37,15 @@ def workspace_url(path=""):
 class PlatformAuthenticationForm(AdminAuthenticationForm):
     def clean(self):
         email = str(self.data.get("username", "")).strip().lower()[:254]
-        address = self.request.META.get("REMOTE_ADDR", "")
+        address = client_ip(self.request)
         keys = [
             hashlib.sha256(value.encode()).hexdigest()
             for value in (f"admin-email:{email}", f"admin-ip:{address}")
         ]
-        now = timezone.now()
-        with transaction.atomic():
-            for key in sorted(keys):
-                LoginAttempt.objects.get_or_create(key=key, defaults={"since": now})
-                attempt = LoginAttempt.objects.select_for_update().get(pk=key)
-                if attempt.since < now - timedelta(minutes=15):
-                    attempt.count, attempt.since = 0, now
-                if attempt.count >= 30:
-                    raise ValidationError(
-                        "Слишком много попыток входа. Повторите через 15 минут.",
-                        code="rate_limited",
-                    )
-                attempt.count += 1
-                attempt.save(update_fields=["count", "since"])
+        try:
+            consume_limits([(key, 30) for key in keys])
+        except RateLimited as exc:
+            raise ValidationError(str(exc.detail), code="rate_limited") from None
         return super().clean()
 
     def confirm_login_allowed(self, user):

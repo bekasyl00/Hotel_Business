@@ -157,9 +157,12 @@ def require_complete_roster(booking):
 class DocumentGuestsView(APIView):
     permission_classes = [AllowAny]
 
-    @transaction.atomic
     def get(self, request, pk):
         enforce_limit(request, "document-guests-read", ip_limit=120, minutes=5)
+        return self.read(request, pk)
+
+    @transaction.atomic
+    def read(self, request, pk):
         booking = authorized_booking(request, pk)
         row, payload = read_payload(booking)
         audit_access(

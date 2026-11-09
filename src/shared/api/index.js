@@ -26,6 +26,7 @@ export function createHttpTransport(base = "/api") {
       if (!["GET", "HEAD"].includes(method) && !csrfToken) {
         const csrf = await fetch(`${base.replace(/\/$/, "")}/auth/csrf`, {
           credentials: "include",
+          cache: "no-store",
         });
         const data = await csrf.json();
         if (!csrf.ok || !data.token)
@@ -38,6 +39,7 @@ export function createHttpTransport(base = "/api") {
       response = await fetch(`${base.replace(/\/$/, "")}${path}`, {
         method,
         credentials: "include",
+        cache: "no-store",
         headers: {
           "Accept-Language": getLocale(),
           ...(multipart ? {} : { "Content-Type": "application/json" }),
@@ -72,13 +74,21 @@ export function createHttpTransport(base = "/api") {
     if (response.status === 204) return null;
     const invalid = Symbol();
     const data = await response.json().catch(() => invalid);
-    if (!response.ok)
-      throw new ApiError(
+    if (!response.ok) {
+      const error = new ApiError(
         data?.message,
         response.status,
         data?.fields,
         data?.code,
       );
+      const retryAfter = response.headers.get("Retry-After");
+      if (
+        /^\d+$/.test(retryAfter || "") &&
+        Number.isSafeInteger(Number(retryAfter))
+      )
+        error.retryAfter = Number(retryAfter);
+      throw error;
+    }
     if (data === invalid)
       throw new ApiError("Сервер вернул некорректный ответ.", 502);
     return data;

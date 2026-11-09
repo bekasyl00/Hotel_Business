@@ -73,13 +73,27 @@ def claim(*, payment_id=None, allowed=None):
 
 @transaction.atomic
 def finish(job, error=None):
+    terminal = error and (job.attempts >= 10 or not (error.retryable or error.ambiguous))
+    payment = None
+    if terminal:
+        # Match inventory/enqueue lock order and fence errors from expired leases.
+        payment = PaymentAttempt.objects.select_related("booking").get(pk=job.payment_id)
+        Resort.objects.select_for_update().get(pk=payment.booking.resort_id)
     current = PaymentJob.objects.select_for_update().get(pk=job.pk)
     if current.lease_token != job.lease_token:
         return
     retry = error is not None or current.requested_again
     current.state = "pending" if retry else "done"
-    if error and (current.attempts >= 10 or not (error.retryable or error.ambiguous)):
+    if terminal:
         current.state = "dead"
+        payment.refresh_from_db()
+        reconcile_reason(payment, error.code)
+        if current.kind in ("refund", "refund_verify"):
+            from .models import RefundRequest
+
+            RefundRequest.objects.filter(payment=payment).exclude(status="succeeded").update(
+                status="reconciliation_required", reconciliation_reason=error.code
+            )
     current.last_error = error.code if error else ""
     current.available_at = timezone.now() + timedelta(
         seconds=min(2 ** min(current.attempts, 8), 300)
@@ -205,18 +219,6 @@ def run_one(*, provider=None, payment_id=None, kinds=None):
         execute(job, provider)
     except ProviderError as exc:
         error = exc
-        if job.attempts >= 10 or not (exc.retryable or exc.ambiguous):
-            with transaction.atomic():
-                payment = PaymentAttempt.objects.select_related("booking").get(pk=job.payment_id)
-                Resort.objects.select_for_update().get(pk=payment.booking.resort_id)
-                payment.refresh_from_db()
-                reconcile_reason(payment, exc.code)
-                if job.kind in ("refund", "refund_verify"):
-                    from .models import RefundRequest
-
-                    RefundRequest.objects.filter(payment=payment).exclude(
-                        status="succeeded"
-                    ).update(status="reconciliation_required", reconciliation_reason=exc.code)
     except Exception:
         # No bank payloads, contact details, tokens or database params in error logs.
         error = ProviderError("payment_worker_error", retryable=True)

@@ -250,7 +250,14 @@ class Booking(Record):
                 condition=Q(status__in=["pending", "confirmed"]),
             ),
         ]
-        indexes = [models.Index(fields=["resort", "status", "-created_at"])]
+        indexes = [
+            models.Index(fields=["resort", "status", "-created_at"]),
+            models.Index(
+                fields=["hold_expires_at"],
+                condition=Q(status="pending"),
+                name="booking_pending_hold_idx",
+            ),
+        ]
 
 
 class Audit(Record):
@@ -292,6 +299,9 @@ class LoginAttempt(models.Model):
     key = models.CharField(max_length=64, primary_key=True)
     count = models.PositiveIntegerField(default=0)
     since = models.DateTimeField()
+
+    class Meta:
+        indexes = [models.Index(fields=["since"], name="booking_rate_since_idx")]
 
 
 class MediaAsset(Record):

@@ -1,0 +1,154 @@
+groups:
+  - name: tynys-operations
+    interval: 60s
+    rules:
+      - alert: TynysMetricsScrapeUnavailable
+        expr: up{job="tynys-api"} == 0 or absent(up{job="tynys-api"})
+        for: 3m
+        labels:
+          severity: critical
+          service: tynys-api
+        annotations:
+          summary: Tynys metrics cannot be collected
+          description: Check HTTPS reachability, the metrics token, deployment and scrape configuration. Missing telemetry is not a healthy zero.
+
+      - alert: TynysMetricsSnapshotStale
+        expr: time() - tynys_metrics_snapshot_timestamp_seconds{job="tynys-api"} > 180 or absent(tynys_metrics_snapshot_timestamp_seconds{job="tynys-api"})
+        for: 3m
+        labels:
+          severity: critical
+          service: tynys-api
+        annotations:
+          summary: Tynys database snapshot is stale or missing
+          description: Check metrics HTTP status and database connectivity before interpreting queue zeros. A working scrape without the application metric is not sufficient.
+
+      - alert: TynysSchedulerHeartbeatMissing
+        expr: tynys_worker_heartbeat_present{job="tynys-api",worker="payment_scheduler"} == 0 or absent(tynys_worker_heartbeat_present{job="tynys-api",worker="payment_scheduler"})
+        for: 3m
+        labels:
+          severity: critical
+          service: tynys-api
+        annotations:
+          summary: The scheduled payment worker has never reported
+          description: Check pg_cron/pg_net delivery, scheduler authentication and endpoint status. The separate CLI payment_worker heartbeat does not satisfy this requirement.
+
+      - alert: TynysSchedulerSuccessStale
+        expr: time() - tynys_worker_last_success_timestamp_seconds{job="tynys-api",worker="payment_scheduler"} > 300
+        for: 2m
+        labels:
+          severity: critical
+          service: tynys-api
+        annotations:
+          summary: No successful scheduled tick for more than five minutes
+          description: Inspect scheduler delivery and worker errors. Zero last-success timestamp means no successful run, not recent success. A manual CLI invocation does not clear this alert.
+
+      - alert: TynysSchedulerFailed
+        expr: tynys_worker_state{job="tynys-api",worker="payment_scheduler",state="failed"} == 1
+        for: 2m
+        labels:
+          severity: warning
+          service: tynys-api
+        annotations:
+          summary: Latest scheduled payment tick failed
+          description: Inspect structured request logs and durable job states. A successful tick can still leave individual jobs queued or dead.
+
+      - alert: TynysPaymentQueueDelayed
+        expr: max by (provider, environment, kind) (tynys_payment_job_oldest_due_seconds{job="tynys-api"}) > 300
+        for: 2m
+        labels:
+          severity: warning
+          service: tynys-api
+        annotations:
+          summary: A due payment job is waiting more than five minutes
+          description: Check worker progress, leases, provider timeouts and queue size. Future retry backoff is excluded. Do not blindly replay create/refund POSTs.
+
+      - alert: TynysPaymentJobDead
+        expr: sum by (provider, environment, kind) (tynys_payment_jobs{job="tynys-api",state="dead"}) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: tynys-api
+        annotations:
+          summary: Payment work requires operator intervention
+          description: Inspect the durable job and independently reconcile with the provider. Keep production and sandbox separate; never mark a payment paid or refunded only to clear this alert.
+
+      - alert: TynysPaymentLeaseStuck
+        expr: max by (provider, environment, kind) (tynys_payment_job_oldest_expired_lease_seconds{job="tynys-api"}) > 180
+        for: 2m
+        labels:
+          severity: warning
+          service: tynys-api
+        annotations:
+          summary: Expired payment leases are not being reclaimed
+          description: Check the scheduled worker and lease ownership. Preserve ambiguous external-effect recovery; do not reset create/refund started markers.
+
+      - alert: TynysPaymentLeaseInvalid
+        expr: sum by (provider, environment, kind) (tynys_payment_job_invalid_leases{job="tynys-api"}) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: tynys-api
+        annotations:
+          summary: Running payment job has no lease deadline
+          description: Investigate durable queue invariants. Do not silently reset financial work without independent provider reconciliation.
+
+      - alert: TynysBookingExpiryDelayed
+        expr: tynys_booking_hold_oldest_overdue_seconds{job="tynys-api"} > 300
+        for: 2m
+        labels:
+          severity: warning
+          service: tynys-api
+        annotations:
+          summary: Expired booking holds are awaiting persisted cleanup
+          description: Check the expiry scheduler. Availability already ignores elapsed holds; do not revive or confirm these bookings without the ordinary inventory/payment validation.
+
+      - alert: TynysPaymentCreationDelayed
+        expr: max by (provider, environment) (tynys_payment_oldest_active_seconds{job="tynys-api",status="creating"}) > 300
+        for: 3m
+        labels:
+          severity: warning
+          service: tynys-api
+        annotations:
+          summary: Payment link creation has remained unresolved
+          description: Inspect provider lookup and create-job state. A lost create response must be recovered through authenticated lookup, not repeated POST.
+
+      - alert: TynysProductionReconciliationRequired
+        expr: sum(tynys_payments_active{job="tynys-api",environment="production",status="reconciliation_required"}) + sum(tynys_refunds_active{job="tynys-api",environment="production",status="reconciliation_required"}) > 0
+        for: 2m
+        labels:
+          severity: critical
+          service: tynys-api
+          environment: production
+        annotations:
+          summary: Production payment or refund needs reconciliation
+          description: Compare frozen attempt/provider binding with authenticated bank evidence. This alert must not trigger an automatic new charge or refund.
+
+      - alert: TynysRefundProcessingDelayed
+        expr: max by (provider, environment, status) (tynys_refund_oldest_active_seconds{job="tynys-api",status=~"queued|submitted"}) > 1800
+        for: 5m
+        labels:
+          severity: warning
+          service: tynys-api
+        annotations:
+          summary: A refund has been unresolved for more than thirty minutes
+          description: Investigate provider status and refund verification jobs. Provider processing may take longer; submitted is not refunded. Adjust this operational threshold only from measured provider behavior.
+
+      - alert: TynysDatabaseConnectionsHigh
+        expr: (tynys_database_connections{job="tynys-api"} / tynys_database_max_connections{job="tynys-api"} > 0.8) and on(job, instance) (tynys_database_max_connections{job="tynys-api"} > 0)
+        for: 5m
+        labels:
+          severity: warning
+          service: tynys-api
+        annotations:
+          summary: PostgreSQL connections exceed eighty percent of max_connections
+          description: Check pooler/server connections and workload before increasing API concurrency. Provider pooler client limits may be lower and are not measured here.
+
+      - alert: TynysDatabaseLockContention
+        expr: tynys_database_lock_waits{job="tynys-api"} > 0
+        for: 5m
+        labels:
+          severity: warning
+          service: tynys-api
+        annotations:
+          summary: Database lock waits persist across samples
+          description: Inspect blocking transactions and slow queries. Keep reservation/payment locks and database exclusion constraints; reducing integrity protection is not a scaling fix.

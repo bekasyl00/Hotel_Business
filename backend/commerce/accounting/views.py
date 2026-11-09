@@ -85,10 +85,11 @@ class AccountingView(APIView):
 
     def get(self, request, resource="overview", pk=None, format_kind=None):
         resorts = scope(request)
+        if resource in ("file", "report", "export"):
+            enforce_limit(request, "accounting-download", ip_limit=60, minutes=5)
         if resource == "company":
             return Response(svc.company_data(get_object_or_404(resorts, pk=pk)))
         if resource == "file":
-            enforce_limit(request, "accounting-download", ip_limit=60, minutes=5)
             doc = get_object_or_404(
                 AccountingDocument.objects.select_related("booking"),
                 pk=pk,
@@ -153,7 +154,6 @@ class AccountingView(APIView):
             selected=bool(request.query_params.get("resortId")),
         )
         if resource == "report":
-            enforce_limit(request, "accounting-download", ip_limit=60, minutes=5)
             if finance["resortsTruncated"] or finance["expenseCount"] > 200:
                 raise Problem(
                     "Сузьте период или выберите санаторий: выгрузка ограничена 500 санаториями и 200 расходами.",
@@ -177,7 +177,6 @@ class AccountingView(APIView):
             .order_by("-created_at")
         )
         if resource == "export":
-            enforce_limit(request, "accounting-download", ip_limit=60, minutes=5)
             if bookings.count() > 5000:
                 raise Problem("Сократите период: выгрузка ограничена 5000 строк.", 422)
             data = StringIO()

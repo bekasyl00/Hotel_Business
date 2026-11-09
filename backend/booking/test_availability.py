@@ -6,6 +6,7 @@ from django.test import TestCase
 from psycopg.types.range import Range
 
 from .models import Booking, Room
+from .test_helpers import assert_calendar_query_budget
 from .tests import fixture
 
 NOW = datetime(2027, 1, 10, 0, tzinfo=UTC)
@@ -67,11 +68,14 @@ class AvailabilityCalendarTests(TestCase):
         self.new_room("203", capacity=1)
         self.new_room("204", status="maintenance")
         # Four bounded reads: resort, eligible rooms, monthly prices, booking ranges.
-        with self.assertNumQueries(4):
+        with assert_calendar_query_budget(self):
             response = self.get()
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["totalRooms"], 1)
         self.assertEqual(self.day(response, 12)["availableRooms"], 0)
+        with assert_calendar_query_budget(self, cold_quota=False):
+            repeated = self.get()
+        self.assertEqual(repeated.json(), response.json())
         self.assertEqual(self.day(self.get(category="comfort"), 12)["availableRooms"], 1)
         self.assertNotIn("private", response.content.decode().lower())
         self.assertEqual(

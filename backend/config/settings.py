@@ -12,6 +12,9 @@ if env("PAYMENTS_ENV_FILE", default=""):
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DOCUMENT_DATA_ENCRYPTION_KEYS = env.list("DOCUMENT_DATA_ENCRYPTION_KEYS", default=[])
 DEBUG = env("DEBUG")
+METRICS_BEARER_TOKEN = env("METRICS_BEARER_TOKEN", default="")
+REQUEST_LOG_ENABLED = env.bool("REQUEST_LOG_ENABLED", default=not DEBUG)
+VERCEL_RUNTIME = env("VERCEL", default="") == "1"
 GUEST_AUTH_DEMO_OTP = env.bool("GUEST_AUTH_DEMO_OTP", default=False)
 GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION = env.bool(
     "GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION", default=False
@@ -64,6 +67,7 @@ INSTALLED_APPS = [
     "identity",
 ]
 MIDDLEWARE = [
+    "config.observability.RequestTelemetryMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -152,4 +156,5 @@ LOGGING = {
     "disable_existing_loggers": False,
     "handlers": {"console": {"class": "logging.StreamHandler"}},
     "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {"tynys.requests": {"handlers": ["console"], "level": "INFO", "propagate": False}},
 }

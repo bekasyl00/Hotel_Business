@@ -89,3 +89,58 @@ test("HTTP adapter accepts anonymous sessions and refreshes CSRF after login", a
     globalThis.fetch = original;
   }
 });
+
+test("HTTP requests and CSRF bypass browser caches without retrying financial writes", async () => {
+  const original = globalThis.fetch;
+  const seen = [];
+  globalThis.fetch = async (url, options) => {
+    seen.push({ url, options });
+    if (url.endsWith("/auth/csrf"))
+      return Response.json({ token: "csrf-cache-test" });
+    if (url.endsWith("/payments")) throw new TypeError("ambiguous disconnect");
+    return Response.json({ account: null });
+  };
+  try {
+    const api = createHttpTransport();
+    await api("GET", "/guest-auth/session");
+    await api("GET", "/availability");
+    await assert.rejects(
+      api("POST", "/payments", { bookingId: "fictional" }),
+      (error) => error.status === 503,
+    );
+    assert.ok(seen.every(({ options }) => options.cache === "no-store"));
+    assert.equal(seen.filter(({ url }) => url.endsWith("/payments")).length, 1);
+    assert.equal(seen.length, 4);
+  } finally {
+    globalThis.fetch = original;
+  }
+});
+
+test("rate limits expose server retry delay without replaying the request", async () => {
+  const original = globalThis.fetch;
+  let calls = 0;
+  let delay = "23";
+  globalThis.fetch = async () => {
+    calls++;
+    return Response.json(
+      { code: "rate_limited" },
+      { status: 429, headers: { "Retry-After": delay } },
+    );
+  };
+  try {
+    const api = createHttpTransport();
+    await assert.rejects(
+      api("GET", "/availability"),
+      (error) => error.status === 429 && error.retryAfter === 23,
+    );
+    assert.equal(calls, 1);
+    delay = "-5";
+    await assert.rejects(
+      api("GET", "/availability"),
+      (error) => error.retryAfter === undefined,
+    );
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = original;
+  }
+});

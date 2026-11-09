@@ -21,6 +21,7 @@ from commerce.vouchers import OnsitePaymentView, VoucherView
 from commerce.xpayment_webhook import XPaymentCallbackView
 
 from .health import live, ready
+from .observability import metrics
 
 api_patterns = [
     path("staff-profile", StaffProfileView.as_view()),
@@ -89,6 +90,7 @@ api_patterns = [
     path("<str:resource>/<str:pk>", Endpoint.as_view()),
 ]
 urlpatterns = [
+    path("internal/metrics", metrics),
     path("internal/payments/tick", tick),
     path("health/live", live),
     path("health/ready", ready),

@@ -53,7 +53,6 @@ class XPaymentCallbackView(APIView):
             raise Problem("Invalid payload length.", 422) from None
         if length < 0 or length > 16384 or len(request.body) > 16384:
             raise Problem("Payload too large.", 413)
-        enforce_limit(request, "xpayment-callback", ip_limit=120, minutes=1)
         try:
             config = XPaymentConfig.from_settings(require_gate=False)
         except ProviderError:
@@ -65,6 +64,10 @@ class XPaymentCallbackView(APIView):
         if not re.fullmatch(r"[a-f0-9]{64}", signature) or not hmac.compare_digest(
             signature, expected
         ):
+            # Valid signed deliveries must not share a quota with attackers or
+            # other users behind the deployment proxy. Event deduplication below
+            # coalesces genuine delivery retries before scheduling a lookup.
+            enforce_limit(request, "xpayment-invalid-signature", ip_limit=120, minutes=1)
             raise Problem("Invalid signature.", 401)
         try:
             data = json.loads(request.body)

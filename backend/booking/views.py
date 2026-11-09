@@ -14,6 +14,7 @@ from .availability import availability_calendar
 from .errors import Problem
 from .holds import active_inventory
 from .models import Audit, Booking, Resort, Review, Room, Tariff, User
+from .rate_limits import enforce_limit, request_subject
 from .serializers import (
     ResortSerializer,
     RoomSerializer,
@@ -36,6 +37,8 @@ class Endpoint(APIView):
     def get(self, request, resource, pk=None, action=None):
         if action:
             raise Problem("Для этого действия используйте POST.", 405)
+        if resource in ("availability", "availability-calendar"):
+            enforce_limit(request, "availability-read", ip_limit=300, minutes=1)
         if resource == "clients" and not pk:
             from .directory import clients
 
@@ -225,6 +228,14 @@ class Endpoint(APIView):
             logout(request)
             return Response(status=204)
         if resource in ["my-bookings", "bookings"]:
+            enforce_limit(
+                request,
+                "booking-create",
+                ip_limit=120,
+                subject=request_subject(request, staff=resource == "bookings"),
+                subject_limit=30,
+                minutes=15,
+            )
             return Response(
                 booking_data(
                     svc.create_booking(request, resource == "bookings"),

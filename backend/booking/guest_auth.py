@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 
 from .errors import Problem
 from .models import Audit, Booking, GuestAccount, GuestChallenge, GuestProfile, LoginAttempt
+from .rate_limits import enforce_limit
 from .serializers import guest_profile_data
 
 AUTH_KEY = "guest_account"
@@ -152,25 +153,14 @@ def audit(account, action):
     )
 
 
-def enforce_limit(request, prefix, phone=None, phone_limit=10, ip_limit=30, minutes=15):
-    now = timezone.now()
-    keys = [(digest(prefix + ":ip:" + request.META.get("REMOTE_ADDR", "")), ip_limit)]
-    if phone:
-        keys.append((digest(prefix + ":phone:" + phone), phone_limit))
-    limited = False
-    with transaction.atomic():
-        for key, limit in sorted(keys):
-            LoginAttempt.objects.get_or_create(key=key, defaults={"since": now})
-            row = LoginAttempt.objects.select_for_update().get(pk=key)
-            if row.since <= now - timedelta(minutes=minutes):
-                row.count, row.since = 0, now
-            if row.count >= limit:
-                limited = True
-            else:
-                row.count += 1
-            row.save()
-    if limited:
-        raise Problem("Слишком много попыток. Повторите позже.", 429, "rate_limited")
+def lock_identity_scope(phone, now):
+    # This lock row is shared by issue/verify/register. Touch it while locked so
+    # maintenance can prune dormant scopes without deleting an active challenge.
+    row, _ = LoginAttempt.objects.select_for_update().get_or_create(
+        key=digest("guest-challenge:" + phone), defaults={"since": now}
+    )
+    row.since = now
+    row.save(update_fields=["since"])
 
 
 def issue_challenge(request):
@@ -190,10 +180,8 @@ def issue_challenge(request):
     now = timezone.now()
     code = f"{secrets.randbelow(1000000):06d}"
     # This per-phone row serializes sends, resend invalidation and verification across workers.
-    phone_key = digest("guest-challenge:" + phone)
     with transaction.atomic():
-        LoginAttempt.objects.get_or_create(key=phone_key, defaults={"since": now})
-        LoginAttempt.objects.select_for_update().get(pk=phone_key)
+        lock_identity_scope(phone, now)
         latest = (
             GuestChallenge.objects.filter(phone=phone, purpose=data["purpose"])
             .order_by("-created_at")
@@ -233,7 +221,7 @@ def locked_challenge(request, data, purpose):
     phone = GuestChallenge.objects.filter(pk=challenge_id).values_list("phone", flat=True).first()
     if not phone:
         return None, invalid_code()
-    LoginAttempt.objects.select_for_update().get(pk=digest("guest-challenge:" + phone))
+    lock_identity_scope(phone, timezone.now())
     challenge = GuestChallenge.objects.select_for_update().get(pk=challenge_id)
     scope = request.session.get(SCOPE_KEY, "")
     if challenge.purpose != purpose or not secrets.compare_digest(
@@ -294,9 +282,7 @@ def register_without_sms(request):
     enforce_limit(request, "guest-register", phone, phone_limit=5, ip_limit=20, minutes=60)
     owner = guest_owner(request)
     with transaction.atomic():
-        phone_key = digest("guest-challenge:" + phone)
-        LoginAttempt.objects.get_or_create(key=phone_key, defaults={"since": timezone.now()})
-        LoginAttempt.objects.select_for_update().get(pk=phone_key)
+        lock_identity_scope(phone, timezone.now())
         if GuestAccount.objects.filter(phone=phone).exists():
             raise Problem(
                 "Не удалось создать аккаунт. Попробуйте войти.", 409, "registration_failed"

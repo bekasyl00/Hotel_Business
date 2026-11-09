@@ -232,6 +232,22 @@ class XPaymentFlowTests(TestCase):
         self.assertEqual(self.webhook(self.linked(), environment="sandbox").status_code, 422)
         self.assertFalse(WebhookDelivery.objects.exists())
 
+    def test_valid_signed_callback_is_not_blocked_by_invalid_signature_quota(self):
+        from booking.models import LoginAttempt
+        from booking.rate_limits import quota_key
+
+        payment = self.linked()
+        for prefix in ("xpayment-callback", "xpayment-invalid-signature"):
+            LoginAttempt.objects.create(
+                key=quota_key(prefix + ":ip:127.0.0.1"), count=120, since=timezone.now()
+            )
+        self.assertEqual(self.webhook(payment).status_code, 200)
+        self.assertEqual(WebhookDelivery.objects.count(), 1)
+        denied = self.webhook(payment, signature=False)
+        self.assertEqual(denied.status_code, 429)
+        self.assertTrue(1 <= int(denied["Retry-After"]) <= 60)
+        self.assertEqual(WebhookDelivery.objects.count(), 1)
+
     def test_merchant_rotation_does_not_redirect_old_jobs(self):
         p = self.linked()
         with self.settings(XPAYMENT_ACCOUNT_ID=str(uuid.uuid4())):

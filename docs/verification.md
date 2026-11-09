@@ -340,3 +340,11 @@ Browser smoke: каталог, карта/клавиатура, staff login, п�
 LikeC4 не опубликован; native iPhone/Android сборки не обновлены. Платёжные и SMS gates, данные и секреты окружения не изменены.
 
 Отдельная финальная browser-проверка гостя прошла: redirect на вход, вход существующего QA-аккаунта, профиль и reload на 390px, zero page errors. Для диагностического повтора Chromium запущен с отключёнными HTTP/2 и QUIC; этот результат отделён от двух предыдущих тайм-аутов. Evidence: `output/republish-20261108/profile-mobile.png`, `/tmp/republish-profile-check.log`.
+
+## 2026-11-09 — SRE: локальная проверка перед публикацией
+
+353 Django-теста на изолированном PostgreSQL 17 прошли (82.460 s); 163 frontend-теста, FSD 149 файлов/384 импорта, build, build:surfaces и arch:check проходят. Migration drift отсутствует, `check --deploy` без предупреждений. Полный backend suite выполнялся до удаления двух экспериментальных queue indexes; после удаления migration drift проверен отдельно, обработка очереди не менялась. Не обновлялись iPhone/Android.
+
+Добавлены: общие квоты/Retry-After, безопасный Vercel IP trust, bounded cleanup счётчиков, JSON request logs, отдельный Bearer metrics endpoint, heartbeat scheduler/CLI, queue dead→reconciliation с lease fencing. Тесты покрывают DB outage/401/no-store/absence of PII, timestamp precision, concurrent quotas, rollback budgets, invalid webhook flood и stale worker. Hash-assets CDN policy и выбранные deployment artifacts проверяются автоматически.
+
+Синтетический EXPLAIN benchmark `ops/monitoring/benchmark-indexes.py`: 875k узких строк локального PostgreSQL, пять прогретых запусков, parallel/JIT off. Медианы retained индексов: refunds 9.976→2.496 ms, webhook 16.468→3.912 ms, pending holds 1.432→0.243 ms. Queue index candidates удалены: устойчивого ускорения hot path не показали. Это не production load test и не оценка общей пропускной способности. Логи `/tmp/tynys-sre-*`, планы `output/sre-query-plans.txt` игнорируются Git.

@@ -7,6 +7,7 @@ from psycopg.types.range import Range
 
 from . import test_availability as calendar_tests
 from .models import RoomPricePeriod
+from .test_helpers import assert_calendar_query_budget
 from .tests import fixture
 
 
@@ -65,7 +66,7 @@ class CalendarPriceTests(TestCase):
             self.new_room("maintenance", status="maintenance"),
         ):
             self.period(room, start=11, end=15, price=1)
-        with self.assertNumQueries(4):
+        with assert_calendar_query_budget(self):
             result = self.get()
         self.assertEqual(self.day(result, 11)["price"], 5500)
         during = self.day(result, 12)

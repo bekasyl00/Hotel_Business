@@ -24,7 +24,6 @@ from .models import (
     Booking,
     GuestAccount,
     GuestProfile,
-    LoginAttempt,
     Resort,
     Review,
     Room,
@@ -32,6 +31,7 @@ from .models import (
     User,
 )
 from .pricing import quote_stay
+from .rate_limits import client_ip, consume_limits
 from .serializers import (
     AccountInput,
     BookingInput,
@@ -144,19 +144,9 @@ def authenticate_staff_credentials(request):
     # Database-backed limit is shared across workers; never trust arbitrary forwarded IP headers.
     keys = [
         hashlib.sha256(("email:" + email).encode()).hexdigest(),
-        hashlib.sha256(("ip:" + request.META.get("REMOTE_ADDR", "")).encode()).hexdigest(),
+        hashlib.sha256(("ip:" + client_ip(request)).encode()).hexdigest(),
     ]
-    now = timezone.now()
-    with transaction.atomic():
-        for key in sorted(keys):
-            LoginAttempt.objects.get_or_create(key=key, defaults={"since": now})
-            attempt = LoginAttempt.objects.select_for_update().get(pk=key)
-            if attempt.since < now - timedelta(minutes=15):
-                attempt.count, attempt.since = 0, now
-            if attempt.count >= 30:
-                raise Problem("Слишком много попыток. Повторите через 15 минут.", 429)
-            attempt.count += 1
-            attempt.save()
+    consume_limits([(key, 30) for key in keys])
     user = authenticate(request, username=email, password=password)
     if not user:
         raise Problem("Неверный email или пароль.", 401)

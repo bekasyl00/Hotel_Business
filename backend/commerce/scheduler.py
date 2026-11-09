@@ -10,6 +10,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from .jobs import run_one, schedule_due
+from .operations import finish_heartbeat, start_heartbeat
 from .payment_services import capabilities
 
 
@@ -19,13 +20,35 @@ from .payment_services import capabilities
 def tick(request):
     key = settings.PAYMENTS_SCHEDULER_SECRET
     supplied = request.headers.get("Authorization", "")
-    if len(key) < 32 or not secrets.compare_digest(supplied, "Bearer " + key):
+    if (
+        len(key) < 32
+        or len(supplied) > 512
+        or not secrets.compare_digest(supplied.encode("utf-8"), ("Bearer " + key).encode("utf-8"))
+    ):
         return JsonResponse({"message": "Unauthorized"}, status=401)
     start = time.monotonic()
-    schedule_due()
+    token = start_heartbeat("payment_scheduler")
     count = 0
-    while count < 5 and time.monotonic() - start < 45:
-        if not run_one():
-            break
-        count += 1
+    try:
+        schedule_due()
+        while count < 5 and time.monotonic() - start < 45:
+            if not run_one():
+                break
+            count += 1
+    except Exception:
+        finish_heartbeat(
+            "payment_scheduler",
+            token,
+            succeeded=False,
+            duration=time.monotonic() - start,
+            processed=count,
+        )
+        raise
+    finish_heartbeat(
+        "payment_scheduler",
+        token,
+        succeeded=True,
+        duration=time.monotonic() - start,
+        processed=count,
+    )
     return JsonResponse({"processed": count, "bankEnabled": capabilities()["available"]})

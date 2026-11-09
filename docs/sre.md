@@ -1,6 +1,49 @@
-# SRE и изменение масштаба — проект решения
+# SRE: действующие механизмы и дальнейшее масштабирование
 
 27 октября 2026. Связанные задачи единого реестра: R04, R15, R26–R30. Это **проект целевого устройства**, не доказательство работы на миллионной нагрузке. Тестов производительности в облаке ещё не было. Поставщик, бюджет, дежурная команда и численные SLO должны быть согласованы до запуска.
+
+
+## Состояние на 9 ноября 2026
+
+Проверенные исходники и доступная live-конфигурация; публикация текущих изменений отдельно в [verification.md](verification.md).
+
+| Механизм | Сейчас | Следующий критерий/действие |
+| --- | --- | --- |
+| Метрики | `/internal/metrics`, Bearer read-only; очереди, leases, просроченные holds, scheduler heartbeat, PostgreSQL connections/lock waits. Grafana Cloud dashboard в `ops/monitoring` | Сбор 60 s и фактическая доставка алертов; HTTP RED/traces требуют отдельного pipeline |
+| Rate limiting | Общие атомарные PostgreSQL-счётчики; 429/Retry-After; квоты входа, брони, календаря, экспорта | Edge-защита отдельно; видеть долю 429, NAT и стоимость DB-счётчиков; [контракт](rate-limits.md) |
+| CDN / cache | Vercel CDN для двух сайтов; годовой immutable только hash-assets, HTML revalidate; персональный API и актуальные цены/наличие no-store | Оптимизированные public media derivatives, каталог с версионированием; Redis только по измеренному bottleneck |
+| Load balancing / scaling | Stateless Django Functions, Vercel распределяет запросы; `icn1`, Supabase Seoul. Transaction pooler, `CONN_MAX_AGE=0`, TLS verify-full | Лимит primary DB — 60 connections на текущем Free. Нет доказательства безопасного autoscaling под пиками; не умножать соединения без бюджета |
+| Message queue | PostgreSQL PaymentJob, постоянные задачи, аренды, идемпотентные consumers, dead-letter, сверка провайдера | Cron до 5 задач за tick/минуту плюс inline: при устойчивой задержке >5 минут нужен постоянно работающий bounded worker и тестовая нагрузка |
+| Replicas | API-экземпляры управляются Vercel; read replica БД не создана | Отчёты/каталог можно переносить на read replica после замеров; запись/проверка наличия всегда primary |
+| Shards | Одна PostgreSQL; resort/account разграничение и индексы | Сейчас не нужны. Шардирование только после исчерпания оптимизации/вертикального роста, с ключом санатория и без распределённой финансовой транзакции |
+| Consistency | Resort locks, GiST исключение пересечений, frozen price/payment terms, версии и ключи идемпотентности; оплата только server verification | Сохранить инварианты при смене очереди/хранилища; метрики — приблизительный снимок READ COMMITTED, не финансовый отчёт |
+| Failover | Повтор leased jobs после падения worker, no-double-POST recovery, readiness 503 при DB failure | Это не DB HA: multi-region failover/PITR/offsite backup+restore не проверены, RPO/RTO не обещаны |
+
+### Что хотим узнавать по сигналам
+
+1. API доступен и может прочитать БД? `/health/live`, `/health/ready`, scrape `up`.
+2. Очередь стоит или просто нет заказов? Постоянный heartbeat отдельно от oldest due/dead jobs.
+3. Деньги требуют ручной сверки? `reconciliation_required` по provider/environment; без сумм и клиентов.
+4. В БД заканчиваются соединения/есть ожидания блокировок? Снимки `pg_stat_activity`, не данные SQL/пользователей.
+
+JSON request logs содержат только server-generated request ID, шаблон маршрута, method/status/duration. Сырые URL/query/body/IP/ИИН/секреты не включаются. Время в логе измеряет обработку Django, не загрузку страницы пользователем. Глобальные p95/5xx на дашборде не выдумываются из counters временного serverless процесса. Нужны надёжная выгрузка логов либо OTLP с collector/flush-бюджетом, затем RED/SLO alerts.
+
+### Бесплатный старт и ограничения
+
+Grafana Cloud Free: до 10 000 active metric series, 14 дней хранения; наш exporter имеет фиксированное небольшое число серий. Metrics Endpoint собирает HTTPS без отдельного Prometheus/Alloy сервера. Интервал 60 s — около 43 200 обращений/месяц, не нулевая стоимость API/DB ресурсов. [Grafana pricing](https://grafana.com/pricing/), [Metrics Endpoint](https://grafana.com/docs/grafana-cloud/observe-and-act/monitor-infrastructure/integrations/integration-reference/integration-metrics-endpoint/).
+
+Live Supabase: Free, PostgreSQL 17, ap-northeast-2, около 22 MB DB на момент проверки. Это не запас на миллионы запросов. Free-проекту необходимы собственные регулярные экспорты; PITR/восстановление и read replicas требуют отдельного решения и проверки. [Backups](https://supabase.com/docs/guides/platform/backups), [pricing](https://supabase.com/pricing).
+
+Live Vercel: Hobby. По условиям тариф предназначен для personal/non-commercial use, поэтому сервису с реальными оплатами нужен Pro либо другой подходящий хостинг. Подписка автоматически не меняется. [Hobby](https://vercel.com/docs/plans/hobby). Ни бесплатные планы, ни наличие графиков не гарантируют HA/SLA или заявленную масштабируемость.
+
+Проверка 09.11.2026: cron за последний час запущен 60 раз, HTTP tick 200 во всех 60 ответах. Это свидетельство работы планировщика на тот момент, не тест оплаты/возврата и не пропускная способность.
+
+### Минимальные действия при сбое
+
+- Нет scrape/heartbeat: проверить health ready, последний релиз, секреты сборщика и cron HTTP status. Не считать пустой график нулём ошибок.
+- Растёт due/dead/reconciliation: сравнить heartbeat, leases и provider status. Не повторять неизвестный create/refund POST; восстановление только через независимый GET/ручную сверку.
+- DB недоступна: API должен отказать, не писать во второй независимый источник. Откатить несовместимый релиз; failover лишь после проверки единственного writable primary и сверки платежей.
+- Перед rollback: код совместим с добавленными таблицами/индексами, откатить Vercel deployment, миграции не удалять на горячей базе. Для `CREATE INDEX CONCURRENTLY` после прерывания проверить `pg_index.indisvalid`; не повторять вслепую имя невалидного индекса.
 
 ## Нагрузка, которую сначала нужно определить
 
@@ -32,7 +75,7 @@
 
 - Изменения каталога/брони сериализуются блокировкой строки санатория. Это обеспечивает согласованность, но может стать ограничением для одного популярного объекта. Нужен benchmark wait-time; переход на locks отдельных комнат требует единого порядка locks и тестов одновременно с изменением цен/архивированием. Просто удалить блокировку нельзя.
 - `/workspace` и каталог возвращают большие наборы; пагинация, серверный поиск и отдельные списки обязательны до массовой загрузки. Новые pricePeriods prefetch исключают дополнительный запрос на каждый номер в списках, но не решают объём ответа целиком.
-- В системе пока нет production queue, outbox, Redis, rate limiting на edge, autoscaling, метрик/traces или дежурства. Тесты корректности не считаются нагрузочными.
+- Production payment queue уже хранится в PostgreSQL (PaymentJob), с lease/skip_locked, retry и dead-letter. Добавлены защищённые operational metrics, heartbeat и общие прикладные квоты. Общего transactional outbox для уведомлений, Redis, настроенных edge rate rules, traces и дежурства пока нет. Управление экземплярами выполняет Vercel; пропускная способность не измерена.
 - Авторизованные видео в native-клиенте пока загружаются целиком; нужны потоковая выдача, разумные ограничения и обработка больших файлов вне web workers.
 - Сейчас R12/R13 имеют max 60 ценовых периодов на номер и max 30 ночей на бронь. Программы с другими сроками требуют изменения правил, а не тихого обхода в UI.
 
