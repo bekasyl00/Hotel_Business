@@ -26,6 +26,27 @@ export function documentGuest(row = {}) {
   );
 }
 
+function primaryGuestSource(data) {
+  if (data === undefined)
+    return { index: 0, source: "manual", lockedFields: [] };
+  if (
+    data?.index !== 0 ||
+    !["profile", "manual"].includes(data.source) ||
+    !Array.isArray(data.lockedFields) ||
+    (data.source === "profile"
+      ? data.lockedFields.length !== 2 ||
+        !data.lockedFields.includes("fullName") ||
+        !data.lockedFields.includes("phone")
+      : data.lockedFields.length !== 0)
+  )
+    throw new Error("invalidResponse");
+  return {
+    index: data.index,
+    source: data.source,
+    lockedFields: [...data.lockedFields],
+  };
+}
+
 export function documentGuestsForm(data, leadName = "", bookingId = "") {
   if (
     (bookingId && data?.bookingId !== bookingId) ||
@@ -38,13 +59,20 @@ export function documentGuestsForm(data, leadName = "", bookingId = "") {
     data.guests.length > 4
   )
     throw new Error("invalidResponse");
+  const primaryGuest = primaryGuestSource(data.primaryGuest);
   const guests = data.guests.map(documentGuest);
   while (guests.length < data.expectedGuests) guests.push(documentGuest());
-  if (data.version === 0 && !guests[0].fullName) guests[0].fullName = leadName;
+  if (
+    primaryGuest.source === "manual" &&
+    data.version === 0 &&
+    !guests[0].fullName
+  )
+    guests[0].fullName = leadName;
   return {
     version: data.version,
     expectedGuests: data.expectedGuests,
     buyerIndex: data.buyerIndex ?? null,
+    primaryGuest,
     guests,
   };
 }

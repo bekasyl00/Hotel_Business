@@ -463,7 +463,11 @@
     "loaded": "Details loaded from this booking.",
     "unsaved": "You have unsaved changes.",
     "discard": "Resident details have unsaved changes. Leave without saving?",
-    "newDraft": "No resident details have been saved for this booking yet."
+    "newDraft": "No resident details have been saved for this booking yet.",
+    "primaryGuest": "Primary guest",
+    "profileContactHint": "Name and phone come from the guest’s profile and cannot be edited here.",
+    "missingProfileContact": "Not provided in the profile",
+    "optionalBank": "Bank details · optional"
   },
   "classPricing": {
     "title": "Seasonal price for a room class",

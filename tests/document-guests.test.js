@@ -115,3 +115,86 @@ test("document roster responses must belong to the requested booking", () => {
     /invalidResponse/,
   );
 });
+
+test("linked primary contacts use the server profile without a stale booking-name fallback", () => {
+  const primaryGuest = {
+    index: 0,
+    source: "profile",
+    lockedFields: ["fullName", "phone"],
+  };
+  const data = {
+    bookingId: "booking-a",
+    version: 0,
+    expectedGuests: 2,
+    buyerIndex: 1,
+    primaryGuest,
+    guests: [
+      documentGuest({ fullName: "Profile guest", phone: "+77000000000" }),
+      documentGuest({ fullName: "Companion", phone: "+77000000001" }),
+    ],
+  };
+  const form = documentGuestsForm(data, "Old booking label", "booking-a");
+  assert.equal(form.guests[0].fullName, "Profile guest");
+  assert.equal(form.guests[0].phone, "+77000000000");
+  assert.deepEqual(form.primaryGuest, primaryGuest);
+  assert.notEqual(form.primaryGuest.lockedFields, primaryGuest.lockedFields);
+  form.guests[1].fullName = "Edited companion";
+  form.guests[1].phone = "+77000000002";
+  const payload = documentGuestsPayload(form);
+  assert.equal("primaryGuest" in payload, false);
+  assert.equal(payload.buyerIndex, 1);
+  assert.equal(payload.guests[1].fullName, "Edited companion");
+  assert.equal(payload.guests[1].phone, "+77000000002");
+  assert.equal(data.guests[1].fullName, "Companion");
+
+  data.guests[0].fullName = "";
+  assert.equal(
+    documentGuestsForm(data, "Stale name", "booking-a").guests[0].fullName,
+    "",
+    "a missing profile contact must not be replaced with a booking label",
+  );
+});
+
+test("manual and legacy bookings keep editable primary contacts", () => {
+  for (const primaryGuest of [
+    undefined,
+    { index: 0, source: "manual", lockedFields: [] },
+  ]) {
+    const form = documentGuestsForm(
+      { version: 0, expectedGuests: 1, guests: [], primaryGuest },
+      "Manually entered guest",
+    );
+    assert.equal(form.primaryGuest.source, "manual");
+    assert.deepEqual(form.primaryGuest.lockedFields, []);
+    assert.equal(form.guests[0].fullName, "Manually entered guest");
+    form.guests[0].fullName = "Corrected name";
+    form.guests[0].phone = "+77000000003";
+    assert.equal(
+      documentGuestsPayload(form).guests[0].fullName,
+      "Corrected name",
+    );
+    assert.equal(documentGuestsPayload(form).guests[0].phone, "+77000000003");
+  }
+});
+
+test("malformed profile-lock metadata fails closed instead of making contacts editable", () => {
+  for (const primaryGuest of [
+    null,
+    { index: 1, source: "profile", lockedFields: ["fullName", "phone"] },
+    { index: 0, source: "unknown", lockedFields: [] },
+    { index: 0, source: "profile", lockedFields: ["fullName"] },
+    { index: 0, source: "profile", lockedFields: ["iin", "phone"] },
+    { index: 0, source: "manual", lockedFields: ["fullName", "phone"] },
+  ]) {
+    assert.throws(
+      () =>
+        documentGuestsForm({
+          version: 0,
+          expectedGuests: 1,
+          guests: [],
+          primaryGuest,
+        }),
+      /invalidResponse/,
+    );
+  }
+});

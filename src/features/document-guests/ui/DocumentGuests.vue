@@ -46,6 +46,16 @@ defineExpose({ canLeave });
 let generation = 0;
 const optionalFields = ["phone", "iban", "bank", "bik"];
 const limits = { phone: 32, iban: 20, bank: 100, bik: 11 };
+const profileGuestIndex = computed(() =>
+  form.value?.primaryGuest.source === "profile"
+    ? form.value.primaryGuest.index
+    : -1,
+);
+function editableOptionalFields(index) {
+  return index === profileGuestIndex.value
+    ? optionalFields.filter((field) => field !== "phone")
+    : optionalFields;
+}
 
 async function load() {
   const run = ++generation;
@@ -193,10 +203,44 @@ onBeforeUnmount(() => {
         class="document-guest-card"
       >
         <legend>
-          {{ t("common.documentGuests.guest", { number: index + 1 }) }}
+          {{
+            index === profileGuestIndex
+              ? t("common.documentGuests.primaryGuest")
+              : t("common.documentGuests.guest", { number: index + 1 })
+          }}
         </legend>
-        <div class="document-guest-grid">
-          <label
+        <div v-if="index === profileGuestIndex" class="document-guest-profile">
+          <dl class="document-guest-profile-contacts">
+            <div>
+              <dt>{{ t("common.documentGuests.fullName") }}</dt>
+              <dd>
+                {{
+                  guest.fullName ||
+                  t("common.documentGuests.missingProfileContact")
+                }}
+              </dd>
+            </div>
+            <div>
+              <dt>{{ t("common.documentGuests.phone") }}</dt>
+              <dd>
+                {{
+                  guest.phone ||
+                  t("common.documentGuests.missingProfileContact")
+                }}
+              </dd>
+            </div>
+          </dl>
+          <p class="field-help">
+            {{ t("common.documentGuests.profileContactHint") }}
+          </p>
+        </div>
+        <div
+          class="document-guest-grid"
+          :class="{
+            'document-guest-grid--profile': index === profileGuestIndex,
+          }"
+        >
+          <label v-if="index !== profileGuestIndex"
             >{{ t("common.documentGuests.fullName")
             }}<input
               v-model="guest.fullName"
@@ -220,9 +264,17 @@ onBeforeUnmount(() => {
           /></label>
         </div>
         <details class="document-guest-optional">
-          <summary>{{ t("common.documentGuests.optional") }}</summary>
+          <summary>
+            {{
+              t(
+                index === profileGuestIndex
+                  ? "common.documentGuests.optionalBank"
+                  : "common.documentGuests.optional",
+              )
+            }}
+          </summary>
           <div class="document-guest-grid">
-            <label v-for="field in optionalFields" :key="field"
+            <label v-for="field in editableOptionalFields(index)" :key="field"
               >{{ t(`common.documentGuests.${field}`)
               }}<input
                 v-model="guest[field]"
@@ -307,7 +359,31 @@ onBeforeUnmount(() => {
 }
 .document-guest-card legend {
   padding: 0 0.4rem;
-  font-weight: 700;
+  font-weight: 600;
+}
+.document-guest-profile {
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #dce4de;
+}
+.document-guest-profile-contacts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+}
+.document-guest-profile-contacts dt {
+  color: var(--muted);
+  font-size: 0.8125rem;
+  margin-bottom: 0.25rem;
+}
+.document-guest-profile-contacts dd {
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.document-guest-profile .field-help {
+  margin: 0.5rem 0 0;
 }
 .document-guest-grid {
   display: grid;
@@ -324,6 +400,9 @@ onBeforeUnmount(() => {
 }
 .document-guest-address {
   grid-column: 1/-1;
+}
+.document-guest-grid--profile .document-guest-address {
+  grid-column: auto;
 }
 .document-guest-optional {
   margin-top: 1rem;
@@ -346,7 +425,8 @@ onBeforeUnmount(() => {
   color: #215b49;
 }
 @media (max-width: 560px) {
-  .document-guest-grid {
+  .document-guest-grid,
+  .document-guest-profile-contacts {
     grid-template-columns: 1fr;
   }
   .document-guests-actions button {
