@@ -6,7 +6,7 @@ from django.test import TestCase, override_settings
 from openpyxl import load_workbook
 from rest_framework.test import APIClient
 
-from booking.models import Audit, User
+from booking.models import Audit, GuestAccount, GuestProfile, User
 from booking.serializers import booking_data
 from commerce.accounting.document_guests import require_complete_roster
 from commerce.accounting.private_data import seal, unseal
@@ -158,3 +158,79 @@ class DocumentGuestTests(TestCase):
         self.assertEqual(self.client.get(self.path).json(), changed.json())
         self.assertEqual(DocumentGuestRoster.objects.filter(booking=self.booking).count(), 1)
         self.assertEqual(self.save({**self.payload, "version": 1}).status_code, 409)
+
+    def linked_account(self):
+        profile = GuestProfile.objects.create(
+            owner=self.booking.owner, name="Имя из профиля", phone="+77010000031"
+        )
+        account = GuestAccount.objects.create(profile=profile, phone=profile.phone, password="!")
+        self.booking.guest_profile = profile
+        self.booking.save(update_fields=["guest_profile"])
+        return account
+
+    def test_registered_primary_contacts_are_authoritative_but_companions_are_editable(self):
+        account = self.linked_account()
+        first = self.client.get(self.path).json()
+        self.assertEqual(
+            first["primaryGuest"],
+            {"index": 0, "source": "profile", "lockedFields": ["fullName", "phone"]},
+        )
+        self.assertEqual(first["guests"][0]["fullName"], account.profile.name)
+        self.assertEqual(first["guests"][0]["phone"], account.phone)
+        self.payload["guests"][0].update(fullName="Подмена имени", phone="+77010000099")
+        self.payload["buyerIndex"] = 1
+        saved = self.save()
+        self.assertEqual(saved.status_code, 200, saved.content)
+        data = saved.json()
+        self.assertEqual(data["guests"][0]["fullName"], account.profile.name)
+        self.assertEqual(data["guests"][0]["phone"], account.phone)
+        self.assertEqual(data["guests"][0]["iin"], self.payload["guests"][0]["iin"])
+        self.assertEqual(data["guests"][1], self.payload["guests"][1])
+        self.assertEqual(data["buyerIndex"], 1)
+        row = DocumentGuestRoster.objects.get(booking=self.booking)
+        stored = unseal(row.ciphertext, context=f"roster:{self.booking.pk}")
+        self.assertEqual(stored["guests"], data["guests"])
+        self.assertNotIn("primaryGuest", stored)
+
+    def test_profile_changes_refresh_roster_but_never_rewrite_frozen_buyer(self):
+        account = self.linked_account()
+        self.assertEqual(self.save().status_code, 200)
+        doc = prepare_document(self.booking, "act", self.manager)
+        original = doc.snapshot.copy()
+        doc.state = "released"
+        doc.save(update_fields=["state"])
+        account.profile.name = "Обновлённый профиль"
+        account.profile.save(update_fields=["name"])
+        roster = self.client.get(self.path).json()
+        self.assertEqual(roster["guests"][0]["fullName"], account.profile.name)
+        self.assertEqual(roster["version"], 1)
+        doc.refresh_from_db()
+        self.assertEqual(doc.snapshot, original)
+        buyer = unseal(
+            doc.snapshot["buyerEncrypted"], context=f"buyer:{self.booking.pk}:{doc.number}"
+        )
+        self.assertEqual(buyer["fullName"], "Имя из профиля")
+
+    def test_manual_booking_contacts_remain_editable_without_phone_linking(self):
+        self.booking.guest_phone = "+77010000032"
+        self.booking.source = "staff"
+        self.booking.save(update_fields=["guest_phone", "source"])
+        unrelated = GuestProfile.objects.create(
+            owner="unrelated-profile-owner", name="Чужой профиль", phone=self.booking.guest_phone
+        )
+        GuestAccount.objects.create(profile=unrelated, phone="+77010000032", password="!")
+        first = self.client.get(self.path).json()
+        self.assertEqual(
+            first["primaryGuest"], {"index": 0, "source": "manual", "lockedFields": []}
+        )
+        self.assertEqual(first["guests"][0]["fullName"], self.booking.guest_label)
+        saved = self.save().json()
+        self.assertEqual(saved["guests"], self.payload["guests"])
+
+    def test_unrelated_linked_profile_never_supplies_primary_identity(self):
+        account = self.linked_account()
+        account.profile.owner = "other-owner"
+        account.profile.save(update_fields=["owner"])
+        data = self.client.get(self.path).json()
+        self.assertEqual(data["primaryGuest"]["source"], "manual")
+        self.assertNotEqual(data["guests"][0]["fullName"], account.profile.name)

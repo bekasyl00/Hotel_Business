@@ -9,7 +9,8 @@ from django.utils import timezone
 from openpyxl import load_workbook
 from rest_framework.test import APIClient
 
-from booking.models import Audit, Resort, User
+from booking.guest_auth import AUTH_KEY
+from booking.models import Audit, GuestAccount, GuestProfile, Resort, User
 from booking.test_helpers import unrelated_owner
 from commerce.accounting.rendering import amount_words, pdf_bytes, xlsx_bytes
 from commerce.accounting.services import prepare_after_stay
@@ -71,6 +72,17 @@ class AccountingTests(TestCase):
         )
         self.assertEqual(response.status_code, 201, response.content)
         return AccountingDocument.objects.get(pk=response.json()["id"])
+
+    def registered_guest(self):
+        profile = GuestProfile.objects.create(
+            owner=self.booking.owner, name="Тестовый гость", phone="+77010000041"
+        )
+        account = GuestAccount.objects.create(profile=profile, phone=profile.phone, password="!")
+        guest = APIClient()
+        session = guest.session
+        session[AUTH_KEY] = {"id": account.pk, "version": account.auth_version}
+        session.save()
+        return guest
 
     def test_accountant_read_scope_and_no_operational_privileges(self):
         self.sign_in(self.accountant)
@@ -226,15 +238,12 @@ class AccountingTests(TestCase):
         doc = self.doc()
         self.write("/api/accounting/company/" + self.resort.pk, COMPANY, "patch")
         self.write("/api/accounting/documents/" + doc.pk + "/release", {"version": doc.version})
-        guest = APIClient()
-        session = guest.session
-        session["guest_owner"] = self.booking.owner
-        session.save()
+        guest = self.registered_guest()
         path = "/api/my-documents/" + doc.pk + "/pdf/download"
         response = guest.get(path)
         self.assertEqual(response.status_code, 200)
         self.assertIn("no-store", response["Cache-Control"])
-        self.assertEqual(APIClient().get(path).status_code, 404)
+        self.assertEqual(APIClient().get(path).status_code, 401)
         self.assertEqual(guest.get("/api/accounting").status_code, 401)
         doc.refresh_from_db()
         self.write("/api/accounting/documents/" + doc.pk + "/void", {"version": doc.version})
@@ -462,10 +471,7 @@ class AccountingTests(TestCase):
             ).status_code,
             200,
         )
-        guest = APIClient()
-        session = guest.session
-        session["guest_owner"] = self.booking.owner
-        session.save()
+        guest = self.registered_guest()
         self.assertEqual(len(guest.get("/api/my-documents").json()), 1)
         self.booking.checked_out_at = None
         self.booking.save()

@@ -15,7 +15,7 @@ from rest_framework.views import APIView
 
 from booking.authentication import bearer_or_csrf_protect
 from booking.errors import Problem
-from booking.guest_auth import enforce_limit
+from booking.guest_auth import current_account, enforce_limit
 from booking.models import Booking
 from booking.services import guest_owner
 from commerce.models import AccountingDocument, DemoPayment, DemoRefund, PaymentEvent, RefundRequest
@@ -92,7 +92,7 @@ class AccountingView(APIView):
             return Response(svc.company_data(get_object_or_404(resorts, pk=pk)))
         if resource == "file":
             doc = get_object_or_404(
-                AccountingDocument.objects.select_related("booking"),
+                AccountingDocument.objects.select_related("booking__resort"),
                 pk=pk,
                 booking__resort__in=resorts,
             )
@@ -129,7 +129,7 @@ class AccountingView(APIView):
                 AccountingDocument.objects.filter(
                     booking__in=rows, snapshot__paymentMode__in=[mode, "unpaid"]
                 )
-                .select_related("booking")
+                .select_related("booking__resort")
                 .order_by("-created_at")
             )
             return Response(
@@ -330,13 +330,16 @@ class GuestDocumentsView(APIView):
     permission_classes = [AllowAny]
 
     def get(self, request, pk=None, format_kind=None):
+        account = current_account(request)
+        if account is None:
+            raise Problem("Войдите, чтобы открыть документы.", 401, "guest_login_required")
         docs = AccountingDocument.objects.filter(
             booking__owner=guest_owner(request),
             booking__source="website",
             state="released",
             booking__checked_out_at__isnull=False,
             booking__status="confirmed",
-        ).select_related("booking")
+        ).select_related("booking__resort")
         if pk:
             enforce_limit(request, "accounting-download", ip_limit=60, minutes=5)
             return download(get_object_or_404(docs, pk=pk), format_kind)
@@ -356,7 +359,7 @@ class BookingDocumentsView(APIView):
     def get(self, request, booking_id, pk=None, format_kind=None):
         bookings = Booking.objects.filter(resort__in=svc.document_resorts_for(request.user))
         booking = get_object_or_404(bookings, pk=booking_id)
-        docs = AccountingDocument.objects.filter(booking=booking).select_related("booking")
+        docs = AccountingDocument.objects.filter(booking=booking).select_related("booking__resort")
         if pk:
             enforce_limit(request, "accounting-download", ip_limit=60, minutes=5)
             return download(get_object_or_404(docs, pk=pk), format_kind)

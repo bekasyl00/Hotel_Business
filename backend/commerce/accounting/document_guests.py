@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from booking.authentication import bearer_or_csrf_protect
 from booking.errors import Problem
 from booking.guest_auth import enforce_limit
-from booking.models import Audit, Booking, Resort
+from booking.models import Audit, Booking, GuestAccount, Resort
 from booking.services import require_staff
 from commerce.models import DocumentGuestRoster
 
@@ -45,6 +45,38 @@ class RosterInput(StrictInput):
         return data
 
 
+def primary_guest(booking):
+    # Only the explicit profile relation and owner may identify an account.
+    # A contact number/name in a manual booking is not an account association.
+    account = (
+        GuestAccount.objects.select_related("profile")
+        .filter(profile_id=booking.guest_profile_id, profile__owner=booking.owner)
+        .first()
+        if booking.guest_profile_id
+        else None
+    )
+    metadata = {
+        "index": 0,
+        "source": "profile" if account else "manual",
+        "lockedFields": ["fullName", "phone"] if account else [],
+    }
+    contacts = {
+        "fullName": account.profile.name if account else booking.guest_label,
+        "phone": account.phone if account else booking.guest_phone,
+    }
+    return metadata, contacts
+
+
+def with_primary_contacts(booking, payload):
+    metadata, contacts = primary_guest(booking)
+    guests = [dict(guest) for guest in payload["guests"]]
+    if not guests:
+        guests.append({**dict.fromkeys(FIELDS, ""), **contacts})
+    elif metadata["source"] == "profile":
+        guests[0].update(contacts)
+    return {**payload, "guests": guests}
+
+
 def read_payload(booking):
     row = DocumentGuestRoster.objects.filter(booking=booking).first()
     data = (
@@ -52,7 +84,7 @@ def read_payload(booking):
         if row
         else {"guests": [], "buyerIndex": None}
     )
-    return row, data
+    return row, with_primary_contacts(booking, data)
 
 
 def missing_fields(booking, payload):
@@ -72,11 +104,13 @@ def missing_fields(booking, payload):
 
 
 def roster_data(booking, row, payload):
+    metadata, _ = primary_guest(booking)
     missing = missing_fields(booking, payload)
     return {
         "bookingId": booking.pk,
         "version": row.version if row else 0,
         "expectedGuests": booking.guests,
+        "primaryGuest": metadata,
         **payload,
         "complete": not missing,
         "missing": missing,
@@ -112,6 +146,7 @@ def save_roster(request, pk):
     inp.is_valid(raise_exception=True)
     values = dict(inp.validated_data)
     version = values.pop("version")
+    values = with_primary_contacts(booking, values)
     row = DocumentGuestRoster.objects.filter(booking=booking).first()
     if version != (row.version if row else 0):
         raise Problem("Реквизиты уже изменены. Обновите данные.", 409)
