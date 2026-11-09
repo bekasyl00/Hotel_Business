@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref, watch, onMounted, onBeforeUnmount } from "vue";
-import { onBeforeRouteLeave } from "vue-router";
+import { onBeforeRouteLeave, onBeforeRouteUpdate } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { request } from "@/shared/api";
 import { isDemo } from "@/shared/config";
@@ -41,6 +41,7 @@ function beforeUnload(event) {
 }
 onMounted(() => window.addEventListener("beforeunload", beforeUnload));
 onBeforeRouteLeave(canLeave);
+onBeforeRouteUpdate(canLeave);
 defineExpose({ canLeave });
 let generation = 0;
 const optionalFields = ["phone", "iban", "bank", "bik"];
