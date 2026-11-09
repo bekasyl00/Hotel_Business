@@ -79,7 +79,7 @@ def login(request):
         user = User.objects.select_for_update().get(pk=user.pk)
         if not user.is_active or credential_version != staff_credential_version(user):
             raise invalid_token()
-        require_staff(user)
+        require_staff(user, roles=("admin", "manager", "accountant"))
         now = timezone.now()
         device = StaffDevice(
             user=user,
@@ -123,7 +123,7 @@ def refresh(request):
                 audit(user, "native_staff_revoke")
             error = invalid_token()
         else:
-            require_staff(user)
+            require_staff(user, roles=("admin", "manager", "accountant"))
             saved.consumed_at = now
             saved.save(update_fields=["consumed_at"])
             device.user = user

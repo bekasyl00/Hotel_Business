@@ -145,7 +145,7 @@ def staff_context(request):
         raise invalid_token()
     from .services import require_staff
 
-    require_staff(device.user)
+    require_staff(device.user, roles=("admin", "manager", "accountant"))
     context = StaffTokenContext(device)
     raw._staff_bearer_context = context
     return context

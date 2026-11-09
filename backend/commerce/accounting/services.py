@@ -281,7 +281,12 @@ def validate_release(doc):
     if not all(details.get(k) for k in ["supplier", "bin", "address", "vatMode"]):
         raise Problem("Сначала заполните реквизиты и настройки НДС.", 409)
     payment = booking_payment_data(doc.booking)
-    if not payment or payment.get("status") != "paid" or payment.get("refundStatus"):
+    if (
+        not payment
+        or payment.get("status") != "paid"
+        or payment.get("refundStatus")
+        or payment.get("checkoutStatus") == "reconciliation_required"
+    ):
         raise Problem("Сначала завершите сверку оплаты и возвратов.", 409)
     terms = payment_terms(doc.booking)
     onsite = getattr(doc.booking, "onsite_settlement", None)

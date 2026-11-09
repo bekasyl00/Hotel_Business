@@ -202,6 +202,87 @@ class StaffMobileTests(TestCase):
         )
         self.assertEqual(refresh(foreign["refreshToken"]).status_code, 401)
 
+    def accountant_session(self):
+        accountant = User.objects.create_user(
+            username="native-finance@example.test",
+            email="native-finance@example.test",
+            password=PASSWORD,
+            role="accountant",
+        )
+        return accountant, self.session(accountant)
+
+    def test_native_accountant_can_use_finance_but_not_operational_documents(self):
+        from commerce.accounting.services import prepare_document
+        from commerce.tests import fixture as booking_fixture
+
+        accountant, session = self.accountant_session()
+        resort, booking, manager = booking_fixture()
+        doc = prepare_document(booking, "act", manager)
+        api = bearer(session["accessToken"])
+        for path in (
+            "/api/v1/accounting",
+            "/api/v1/accounting/export",
+            "/api/v1/analytics",
+            "/api/v1/workspace",
+            "/api/v1/staff-profile",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(api.get(path).status_code, 200)
+        self.assertEqual(api.get("/api/v1/auth/session").json()["id"], str(accountant.pk))
+        devices = api.get("/api/v1/staff-mobile-auth/sessions")
+        self.assertEqual(devices.status_code, 200)
+        self.assertEqual([d["id"] for d in devices.json()["sessions"]], [session["deviceId"]])
+        for path in (
+            "/api/v1/accounting/documents",
+            f"/api/v1/accounting/documents/{doc.pk}/pdf/download",
+            f"/api/v1/accounting/company/{resort.pk}",
+            f"/api/v1/staff-profile/company/{resort.pk}",
+            f"/api/v1/bookings/{booking.pk}/document-guests",
+            f"/api/v1/bookings/{booking.pk}/documents",
+            f"/api/v1/bookings/{booking.pk}/documents/{doc.pk}/xlsx/download",
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(api.get(path).status_code, 403)
+        for path, body in (
+            ("/api/v1/accounting/documents", {"bookingId": booking.pk, "kind": "invoice"}),
+            (f"/api/v1/accounting/documents/{doc.pk}/release", {"version": doc.version}),
+            (f"/api/v1/accounting/documents/{doc.pk}/void", {"version": doc.version}),
+            (f"/api/v1/bookings/{booking.pk}/check-in", {"version": booking.version}),
+            ("/api/v1/bookings", {}),
+            ("/api/v1/accounts", {}),
+        ):
+            with self.subTest(path=path):
+                self.assertEqual(api.post(path, body, format="json").status_code, 403)
+        self.assertEqual(
+            api.patch(f"/api/v1/resorts/{resort.pk}", {"version": 1}, format="json").status_code,
+            403,
+        )
+        self.assertEqual(
+            api.put(
+                f"/api/v1/bookings/{booking.pk}/document-guests", {}, format="json"
+            ).status_code,
+            403,
+        )
+
+    def test_accountant_refresh_rotation_logout_and_credential_change_remain_enforced(self):
+        accountant, session = self.accountant_session()
+        rotated = refresh(session["refreshToken"])
+        self.assertEqual(rotated.status_code, 200, rotated.content)
+        data = rotated.json()
+        self.assertEqual(bearer(session["accessToken"]).get("/api/v1/accounting").status_code, 401)
+        api = bearer(data["accessToken"])
+        self.assertEqual(api.get("/api/v1/accounting").status_code, 200)
+        self.assertEqual(
+            api.post("/api/v1/staff-mobile-auth/logout", {}, format="json").status_code, 204
+        )
+        self.assertEqual(api.get("/api/v1/accounting").status_code, 401)
+        self.assertEqual(refresh(data["refreshToken"]).status_code, 401)
+        session = self.session(accountant)
+        accountant.role = "manager"
+        accountant.save(update_fields=["role"])
+        self.assertEqual(bearer(session["accessToken"]).get("/api/v1/accounting").status_code, 401)
+        self.assertEqual(refresh(session["refreshToken"]).status_code, 401)
+
 
 class StaffRefreshConcurrencyTests(TransactionTestCase):
     def test_concurrent_refresh_is_one_success_and_replay_revocation(self):
