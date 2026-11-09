@@ -2,24 +2,21 @@
 import { computed, ref } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
-import { StaffShell } from "@/widgets/staff-shell";
+import { StaffShell, staffNavigation } from "@/widgets/staff-shell";
 import { useSessionStore } from "@/entities/session";
 const session = useSessionStore(),
   router = useRouter(),
   error = ref("");
 const { t } = useI18n();
-const sections = computed(() => [
-  ["resorts", session.isAdmin ? "staff.resorts" : "staff.myResort", "⌖"],
-  ["rooms", "staff.rooms", "▦"],
-  ["reviews", "staff.reviews", "☆"],
-  ["history", "staff.history", "◷"],
-  ...(session.isAdmin
-    ? [
-        ["clients", "staff.directory.clients", "♧"],
-        ["accounts", "staff.managers", "♙"],
-      ]
-    : []),
-]);
+const sections = computed(() =>
+  staffNavigation(session.user?.role)
+    .filter(([path]) => !["overview", "analytics", "bookings"].includes(path))
+    .map(([path, icon, label]) => [
+      path,
+      path === "resorts" && !session.isAdmin ? "staff.myResort" : label,
+      icon,
+    ]),
+);
 async function logout() {
   try {
     await session.logout();
@@ -36,7 +33,13 @@ async function logout() {
       <h1>{{ t("common.mobile.manage") }}</h1>
       <p class="muted">
         {{ session.user?.name }} ·
-        {{ session.isAdmin ? t("staff.admin") : t("staff.manager") }}
+        {{
+          session.isAdmin
+            ? t("staff.admin")
+            : session.isAccountant
+              ? t("common.accounting.role")
+              : t("staff.manager")
+        }}
       </p>
       <p v-if="error" role="alert" class="form-error">{{ error }}</p>
       <div class="mobile-management-grid">

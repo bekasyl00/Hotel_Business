@@ -37,20 +37,29 @@ npm run ios:check
 npm run ios:staff:check
 ```
 
-Последние две команды собирают unsigned simulator builds, **не** IPA для физического iPhone. Артефакты находятся в `output/ios-build` и `output/ios-staff-build`. Swift bridge и privacy manifest общие: `native/ios/`. Иконки/заставки производятся из геометрии фирменного логотипа командой `swift scripts/render-ios-icons.swift`.
+Последние две команды собирают unsigned simulator builds, **не** IPA для физического iPhone. Артефакты находятся в `output/ios-build` и `output/ios-staff-build`. Swift bridge и privacy manifest общие: `native/ios/`. Иконки/заставки производятся непосредственно из `public/assets/logo.svg` (AppKit SVG rendering; светлая guest и тёмная staff палитра) командой `swift scripts/render-ios-icons.swift`.
 
-## Demo и подключение Django
+## API-сборка для установки и локальное demo
 
-По умолчанию обе версии запускаются в явно обозначенном demo. Цены/адреса/фотографии иллюстративны, SMS/оплата ненастоящие. Установленные приложения имеют отдельные локальные данные: демонстрационная бронь гостя **не появится** у сотрудника и на сайте. Общие брони появятся при подключении всех клиентов к одному Django/PostgreSQL.
+Для установки текущей версии используются отдельные release-команды:
 
-Для API-сборки нужен размещённый HTTPS Django, а не адрес статического Vercel или Supabase:
+```sh
+npm run ios:release:sync
+npm run ios:staff:release:sync
+```
+
+`scripts/build-mobile.mjs` собирает каждую аудиторию с общим `https://tynys-api.vercel.app/api/v1`, native Bearer/Keychain transport и ограничением загрузки 4 000 000 байт для Vercel. Проверяются build metadata, наличие native transport, отсутствие demo transport и страниц другой аудитории. Эти команды не зависят от сохранённого в shell demo-режима. `npm run build:apps:release` выполняет те же проверки без sync. Ни production-ключи, ни пароли в bundle не включаются.
+
+Обычные `ios:sync`/`ios:staff:sync` и `build:apps` остаются локальными сборками с demo по умолчанию. Их отдельные sandbox не синхронизируются. Установка 27 октября была demo; источник данных новой установки нужно проверять отдельно по release metadata и фактическому запросу приложения.
+
+Для разработки против другого API можно явно задать размещённый HTTPS Django:
 
 ```sh
 VITE_DATA_MODE=api VITE_API_BASE=https://api.your-domain.kz/api/v1 npm run ios:sync
 VITE_DATA_MODE=api VITE_API_BASE=https://api.your-domain.kz/api/v1 npm run ios:staff:sync
 ```
 
-Это пример адреса, его нужно заменить реальным. Валидатор не разрешает HTTP, credentials в URL, query/hash или другую API-версию. Supabase остаётся БД/хранилищем **за Django**; S3/DB/service keys никогда не попадают в мобильный bundle. `CapacitorHttp` обслуживает сетевые JSON/multipart запросы через native networking; браузерная API-сборка приложения намеренно не работает без native bridge.
+Это пример адреса для локальной разработки. Для текущей установки использовать release-команды выше. Валидатор не разрешает HTTP, credentials в URL, query/hash или другую API-версию. Supabase остаётся БД/хранилищем **за Django**; S3/DB/service keys никогда не попадают в мобильный bundle. `CapacitorHttp` обслуживает сетевые JSON/multipart запросы через native networking; браузерная API-сборка приложения намеренно не работает без native bridge.
 
 Гостевой вход требует уже существующий аккаунт. Нативный transport регистрации/сброса с SMS пока не сделан: API-приложение явно объясняет это на соответствующих экранах; demo-регистрация/сброс остаются доступны с demo-кодами. Аккаунты сотрудников создаёт администратор, самостоятельной регистрации сотрудников нет.
 
@@ -62,9 +71,10 @@ VITE_DATA_MODE=api VITE_API_BASE=https://api.your-domain.kz/api/v1 npm run ios:s
 - Авторизованные аватары/рабочие медиа загружаются через API в временные blob URL. Они освобождаются при смене аккаунта. Большие видео пока загружаются целиком, фоновой очереди/транскодирования нет.
 - Фото/видео выбираются системным выбором файлов. Квитанция PDF сохраняется во временный cache и открывает системное меню «Поделиться»/«Сохранить в Файлы». После закрытия меню файл удаляется, оставшиеся временные PDF очищаются при старте. Настоящие чеки Kaspi ещё не интегрированы.
 - Native bridge logs отключены (`loggingBehavior: none`), чтобы payload с credentials не попадал в Xcode/системные логи. Нет ATS-исключений, remote `server.url` или wildcard navigation.
+- Оба `SceneDelegate` создают `TynysViewController`, который регистрирует `TynysKeychain`. Одной настройки storyboard недостаточно: programmatic scene entry point может её обойти. Нельзя заменять root controller на обычный `CAPBridgeViewController`; API-каталог и защищённая навигация зависят от доступа к vault.
 - Safe area, поля 16px, зоны нажатия 44px, нижняя навигация и RU/KK/EN учтены. Карта и актуальные API-данные требуют сети; offline-бронь не обещается.
 
-## Установка на личный iPhone — следующий шаг
+## Установка на личный iPhone
 
 Для каждого проекта выбрать Apple Development Team в Signing & Capabilities и уникальный bundle ID при необходимости, подключить iPhone к Mac, доверить компьютер, включить Developer Mode и выбрать телефон в Xcode. Затем Run. Пароль Apple ID, код телефона и доверие профилю пользователь вводит на своих устройствах. Установка на симулятор не доказывает установку/подпись/доступ к сети на настоящем iPhone — это отдельная проверка.
 

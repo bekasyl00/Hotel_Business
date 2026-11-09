@@ -31,7 +31,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Сделать фото для профиля или отзыва в Тыныс.</string>
+	<string>Сканировать QR-код билета гостя и добавить фото санатория или номера.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Выбрать фото для профиля или отзыва в Тыныс.</string>
 	<key>UIApplicationSceneManifest</key>

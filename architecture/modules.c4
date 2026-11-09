@@ -439,6 +439,7 @@ model {
   widgets_public_header -> shared_api 'import'
   widgets_public_header -> shared_ui 'import'
   widgets_public_header -> shared_config 'import'
+  widgets_staff_mobile_navigation -> entities_session 'import'
   widgets_staff_shell -> entities_session 'import'
   widgets_staff_shell -> shared_ui 'import'
   widgets_staff_shell -> features_arrival_check_in 'import'

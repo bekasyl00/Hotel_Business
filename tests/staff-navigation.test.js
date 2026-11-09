@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { staffNavigation } from "../src/widgets/staff-shell/model/navigation.js";
 import { createRouter, createMemoryHistory } from "vue-router";
 import { staffRoutes } from "../src/app/routes-staff.js";
+import { routes as mobileStaffRoutes } from "../src/app/routes-mobile-staff.js";
 test("staff navigation has unique destinations and keeps accountant read-only destinations", () => {
   for (const role of ["admin", "manager", "accountant"]) {
     const paths = staffNavigation(role).map(([path]) => path);
@@ -10,11 +11,23 @@ test("staff navigation has unique destinations and keeps accountant read-only de
     assert.equal(paths.includes("clients"), role === "admin");
     assert.equal(paths.includes("accounts"), role === "admin");
     assert.equal(paths.includes("history"), role === "admin");
+    assert.equal(paths.includes("accounting"), role !== "manager");
   }
   assert.deepEqual(
     staffNavigation("accountant").map(([path]) => path),
     ["accounting", "analytics", "bookings"],
   );
+});
+test("native staff management has an authenticated route distinct from workspace sections", () => {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: mobileStaffRoutes,
+  });
+  const route = router.resolve("/staff/more");
+  assert.equal(route.matched[0].path, "/staff/more");
+  assert.equal(route.meta.staff, true);
+  assert.equal(route.meta.admin, undefined);
+  assert.equal(route.meta.accounting, undefined);
 });
 test("direct history and accounts links resolve to admin-only workspace routes", () => {
   const router = createRouter({

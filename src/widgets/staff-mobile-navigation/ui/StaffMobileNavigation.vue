@@ -1,12 +1,15 @@
 <script setup>
 import { useRoute } from "vue-router";
 import { useI18n } from "vue-i18n";
+import { computed } from "vue";
+import { useSessionStore } from "@/entities/session";
 const { t } = useI18n();
 const route = useRoute();
-const links = [
+const session = useSessionStore();
+const links = computed(() => [
   {
-    to: "/staff/overview",
-    key: "staff.overview",
+    to: session.isAccountant ? "/staff/accounting" : "/staff/overview",
+    key: session.isAccountant ? "common.accounting.title" : "staff.overview",
     icon: "M3 3h7v7H3ZM14 3h7v7h-7ZM3 14h7v7H3ZM14 14h7v7h-7Z",
   },
   {
@@ -24,7 +27,7 @@ const links = [
     key: "common.mobile.manage",
     icon: "M4 6h16M4 12h16M4 18h16",
   },
-];
+]);
 </script>
 <template>
   <nav

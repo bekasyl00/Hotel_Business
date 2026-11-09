@@ -82,6 +82,7 @@ router.beforeEach(async (to) => {
       "/staff/bookings",
       "/staff/analytics",
       "/staff/profile",
+      ...(isStaffApp ? ["/staff/more"] : []),
     ].includes(to.path)
   )
     return "/staff/accounting";
