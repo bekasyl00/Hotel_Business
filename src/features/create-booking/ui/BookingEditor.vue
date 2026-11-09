@@ -1,8 +1,8 @@
 <script setup>
 import {
-  ageAt,
+  childDatePreview,
   childBirthFromIin,
-  selectChildCount,
+  partySize,
   roomForParty,
 } from "../model/children.js";
 import { useI18n } from "vue-i18n";
@@ -12,7 +12,8 @@ import { reactive, computed, watch, onMounted, useId } from "vue";
 import { Modal } from "@/shared/ui";
 import {
   useBookingStore,
-  dateAfter,
+  propertyToday,
+  shiftDay,
   nightsBetween,
   quoteStay,
   validateChildren,
@@ -22,7 +23,7 @@ import {
 import { ref } from "vue";
 import { useGuestAccountStore } from "@/entities/guest-account";
 const guestAccount = useGuestAccountStore();
-import { money } from "@/shared/lib";
+import { money, dateLabel } from "@/shared/lib";
 const props = defineProps({
   resort: Object,
   rooms: Array,
@@ -36,8 +37,8 @@ const form = reactive({
   ...(props.staff
     ? {}
     : { tariffId: props.tariffs.find((t) => t.status === "active")?.id || "" }),
-  start: dateAfter(7),
-  end: dateAfter(10),
+  start: shiftDay(propertyToday(props.resort.timeZone), 7),
+  end: shiftDay(propertyToday(props.resort.timeZone), 10),
   guests: 2,
   childrenAges: [],
   guestLabel: "",
@@ -51,7 +52,7 @@ const tariff = computed(() =>
 const price = computed(() =>
   room.value &&
   (props.staff || tariff.value) &&
-  !childCountError.value &&
+  !partyError.value &&
   !capacityError.value &&
   !validateChildren(form.guests, form.childrenAges)
     ? quoteStay(room.value, props.staff ? null : tariff.value, form)
@@ -73,14 +74,36 @@ const quotedTariffs = computed(() =>
     })),
 );
 const children = ref([]);
+const adults = ref(form.guests);
+const childInputPrefix = useId();
+let childSequence = 0;
+const childPreviews = computed(() =>
+  children.value.map((child) =>
+    childDatePreview(
+      child.iin,
+      form.start,
+      propertyToday(props.resort.timeZone),
+    ),
+  ),
+);
+const partyTotal = computed(() =>
+  partySize(adults.value, children.value.length),
+);
+const partyError = computed(() =>
+  partyTotal.value === null ? t("common.children.partyLimit") : "",
+);
+const canAddChild = computed(
+  () => partyTotal.value !== null && partyTotal.value < 4,
+);
 watch(
-  [children, () => form.start],
+  [partyTotal, childPreviews],
   () => {
-    form.childrenAges = children.value.map((c) =>
-      ageAt(childBirthFromIin(c.iin, form.start, dateAfter()), form.start),
+    form.guests = partyTotal.value;
+    form.childrenAges = childPreviews.value.map((child) =>
+      child.status === "ready" ? child.age : null,
     );
   },
-  { deep: true },
+  { immediate: true, flush: "sync" },
 );
 onMounted(async () => {
   if (!props.staff) {
@@ -91,15 +114,7 @@ onMounted(async () => {
     }
   }
 });
-const childCountId = useId();
-const childCountInput = ref("0");
-const maxChildren = 3;
 const selectedRoomNotice = ref("");
-const childCountError = computed(() =>
-  selectChildCount(childCountInput.value, form.guests)
-    ? ""
-    : t("common.children.countLimit"),
-);
 const capacityError = computed(() =>
   room.value && Number(form.guests) > room.value.capacity
     ? t("common.children.roomCapacity", {
@@ -118,20 +133,25 @@ function fitRoom() {
     });
   }
 }
-function setChildCount(value) {
-  childCountInput.value = String(value);
-  const next = selectChildCount(value, form.guests);
-  if (!next) return;
-  children.value = Array.from(
-    { length: next.children },
-    (_, i) => children.value[i] ?? { iin: "" },
-  );
-  childCountInput.value = String(next.children);
-  form.guests = next.guests;
+function addChild() {
+  if (!canAddChild.value) return;
+  children.value.push({ id: ++childSequence, iin: "" });
   fitRoom();
 }
-function commitChildCount() {
-  if (childCountInput.value === "") setChildCount(0);
+function removeChild(id) {
+  children.value = children.value.filter((child) => child.id !== id);
+}
+function ageDescription(child) {
+  if (child.months === 0) return t("common.children.ageUnderMonth");
+  return child.age < 1
+    ? t("common.children.ageMonths", { months: child.months })
+    : t("common.children.ageYears", { years: child.age });
+}
+function childError(index) {
+  const child = childPreviews.value[index];
+  return !child || ["empty", "incomplete", "ready"].includes(child.status)
+    ? ""
+    : t(`common.children.${child.status}`);
 }
 watch(() => form.guests, fitRoom);
 const store = useBookingStore(),
@@ -141,12 +161,17 @@ const store = useBookingStore(),
 let attempt = null;
 async function save() {
   error.value =
-    childCountError.value ||
+    partyError.value ||
     capacityError.value ||
     (!props.staff && !guestAccount.authenticated
       ? t("common.checkout.loginRequired")
       : children.value.some(
-            (c) => !childBirthFromIin(c.iin, form.start, dateAfter()),
+            (c) =>
+              !childBirthFromIin(
+                c.iin,
+                form.start,
+                propertyToday(props.resort.timeZone),
+              ),
           )
         ? t("common.children.invalidIin")
         : validateChildren(form.guests, form.childrenAges));
@@ -158,16 +183,23 @@ async function save() {
   busy.value = true;
   error.value = "";
   try {
-    const fingerprint = JSON.stringify(form);
+    const { guestLabel, guestPhone, ...publicForm } = form;
+    const payload = {
+      ...(props.staff ? form : publicForm),
+      childrenBirthDates: children.value.map((c) =>
+        childBirthFromIin(
+          c.iin,
+          form.start,
+          propertyToday(props.resort.timeZone),
+        ),
+      ),
+    };
+    const fingerprint = JSON.stringify(payload);
     if (attempt?.fingerprint !== fingerprint)
       attempt = { fingerprint, id: crypto.randomUUID() };
-    const { guestLabel, guestPhone, ...publicForm } = form;
     const result = await store.create(
       {
-        ...(props.staff ? form : publicForm),
-        childrenBirthDates: children.value.map((c) =>
-          childBirthFromIin(c.iin, form.start, dateAfter()),
-        ),
+        ...payload,
         requestId: attempt.id,
       },
       props.staff,
@@ -182,14 +214,10 @@ async function save() {
 </script>
 <template>
   <Modal
-    :title="
-      staff
-        ? t('public.addBooking')
-        : t('public.yourStayAt') + ' ' + resort.name
-    "
+    :title="staff ? t('public.addBooking') : t('common.children.bookingTitle')"
     :busy="busy"
     @close="emit('close')"
-    ><form class="editor-form" @submit.prevent="save">
+    ><form class="editor-form booking-editor" @submit.prevent="save">
       <div class="booking-property">
         <img
           :src="
@@ -246,7 +274,7 @@ async function save() {
           }}<input
             v-model="form.start"
             type="date"
-            :min="dateAfter()"
+            :min="propertyToday(props.resort.timeZone)"
             required /></label
         ><label
           >{{ t("public.checkout")
@@ -271,12 +299,13 @@ async function save() {
             </option>
           </select></label
         ><label
-          >{{ t("public.guests")
+          >{{ t("common.children.olderGuests")
           }}<input
-            v-model.number="form.guests"
+            v-model.number="adults"
             type="number"
-            :min="children.length + 1"
-            max="4"
+            inputmode="numeric"
+            min="1"
+            :max="4 - children.length"
             required
         /></label>
       </div>
@@ -295,87 +324,104 @@ async function save() {
           >{{ t("common.children.findRoom") }}</RouterLink
         >
       </div>
-      <fieldset class="pricing-fields">
-        <legend>{{ t("common.pricing.children") }}</legend>
-        <div class="child-count-field">
-          <label :for="childCountId">{{
-            t("common.pricing.childCount")
-          }}</label>
-          <div class="child-count-control">
-            <button
-              type="button"
-              class="secondary"
-              :aria-label="t('common.children.remove')"
-              :disabled="children.length === 0"
-              @click="setChildCount(children.length - 1)"
-            >
-              −
-            </button>
-            <input
-              :id="childCountId"
-              :value="childCountInput"
-              type="number"
-              inputmode="numeric"
-              min="0"
-              :max="maxChildren"
-              step="1"
-              :aria-describedby="`${childCountId}-help`"
-              :aria-invalid="!!childCountError"
-              required
-              @input="setChildCount($event.target.value)"
-              @blur="commitChildCount"
-            />
-            <button
-              type="button"
-              class="secondary"
-              :aria-label="t('common.children.add')"
-              :disabled="children.length >= maxChildren"
-              @click="setChildCount(children.length + 1)"
-            >
-              +
-            </button>
+      <section
+        class="party-section"
+        :aria-label="t('common.children.partyTitle')"
+      >
+        <div class="party-heading">
+          <div>
+            <h3>{{ t("common.children.partyTitle") }}</h3>
+            <p class="field-help">{{ t("common.children.youngerGuests") }}</p>
           </div>
-          <p :id="`${childCountId}-help`" class="field-help">
-            {{ t("common.children.partySizeHint") }}
-          </p>
-          <p v-if="childCountError" class="form-error" role="alert">
-            {{ childCountError }}
-          </p>
-          <p
-            v-if="Number(form.guests) <= children.length"
-            class="form-error"
-            role="alert"
-          >
-            {{ t("common.children.adultRequired") }}
-          </p>
-          <p class="field-help">{{ t("common.children.agePolicy") }}</p>
+          <span class="party-total" role="status">{{
+            t("common.children.total", { count: partyTotal ?? "—" })
+          }}</span>
         </div>
+        <p v-if="partyError" class="form-error" role="alert">
+          {{ partyError }}
+        </p>
         <div
           v-for="(child, index) in children"
-          :key="index"
-          class="child-birth-fields"
+          :key="child.id"
+          class="child-entry"
         >
-          <label
-            >{{ t("common.children.iin", { number: index + 1 })
-            }}<input
-              v-model="child.iin"
-              inputmode="numeric"
-              minlength="12"
-              maxlength="12"
-              pattern="[0-9]{12}"
-              autocomplete="off"
-              required
-          /></label>
-          <p class="field-help">
-            {{
-              t("common.children.age", { age: form.childrenAges[index] ?? "—" })
-            }}
-          </p>
+          <div class="child-heading">
+            <label :for="`${childInputPrefix}-${child.id}`">{{
+              t("common.children.iin", { number: index + 1 })
+            }}</label>
+            <button
+              type="button"
+              class="child-remove"
+              :aria-label="
+                t('common.children.removeNumber', { number: index + 1 })
+              "
+              :disabled="busy"
+              @click="removeChild(child.id)"
+            >
+              ×
+            </button>
+          </div>
+          <input
+            :id="`${childInputPrefix}-${child.id}`"
+            v-model="child.iin"
+            type="text"
+            inputmode="numeric"
+            minlength="12"
+            maxlength="12"
+            pattern="[0-9]{12}"
+            autocomplete="off"
+            autocapitalize="none"
+            :spellcheck="false"
+            :aria-invalid="!!childError(index)"
+            :aria-describedby="`${childInputPrefix}-${child.id}-result`"
+            :disabled="busy"
+            required
+          />
+          <div
+            :id="`${childInputPrefix}-${child.id}-result`"
+            aria-live="polite"
+          >
+            <p v-if="childPreviews[index]?.birth" class="child-age">
+              <span>{{ dateLabel(childPreviews[index].birth) }}</span>
+              <strong>{{ ageDescription(childPreviews[index]) }}</strong>
+            </p>
+            <p v-if="childError(index)" class="form-error">
+              {{ childError(index) }}
+            </p>
+            <p
+              v-else-if="childPreviews[index]?.status === 'incomplete'"
+              class="field-help"
+            >
+              {{ t("common.children.completeIin") }}
+            </p>
+          </div>
         </div>
-        <p v-if="children.length" class="field-help">
-          {{ t("common.children.hint") }}
+        <button
+          type="button"
+          class="add-child"
+          :disabled="busy || !canAddChild"
+          @click="addChild"
+        >
+          <span aria-hidden="true">＋</span>{{ t("common.children.add") }}
+        </button>
+        <p v-if="partyTotal === 4" class="field-help">
+          {{ t("common.children.maxParty") }}
         </p>
-      </fieldset>
+        <p
+          v-if="
+            children.length &&
+            (tariff?.childrenUnderTwoFree ?? tariff?.childrenUnderThreeFree)
+          "
+          class="child-benefit"
+        >
+          {{ t("common.children.underTwoFree") }}
+        </p>
+        <details v-if="children.length" class="child-help">
+          <summary>{{ t("common.children.howCalculated") }}</summary>
+          <p>{{ t("common.children.hint") }}</p>
+          <p>{{ t("common.children.agePolicy") }}</p>
+        </details>
+      </section>
       <label v-if="!staff"
         >{{ t("public.rate")
         }}<select v-model="form.tariffId" required>
@@ -431,12 +477,6 @@ async function save() {
       <p v-else-if="price" class="form-error" role="status">
         {{ t("common.settlement.notConfigured") }}
       </p>
-      <p
-        v-if="tariff?.childrenUnderTwoFree ?? tariff?.childrenUnderThreeFree"
-        class="field-help"
-      >
-        {{ t("common.pricing.freeUnderTwo") }}
-      </p>
       <details v-if="displayPrice" class="price-breakdown">
         <summary>{{ t("common.pricing.breakdown") }}</summary>
         <dl>
@@ -449,19 +489,20 @@ async function save() {
         </dl>
         <p class="field-help">{{ t("common.pricing.preview") }}</p>
       </details>
-      <p class="field-help">
-        {{ t("public.checkinFrom") }} {{ resort.checkInTime || "14:00" }} ·
-        {{ resort.timeZone || "Asia/Almaty"
-        }}{{ t("public.refunds100At48HoursOrMore70At2448HoursNone") }}
-      </p>
+      <details class="booking-conditions">
+        <summary>{{ t("common.children.stayConditions") }}</summary>
+        <p class="field-help">
+          {{ t("public.checkinFrom") }} {{ resort.checkInTime || "14:00" }} ·
+          {{ resort.timeZone || "Asia/Almaty"
+          }}{{ t("public.refunds100At48HoursOrMore70At2448HoursNone") }}
+        </p>
+      </details>
       <label class="consent"
         ><input v-model="consent" type="checkbox" required />
         {{
           isDemo
             ? t("public.thisIsADemoBookingWithNoRealCharge")
-            : t(
-                "public.sendTheRequestToTheManagerTheBookingRequiresConfirmationNothingIs",
-              )
+            : t("common.children.bookingAgreement")
         }}</label
       >
       <p v-if="error" role="alert" class="form-error">{{ error }}</p>
@@ -495,50 +536,235 @@ async function save() {
   >
 </template>
 <style scoped>
-.child-count-field {
+.booking-editor {
+  gap: 16px;
   min-width: 0;
 }
-.child-count-control {
+.booking-editor label {
+  font-size: 13px;
+  font-weight: 500;
+  gap: 6px;
+  min-width: 0;
+}
+.booking-editor input:not([type="checkbox"]),
+.booking-editor select {
+  font-size: 16px;
+  min-height: 44px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-width: 0;
+}
+.booking-editor .form-grid {
+  gap: 12px;
+}
+.booking-editor .booking-property {
+  gap: 12px;
+}
+.booking-editor .booking-property img {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+}
+.booking-editor .booking-property h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+.booking-editor .booking-property p {
+  margin: 3px 0 0;
+  font-size: 13px;
+}
+.booking-editor .field-help,
+.booking-editor .form-error {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.party-section {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  background: #f5f7f4;
+  border-radius: 14px;
+}
+.party-heading,
+.child-heading {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
+  justify-content: space-between;
+  gap: 10px;
 }
-.child-count-control button {
-  flex: 0 0 3rem;
-  min-width: 3rem;
-  min-height: 3rem;
+.party-heading h3 {
+  margin: 0 0 3px;
+  font-size: 15px;
+  font-weight: 600;
+}
+.party-total {
+  font-size: 13px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: #405a47;
+}
+.child-entry {
+  display: grid;
+  gap: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #dfe5de;
+}
+.child-heading label {
+  flex: 1;
+}
+.child-remove {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
   padding: 0;
-  font-size: 1.5rem;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: #58635b;
+  font-size: 24px;
+  font-weight: 400;
 }
-.child-count-control input {
-  width: 100%;
-  min-width: 0;
-  max-width: 8rem;
-  text-align: center;
+.add-child {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid #d5ded2;
+  border-radius: 10px;
+  background: #fff;
+  color: #35513e;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
 }
-.child-count-field .field-help {
-  margin-bottom: 0;
+.child-remove,
+.add-child {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    background-color 120ms ease-out,
+    transform 120ms ease-out;
+}
+.child-remove:active,
+.add-child:active {
+  transform: scale(0.98);
+  background: #e9eee6;
+}
+.add-child:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.child-age {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 8px;
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #647169;
+}
+.child-age strong {
+  font-weight: 500;
+  color: #35513e;
+}
+.child-benefit {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #35513e;
+}
+.child-help,
+.booking-conditions {
+  color: #617067;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.child-help summary,
+.booking-conditions summary {
+  min-height: 44px;
+  align-content: center;
+  cursor: pointer;
+}
+.child-help p {
+  margin: 6px 0 0;
+}
+.booking-editor .quote {
+  padding: 14px;
+  border-radius: 12px;
+  background: #f0f4ed;
+  flex-wrap: wrap;
+}
+.booking-editor .quote span {
+  font-size: 14px;
+}
+.booking-editor .quote small {
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 3px;
+}
+.booking-editor .quote strong {
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
 }
 .booking-settlement {
-  margin: 0;
-  padding: 0.875rem 1rem;
-  border: 1px solid #dbe3d8;
-  border-radius: 14px;
+  margin: -4px 0 0;
+  padding: 0 2px;
+  font-size: 13px;
 }
 .booking-settlement > div {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0.25rem 0;
+  gap: 12px;
+  padding: 4px 0;
 }
 .booking-settlement dt {
   color: #617067;
 }
 .booking-settlement dd {
   margin: 0;
-  font-weight: 700;
+  font-weight: 600;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.booking-editor .price-breakdown {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 13px;
+}
+.booking-editor .consent {
+  font-size: 13px;
+  line-height: 1.5;
+  gap: 10px;
+  align-items: flex-start;
+}
+.booking-editor .consent input {
+  margin-top: 1px;
+}
+.booking-editor .form-actions {
+  margin-top: 0;
+  padding-top: 8px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .child-remove,
+  .add-child {
+    transition: none;
+  }
+  .child-remove:active,
+  .add-child:active {
+    transform: none;
+  }
 }
 </style>

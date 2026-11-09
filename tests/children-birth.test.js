@@ -3,24 +3,75 @@ import assert from "node:assert/strict";
 import {
   ageAt,
   birthHint,
-  selectChildCount,
+  partySize,
+  childDatePreview,
+  monthsAt,
   roomForParty,
 } from "../src/features/create-booking/model/children.js";
-test("adding a child increases a one-person party while preserving an adult", () => {
-  assert.deepEqual(selectChildCount("1", 1, 4), { children: 1, guests: 2 });
-  assert.deepEqual(selectChildCount("2", 1, 4), { children: 2, guests: 3 });
-  assert.deepEqual(selectChildCount("1", 4, 4), { children: 1, guests: 4 });
+test("children add to older guests and cannot silently replace them", () => {
+  assert.equal(partySize(2, 0), 2);
+  assert.equal(partySize(2, 1), 3);
+  assert.equal(partySize(2, 2), 4);
+  assert.equal(partySize(1, 3), 4);
+  assert.equal(partySize(2, 3), null);
+  assert.equal(partySize(0, 1), null);
+  assert.equal(partySize("", 1), null);
+  assert.equal(partySize("1.5", 1), null);
 });
-test("child count preserves requested two children independently from room capacity", () => {
-  assert.equal(selectChildCount("", 2, 4), null);
-  assert.equal(selectChildCount("1.5", 2, 4), null);
-  assert.equal(selectChildCount("invalid", 2, 4), null);
-  assert.equal(selectChildCount("9", 2, 4), null);
-  assert.equal(selectChildCount("1", 1, 1), null);
-  assert.deepEqual(selectChildCount("2", 2), { children: 2, guests: 3 });
-  assert.deepEqual(selectChildCount("3", 2), { children: 3, guests: 4 });
-  assert.deepEqual(selectChildCount("0", 3, 4), { children: 0, guests: 3 });
+
+test("date preview appears after six digits while complete IIN remains required", () => {
+  const preview = childDatePreview("251212", "2026-11-17", "2026-11-10");
+  assert.deepEqual(preview, {
+    status: "incomplete",
+    birth: "2025-12-12",
+    age: 0,
+    months: 11,
+  });
+  assert.equal(
+    childDatePreview("251212000000", "2026-11-17", "2026-11-10").status,
+    "ready",
+  );
+  assert.equal(monthsAt("2025-12-12", "2026-11-11"), 10);
+  assert.equal(monthsAt("2025-12-12", "2026-11-12"), 11);
+  assert.equal(monthsAt("2026-11-10", "2026-11-10"), 0);
 });
+
+test("prefix validation distinguishes invalid dates, future births and age 14 at arrival", () => {
+  for (const prefix of ["230229", "241331", "240000"])
+    assert.equal(
+      childDatePreview(prefix, "2026-11-17", "2026-11-10").status,
+      "invalidBirthDate",
+    );
+  assert.equal(
+    childDatePreview("261111", "2026-11-17", "2026-11-10").status,
+    "futureBirthDate",
+  );
+  assert.equal(
+    childDatePreview("121117", "2026-11-17", "2026-11-10").status,
+    "overChildAge",
+  );
+  assert.equal(childDatePreview("121118", "2026-11-17", "2026-11-10").age, 13);
+  assert.equal(
+    childDatePreview("24110900000x", "2026-11-17", "2026-11-10").status,
+    "invalidIin",
+  );
+  assert.equal(
+    childDatePreview("241109", "", "2026-11-10").status,
+    "arrivalRequired",
+  );
+});
+
+test("leading zero and century rollover dates preserve YYMMDD meaning", () => {
+  assert.equal(
+    childDatePreview("000229000000", "2001-03-01", "2001-02-28").birth,
+    "2000-02-29",
+  );
+  assert.equal(
+    childDatePreview("991201000000", "2101-03-01", "2101-02-28").birth,
+    "2099-12-01",
+  );
+});
+
 test("larger room is selected without silently dropping children or changing the current class unnecessarily", () => {
   const small = {
     id: "small",
