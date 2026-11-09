@@ -45,7 +45,8 @@ const router = createRouter({
 router.beforeEach(async (to) => {
   if (
     !isStaffApp &&
-    (/^\/bookings(\/|$)/.test(to.path) ||
+    (to.meta.guest ||
+      /^\/bookings(\/|$)/.test(to.path) ||
       /^\/profile(\/|$)/.test(to.path) ||
       (isMobile && !isDemo && /^\/receipts(\/|$)/.test(to.path)))
   ) {

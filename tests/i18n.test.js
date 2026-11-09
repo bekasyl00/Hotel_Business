@@ -60,7 +60,7 @@ test("literal translation references resolve instead of showing raw keys", async
   for (const file of await walk("src")) {
     const text = await readFile(file, "utf8");
     for (const m of text.matchAll(
-      /\bt\(\s*['"]((?:auth|common|public|staff)\.[\w.]+)['"]/g,
+      /\bt\(\s*['"]((?:auth|common|public|staff|documents)\.[\w.]+)['"]/g,
     ))
       assert.ok(messages.ru[m[1]], `${file}: ${m[1]}`);
   }

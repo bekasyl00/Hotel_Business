@@ -4,6 +4,11 @@ export const publicRoutes = [
   { path: "/rooms/:id", component: () => import("@/pages/room-profile") },
   { path: "/bookings", component: () => import("@/pages/my-bookings") },
   { path: "/profile", component: () => import("@/pages/guest-profile") },
+  {
+    path: "/documents",
+    component: () => import("@/pages/guest-documents"),
+    meta: { guest: true },
+  },
   { path: "/receipts/:id", component: () => import("@/pages/receipt") },
   {
     path: "/account/login",

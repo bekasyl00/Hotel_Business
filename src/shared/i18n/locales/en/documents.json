@@ -1,0 +1,15 @@
+{
+  "title": "Documents",
+  "subtitle": "Invoices and service records for your completed stays.",
+  "backToProfile": "Profile",
+  "profileLinks": "Profile sections",
+  "fromProperty": "From your properties",
+  "refresh": "Refresh",
+  "loading": "Loading documents…",
+  "loadError": "Could not load documents. Check your connection and try again.",
+  "retry": "Try again",
+  "demo": "Documents are available on the site connected to the server. They are not issued in demo mode.",
+  "emptyTitle": "No documents yet",
+  "emptyHint": "They will appear here after check-out, once the property sends them to you.",
+  "ownerHint": "The booking owner receives documents for everyone on the booking."
+}

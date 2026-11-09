@@ -11,6 +11,9 @@ import enPublic from "./locales/en/public.json" with { type: "json" };
 import ruStaff from "./locales/ru/staff.json" with { type: "json" };
 import kkStaff from "./locales/kk/staff.json" with { type: "json" };
 import enStaff from "./locales/en/staff.json" with { type: "json" };
+import ruDocuments from "./locales/ru/documents.json" with { type: "json" };
+import kkDocuments from "./locales/kk/documents.json" with { type: "json" };
+import enDocuments from "./locales/en/documents.json" with { type: "json" };
 
 export const languages = [
   { value: "ru", label: "Русский" },
@@ -31,9 +34,27 @@ export const i18n = createI18n({
   locale: initialLocale(),
   fallbackLocale: "ru",
   messages: {
-    ru: { common: ruCommon, auth: ruAuth, public: ruPublic, staff: ruStaff },
-    kk: { common: kkCommon, auth: kkAuth, public: kkPublic, staff: kkStaff },
-    en: { common: enCommon, auth: enAuth, public: enPublic, staff: enStaff },
+    ru: {
+      common: ruCommon,
+      auth: ruAuth,
+      public: ruPublic,
+      staff: ruStaff,
+      documents: ruDocuments,
+    },
+    kk: {
+      common: kkCommon,
+      auth: kkAuth,
+      public: kkPublic,
+      staff: kkStaff,
+      documents: kkDocuments,
+    },
+    en: {
+      common: enCommon,
+      auth: enAuth,
+      public: enPublic,
+      staff: enStaff,
+      documents: enDocuments,
+    },
   },
 });
 export const t = (...args) => i18n.global.t(...args);

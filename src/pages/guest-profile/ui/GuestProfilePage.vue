@@ -3,7 +3,6 @@ import { reactive, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { PublicHeader } from "@/widgets/public-header";
-import { GuestDocuments } from "@/widgets/guest-documents";
 import { GuestBookingHistory } from "@/widgets/guest-booking-history";
 import { useGuestAccountStore } from "@/entities/guest-account";
 import { useBookingStore } from "@/entities/booking";
@@ -122,9 +121,26 @@ onMounted(load);
           <h1>{{ t("auth.profile") }}</h1>
           <p>{{ t("auth.profileSubtitle") }}</p>
         </div>
-        <RouterLink class="secondary button-link" to="/bookings">{{
-          t("auth.bookings")
-        }}</RouterLink>
+        <nav
+          class="profile-shortcuts"
+          :aria-label="t('documents.profileLinks')"
+        >
+          <RouterLink class="secondary button-link" to="/bookings">{{
+            t("auth.bookings")
+          }}</RouterLink>
+          <RouterLink class="secondary button-link" to="/documents">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              aria-hidden="true"
+            >
+              <path d="M14 3H5v18h14V8Zm0 0v5h5M8 12h8M8 16h6" />
+            </svg>
+            {{ t("documents.title") }}
+          </RouterLink>
+        </nav>
       </header>
       <div v-if="loading" class="profile-feedback" role="status">
         {{ t("auth.loading") }}
@@ -303,13 +319,29 @@ onMounted(load);
             <p class="field-help">
               {{ t("auth.historyCount", { count: data.bookings.length }) }}
             </p>
-            <GuestBookingHistory :bookings="data.bookings" /><GuestDocuments />
+            <GuestBookingHistory :bookings="data.bookings" />
           </section></div
       ></template>
     </main>
   </div>
 </template>
 <style scoped>
+.profile-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.profile-shortcuts a {
+  min-height: 44px;
+  padding: 10px 14px;
+  gap: 7px;
+  font-size: 14px;
+}
+.profile-shortcuts svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+}
 .guest-avatar-panel {
   display: flex;
   flex-direction: column;

@@ -23,7 +23,7 @@ const returnTo = computed(() => {
   const value = route.query.next;
   if (
     typeof value !== "string" ||
-    !/^\/(rooms\/[^/?#]+|bookings|profile)([?#]|$)/.test(value) ||
+    !/^\/(rooms\/[^/?#]+|bookings|profile|documents)([?#]|$)/.test(value) ||
     /[\\\x00-\x1f]/.test(value)
   )
     return "/profile";
