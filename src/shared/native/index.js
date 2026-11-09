@@ -1,6 +1,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 
 export const isNative = () => Capacitor.isNativePlatform();
+export const nativePlatform = () => Capacitor.getPlatform();
 const session = registerPlugin("TynysKeychain");
 export const nativeVault = {
   async read() {

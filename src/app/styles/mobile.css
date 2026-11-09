@@ -1,15 +1,31 @@
 .mobile-app {
+  --mobile-safe-area-top: var(
+    --safe-area-inset-top,
+    env(safe-area-inset-top, 0px)
+  );
+  --mobile-safe-area-right: var(
+    --safe-area-inset-right,
+    env(safe-area-inset-right, 0px)
+  );
+  --mobile-safe-area-bottom: var(
+    --safe-area-inset-bottom,
+    env(safe-area-inset-bottom, 0px)
+  );
+  --mobile-safe-area-left: var(
+    --safe-area-inset-left,
+    env(safe-area-inset-left, 0px)
+  );
   background: var(--cream);
   -webkit-text-size-adjust: 100%;
 }
 .mobile-app body {
-  padding-top: env(safe-area-inset-top);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+  padding-top: var(--mobile-safe-area-top);
+  padding-left: var(--mobile-safe-area-left);
+  padding-right: var(--mobile-safe-area-right);
 }
 .mobile-app .public-site {
-  min-height: calc(100dvh - env(safe-area-inset-top));
-  padding-bottom: calc(78px + env(safe-area-inset-bottom));
+  min-height: calc(100dvh - var(--mobile-safe-area-top));
+  padding-bottom: calc(78px + var(--mobile-safe-area-bottom));
 }
 .mobile-app .public-header-top {
   padding: 14px 20px;
@@ -47,8 +63,9 @@
   border-top: 1px solid var(--line);
   background: #fffffff5;
   backdrop-filter: blur(18px);
-  padding: 8px max(10px, env(safe-area-inset-right))
-    calc(8px + env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  padding: 8px max(10px, var(--mobile-safe-area-right))
+    calc(8px + var(--mobile-safe-area-bottom))
+    max(10px, var(--mobile-safe-area-left));
 }
 .mobile-tabs a {
   min-width: 86px;
@@ -72,20 +89,20 @@
   height: 23px;
 }
 .mobile-app .floating-map-button {
-  bottom: calc(88px + env(safe-area-inset-bottom));
+  bottom: calc(88px + var(--mobile-safe-area-bottom));
 }
 .mobile-app .floating-map-dialog {
   max-height: calc(
-    100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px
+    100dvh - var(--mobile-safe-area-top) - var(--mobile-safe-area-bottom) - 24px
   );
 }
 .mobile-app .route-recovery {
-  bottom: calc(80px + env(safe-area-inset-bottom));
+  bottom: calc(80px + var(--mobile-safe-area-bottom));
 }
 .mobile-offline {
   position: fixed;
   z-index: 1001;
-  top: env(safe-area-inset-top);
+  top: var(--mobile-safe-area-top);
   inset-inline: 12px;
   padding: 12px 16px;
   background: #fff5df;
@@ -109,7 +126,7 @@
 .mobile-staff-app .staff-layout {
   display: block;
   min-height: 100dvh;
-  padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  padding-bottom: calc(84px + var(--mobile-safe-area-bottom));
 }
 .mobile-staff-app .staff-content {
   margin: 0;
@@ -130,7 +147,7 @@
 }
 .mobile-staff-app .login-page {
   display: block;
-  min-height: calc(100dvh - env(safe-area-inset-top));
+  min-height: calc(100dvh - var(--mobile-safe-area-top));
 }
 .mobile-staff-app .login-panel {
   min-height: inherit;
@@ -230,12 +247,14 @@
 }
 
 .mobile-app .floating-map-dialog {
-  inset: env(safe-area-inset-top) 0 auto;
+  inset: var(--mobile-safe-area-top) 0 auto;
   margin: 0 auto;
   width: 100%;
-  height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  height: calc(
+    100dvh - var(--mobile-safe-area-top) - var(--mobile-safe-area-bottom)
+  );
   max-height: calc(
-    100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom)
+    100dvh - var(--mobile-safe-area-top) - var(--mobile-safe-area-bottom)
   );
   border-radius: 18px;
 }
@@ -265,7 +284,7 @@
   position: fixed;
   z-index: 2000;
   inset: 0 0 auto;
-  height: env(safe-area-inset-top);
+  height: var(--mobile-safe-area-top);
   background: var(--cream);
   pointer-events: none;
 }

@@ -33,7 +33,17 @@
     "ios:staff:sync": "npm run build:mobile:staff && TYNYS_MOBILE_APP=staff cap sync ios",
     "ios:staff:open": "TYNYS_MOBILE_APP=staff cap open ios",
     "ios:staff:run": "npm run ios:staff:sync && TYNYS_MOBILE_APP=staff cap run ios",
-    "ios:staff:check": "node scripts/check-ios.mjs staff"
+    "ios:staff:check": "node scripts/check-ios.mjs staff",
+    "android:release:sync": "npm run build:mobile:release && TYNYS_MOBILE_APP=guest cap sync android",
+    "android:staff:release:sync": "npm run build:mobile:staff:release && TYNYS_MOBILE_APP=staff cap sync android",
+    "android:apk": "npm run android:release:sync && node scripts/build-android.mjs guest",
+    "android:staff:apk": "npm run android:staff:release:sync && node scripts/build-android.mjs staff",
+    "android:apks": "npm run android:apk && npm run android:staff:apk",
+    "android:open": "TYNYS_MOBILE_APP=guest cap open android",
+    "android:staff:open": "TYNYS_MOBILE_APP=staff cap open android",
+    "android:signing:init": "node scripts/android-signing.mjs",
+    "android:test": "cd android && ./gradlew :app:testDebugUnitTest :app:connectedDebugAndroidTest --console=plain --max-workers=2",
+    "android:staff:test": "cd android-staff && ./gradlew :app:testDebugUnitTest :app:connectedDebugAndroidTest --console=plain --max-workers=2"
   },
   "repository": {
     "type": "git",
@@ -47,6 +57,7 @@
   },
   "homepage": "https://github.com/bekasyl00/Hotel_Business#readme",
   "dependencies": {
+    "@capacitor/android": "8.5.3",
     "@capacitor/core": "8.5.3",
     "@capacitor/filesystem": "8.1.5",
     "@capacitor/ios": "8.5.3",

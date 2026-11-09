@@ -13,7 +13,7 @@ import { PublicHeader } from "@/widgets/public-header";
 import { useGuestAccountStore } from "@/entities/guest-account";
 import { useBookingStore } from "@/entities/booking";
 import { request } from "@/shared/api";
-import { isDemo, isMobile } from "@/shared/config";
+import { isDemo, isMobile, publicUrl } from "@/shared/config";
 const { t } = useI18n(),
   route = useRoute(),
   router = useRouter(),
@@ -44,6 +44,22 @@ const action = computed(() => route.meta.authAction || "login"),
     ),
   );
 const webOnly = computed(() => isMobile && !isDemo && action.value !== "login");
+const webAuthUrl = computed(() => {
+  if (!["register", "reset"].includes(action.value)) return "";
+  try {
+    const website = new URL(publicUrl);
+    if (website.protocol !== "https:" || website.username || website.password)
+      return "";
+    const path =
+      action.value === "reset"
+        ? "/account/reset-password"
+        : "/account/register";
+    // Only a fixed route leaves the app; never forward native return paths or credentials.
+    return new URL(path, website.origin).href;
+  } catch {
+    return "";
+  }
+});
 const configurationReady = ref(isDemo || account.ready);
 const registrationMode = computed(
   () =>
@@ -205,9 +221,33 @@ async function submit() {
         <p class="muted">{{ t("auth.subtitle") }}</p>
         <p v-if="isDemo" class="demo-note">{{ t("auth.demoNotice") }}</p>
         <p v-if="isDemo" class="field-help">{{ t("auth.demoLocal") }}</p>
-        <p v-if="webOnly" class="profile-feedback" role="status">
-          {{ t("common.mobile.webAuth") }}
-        </p>
+        <div v-if="webOnly" class="web-auth-handoff">
+          <p class="profile-feedback" role="status">
+            {{ t("common.mobile.webAuth") }}
+          </p>
+          <a
+            v-if="webAuthUrl"
+            :href="webAuthUrl"
+            class="primary web-auth-link"
+            rel="noreferrer noopener"
+            referrerpolicy="no-referrer"
+            aria-describedby="web-auth-return"
+          >
+            {{
+              t(
+                action === "reset"
+                  ? "common.mobile.webAuthReset"
+                  : "common.mobile.webAuthRegister",
+              )
+            }}
+          </a>
+          <p v-else class="form-error" role="alert">
+            {{ t("common.mobile.webAuthUnavailable") }}
+          </p>
+          <p id="web-auth-return" class="field-help">
+            {{ t("common.mobile.webAuthReturn") }}
+          </p>
+        </div>
         <p v-else-if="resetUnavailable" class="profile-feedback" role="status">
           {{ t("auth.resetUnavailable") }}
         </p>
@@ -367,7 +407,9 @@ async function submit() {
           ><RouterLink
             v-if="action !== 'login'"
             :to="authLink('/account/login')"
-            >{{ t("auth.signIn") }}</RouterLink
+            >{{
+              t(webOnly ? "common.mobile.webAuthLogin" : "auth.signIn")
+            }}</RouterLink
           >
         </nav>
       </section>
@@ -392,6 +434,19 @@ async function submit() {
 .guest-auth-card h1 {
   font-size: 32px;
   line-height: 1.2;
+}
+.web-auth-handoff {
+  display: grid;
+  gap: 16px;
+}
+.web-auth-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 14px 20px;
+  text-align: center;
+  text-decoration: none;
 }
 .guest-auth-links {
   display: flex;

@@ -9,6 +9,13 @@ const config: CapacitorConfig = {
   appName: staff ? "Тыныс Команда" : "Тыныс",
   webDir: staff ? "dist/mobile-staff" : "dist/mobile",
   backgroundColor: "#f8f9f5",
+  server: { errorPath: "native-update.html" },
+  android: {
+    path: staff ? "android-staff" : "android",
+    allowMixedContent: false,
+    webContentsDebuggingEnabled: false,
+    minWebViewVersion: 107,
+  },
   ios: {
     path: staff ? "ios-staff" : "ios",
     contentInset: "never",

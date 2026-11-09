@@ -11,6 +11,12 @@ const staff = variant === "staff";
 assert.equal(config.webDir, staff ? "dist/mobile-staff" : "dist/mobile");
 assert.equal(config.appId, staff ? "kz.tynys.staff" : "kz.tynys.booking");
 assert.equal(config.ios.path, staff ? "ios-staff" : "ios");
+assert.equal(config.android.path, staff ? "android-staff" : "android");
+assert.equal(config.android.allowMixedContent, false);
+assert.equal(config.android.webContentsDebuggingEnabled, false);
+assert.equal(config.android.minWebViewVersion, 107);
+assert.equal(config.server?.errorPath, "native-update.html");
+assert.ok((await readFile(`${config.webDir}/native-update.html`, "utf8")).includes("Android System WebView"));
 assert.equal(
   config.ios.scrollEnabled,
   true,

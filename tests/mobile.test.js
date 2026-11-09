@@ -15,7 +15,7 @@ const response = (data, status = 200) =>
     status,
     headers: { "Content-Type": "application/json" },
   });
-function setup(handler, initial = null, audience = "guest") {
+function setup(handler, initial = null, audience = "guest", platform) {
   let saved = initial,
     time = 1000000;
   const calls = [];
@@ -31,6 +31,7 @@ function setup(handler, initial = null, audience = "guest") {
   const client = createMobileClient({
     base,
     audience,
+    platform,
     vault,
     now: () => time,
     fetcher: async (url, init) => {
@@ -236,4 +237,35 @@ test("staff app uses separate auth endpoints and credential audience", async () 
     false,
   );
   assert.equal(guest.stored(), null);
+});
+
+test("native login labels the actual platform for both audiences, ignoring a body override", async () => {
+  for (const audience of ["guest", "staff"]) {
+    for (const [platform, suffix] of [
+      ["android", " · Android"],
+      ["ios", " · iOS"],
+      [undefined, ""],
+      ["web", ""],
+    ]) {
+      const x = setup(
+        () => response({ ...tokens(), user: { id: "staff" } }),
+        null,
+        audience,
+        platform,
+      );
+      await x.client.request(
+        "POST",
+        audience === "staff" ? "/auth/login" : "/guest-auth/login",
+        {
+          phone: "+77000000001",
+          password: "fictional-password",
+          deviceName: "wrong platform",
+        },
+      );
+      assert.equal(
+        JSON.parse(x.calls[0].body).deviceName,
+        `${audience === "staff" ? "Тыныс Команда" : "Тыныс"}${suffix}`,
+      );
+    }
+  }
 });

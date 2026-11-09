@@ -391,3 +391,17 @@ Staff deployment `dpl_GiLCYfZyyZe1g6RckfkrvdMB7Vy3` — **READY**, alias https:/
 На опубликованном staff выполнен вход существующим QA admin через сервер: план загрузил записи, глобальная кнопка сканирования присутствует, «Цена для всего класса» загрузила два существующих номера «Стандарт», профиль/реквизиты сотрудника доступны. Проверены 1440 и 390 px; на мобильной ширине scrollWidth=viewport=390, console errors отсутствуют. Скриншоты: `output/staff-api-restored-desktop.png`, `output/staff-api-restored-mobile.png`. Деловые записи не менялись, проверочная сессия завершена. Native-приложения и backend не переопубликованы; данные из локального demo не переносились в общую БД.
 
 GitHub main/codex refs подтверждены на 6a9ca34. Public Git deployment `vercel-site-cbmkbebdr-bekasyl00s-projects.vercel.app` — READY для того же commit. [CI main](https://github.com/bekasyl00/Hotel_Business/actions/runs/42672407792): backend job прошёл, verify job не запустился из-за GitHub `Internal server error` (correlation 04f4587d-f4fc-4a02-ba7a-18694365e6c5). Это инфраструктурный отказ, не успешный полный CI; локальные frontend/build проверки перечислены выше.
+
+
+## 10.11.2026 — Android APK: локальная приёмка
+
+- Подготовлены две release APK 1.1 (3): kz.tynys.booking и kz.tynys.staff. minSdk 24, target/compile SDK 36, отдельные подписи, bundled API assets, без server.url/demo transport/debuggable. apksigner verify, package/version/target и SHA-256 проверены. Секретные ключи, .env и платежные credentials в APK/новом staged source не обнаружены.
+- 170 frontend tests, FSD 149 файлов/386 импортов, build, build:surfaces, API native builds и arch:check проходят. Изменений backend нет; Django suite повторно не запускался.
+- AndroidKeyStore instrumentation: guest 8/8 и staff 8/8 на отдельном AOSP Android 11/API30 эмуляторе. Проверены ciphertext-only хранение, восстановление после пересоздания, свежий IV, UTF-8 лимит, атомарная запись, повреждение/утрата ключа и изоляция namespace. XML results: оба failures=0/errors=0.
+- Первый прогон Android17/API37 также завершил 8 vault tests; упал только оставшийся в шаблоне Capacitor ExampleInstrumentedTest с чужим package ID. Шаблонные тесты удалены; повторный прогон API37 завис на установке. Чистая приёмка обеих аудиторий выполнена на API30.
+- Финальные release APK установлены на новый TynysAndroidQA AVD, обе MainActivity вернули Status: ok, процессы сохранились после старта. В его образе WebView83, поэтому действует minimum-version guard и локальная страница обновления; это не полный native UI/API smoke на современном WebView.
+- Browser preview отдельно: клиентский каталог и переходы Брони/Профиль к авторизации, staff вход/план размещения — 390×844 и 1280×900. Проверялся явно обозначенный demo transport только для UI; устанавливаемые APK используют API. Окно standalone Android Emulator недоступно через текущий CUA-инвентарь, поэтому интерактивный native UI не объявляется проверенным.
+- Физический Android, камера, загрузка/передача PDF, банковский переход/возврат и сквозная оплата остаются отдельной приёмкой. Платежи не создавались; iPhone не обновлялся. Google Play отложен владельцем, выбран бесплатный APK-доступ.
+- Локальное evidence: output/android-instrumentation-results.json, output/android-launch-api30.json, output/android-verification.json и android-*.log.
+- guest APK: 4133610 bytes; SHA-256 `f30df07079144cab40df194b58ef96720ac6a102b732b109b00311474412b900`.
+- staff APK: 4206093 bytes; SHA-256 `b85ff94bf7561ae4b09cbfcf60358a9372314b96c7f7e39b3d04516c8c1bea88`.

@@ -2,6 +2,7 @@
 export function createMobileClient({
   base,
   audience = "guest",
+  platform,
   vault,
   fetcher = fetch,
   now = Date.now,
@@ -10,6 +11,10 @@ export function createMobileClient({
 }) {
   if (!["guest", "staff"].includes(audience))
     throw new Error("Invalid native audience");
+  const appName = audience === "staff" ? "Тыныс Команда" : "Тыныс";
+  const platformName =
+    platform === "android" ? "Android" : platform === "ios" ? "iOS" : null;
+  const deviceName = platformName ? `${appName} · ${platformName}` : appName;
   const auth = audience === "staff" ? "/auth" : "/guest-auth";
   const nativeAuth =
     audience === "staff" ? "/staff-mobile-auth" : "/mobile-auth";
@@ -182,10 +187,7 @@ export function createMobileClient({
           const result = await json(
             await raw("POST", `${nativeAuth}/login`, {
               ...body,
-              deviceName:
-                audience === "staff"
-                  ? "Тыныс Команда · iPhone"
-                  : "Тыныс · iPhone",
+              deviceName,
             }),
           );
           await persist(result);

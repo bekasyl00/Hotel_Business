@@ -1,0 +1,42 @@
+// Shared by the independently installed guest and staff apps.
+def nativeRoot = new File(rootProject.projectDir.parentFile, 'native/android')
+def audience = project.android.namespace == 'kz.tynys.staff' ? 'staff' : 'guest'
+def signingFile = new File(nativeRoot, "signing/${audience}.properties")
+def signing = new Properties()
+if (signingFile.isFile()) {
+    signingFile.withReader('UTF-8') { signing.load(it) }
+    ['storeFile', 'storePassword', 'keyAlias', 'keyPassword'].each {
+        if (!signing.getProperty(it)) throw new GradleException('Incomplete local Android signing configuration')
+    }
+}
+
+android {
+    defaultConfig {
+        versionCode 3
+        versionName '1.1'
+    }
+    sourceSets {
+        main.java.srcDirs += new File(nativeRoot, 'src/main/java')
+        androidTest.java.srcDirs += new File(nativeRoot, 'src/androidTest/java')
+    }
+    if (signingFile.isFile()) {
+        signingConfigs {
+            distribution {
+                storeFile new File(signing.getProperty('storeFile'))
+                storePassword signing.getProperty('storePassword')
+                keyAlias signing.getProperty('keyAlias')
+                keyPassword signing.getProperty('keyPassword')
+            }
+        }
+        buildTypes.release.signingConfig signingConfigs.distribution
+    }
+}
+
+tasks.register('requireDistributionSigning') {
+    doLast {
+        if (!signingFile.isFile()) throw new GradleException('Create the private Android distribution key before a release build')
+    }
+}
+tasks.matching { it.name == 'preReleaseBuild' }.configureEach {
+    dependsOn 'requireDistributionSigning'
+}

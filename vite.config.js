@@ -71,7 +71,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
-      target: surface.startsWith("mobile") ? "safari16" : undefined,
+      target: surface.startsWith("mobile") ? ["safari16", "chrome107"] : undefined,
       outDir: surface.startsWith("mobile")
         ? `dist/${surface}`
         : surface === "staff"

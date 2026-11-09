@@ -1,15 +1,21 @@
 import { createMobileClient } from "@/shared/api/mobile-client.js";
 import { ApiError, configureFileTransport } from "@/shared/api";
-import { nativeVault, isNative, nativeSessionNotice } from "@/shared/native";
+import {
+  nativeVault,
+  isNative,
+  nativePlatform,
+  nativeSessionNotice,
+} from "@/shared/native";
 import { getLocale } from "@/shared/i18n";
 
 export function createMobileTransport(base, audience = "guest") {
   // A preview in a normal browser must never silently persist native credentials.
   if (!isNative())
-    throw new Error("Native API mode requires the installed iOS app");
+    throw new Error("Native API mode requires an installed mobile app");
   const client = createMobileClient({
     base,
     audience,
+    platform: nativePlatform(),
     vault: nativeVault,
     locale: getLocale,
     onLocalLogout: () => {

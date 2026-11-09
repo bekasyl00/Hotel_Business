@@ -30,3 +30,6 @@ ios-staff/**/xcuserdata/
 ios-staff/**/.build/
 ios-staff/**/DerivedData/
 ios-staff/**/build/
+*.jks
+*.keystore
+native/android/signing/
