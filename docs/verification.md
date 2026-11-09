@@ -405,3 +405,8 @@ GitHub main/codex refs подтверждены на 6a9ca34. Public Git deploym
 - Локальное evidence: output/android-instrumentation-results.json, output/android-launch-api30.json, output/android-verification.json и android-*.log.
 - guest APK: 4133610 bytes; SHA-256 `f30df07079144cab40df194b58ef96720ac6a102b732b109b00311474412b900`.
 - staff APK: 4206093 bytes; SHA-256 `b85ff94bf7561ae4b09cbfcf60358a9372314b96c7f7e39b3d04516c8c1bea88`.
+
+
+### Публикация Android APK
+
+Source commit c5f46eb6e0f46d8db0386def3d8ce5ced9cd41d8 опубликован в GitHub main и codex/platform-foundation. [GitHub prerelease android-v1.1.3](https://github.com/bekasyl00/Hotel_Business/releases/tag/android-v1.1.3) публичен (isDraft=false), содержит две APK и два SHA256-файла. Обе прямые ссылки скачаны без GitHub credentials: HTTP200, размеры и SHA-256 полностью совпадают с локальными артефактами выше. Evidence: output/android-public-download-verification.json. Это бесплатная раздача APK, не публикация Google Play; native iPhone и Vercel deployments не обновлялись.
