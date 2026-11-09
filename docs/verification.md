@@ -446,3 +446,11 @@ Source commit c5f46eb6e0f46d8db0386def3d8ce5ced9cd41d8 опубликован в
 - 192 frontend tests, FSD153/406, build, build:surfaces, build:release, arch:check прошли. 374 backend tests на отдельном PostgreSQL17 прошли за85.6с; migration drift — No changes detected. Тесты включают выдачу после выезда и скачивание PDF/XLSX владельцем через browser/native, отказ чужому/неактивному/анонимному аккаунту, read-only контакты основного гостя и неизменность выданного документа.
 - Кнопка профиля открыла /documents в настоящем локальном API-сеансе. Состояние пустого списка и обновление страницы проверены в браузере при ширине390/825px; горизонтального переполнения нет. Снимок output/guest-documents-mobile.png.
 - APK1.1(5) собраны для kz.tynys.booking/kz.tynys.staff, target36, release mode, native API https://tynys-api.vercel.app/api/v1; server.url отсутствует, подписи совпадают с1.1(4). SHA256: guest ef38a1aa8d79e2fdb985d0cb16505af78621e52b0595aa2b5ba9e43595127c45; staff ac2a88338332b304bd82981b5b3b6cbede614dda67d9eda9f18511f2eacfe4d4. Проверка физического Android остаётся за владельцем. Публикация ниже фиксируется отдельно от локальной сборки.
+
+### Публикация 1.1 (5)
+
+- GitHub main обновлён fast-forward до7271e6d, release target7271e6d7c5bad5f5df7e7af83ff6583ab55d1fe6. [APK1.1(5)](https://github.com/bekasyl00/Hotel_Business/releases/tag/android-v1.1.5) доступны анонимно с HTTP200; обе контрольные суммы совпали с локальными проверенными файлами (output/android-release5-public-verification.json).
+- Vercel site: `dpl_LzT5BTA9dZKikj5iBUwRPr1WUPZL`, READY, https://vercel-site-puce-two.vercel.app.
+- Vercel staff: `dpl_76aLZvpNKJ62J6ZNU3YYh2wo9ncj`, READY, https://tynys-staff.vercel.app.
+- Vercel api: `dpl_B8AcsW6brL5PXwKuaFfK37DWgn8d`, READY, https://tynys-api.vercel.app.
+- Постоянные public/staff адреса возвращают HTML и входные JS/CSS, побайтно совпадающие с выбранными release artifacts; оба /api/auth/csrf proxy отвечают200. API /health/live и /health/ready —200, анонимные /api/my-documents и /api/v1/my-documents —401. Live-проверка не создавала оплат, выездов или документов. Evidence: output/mobile-refine-live-verification.json и output/mobile-refine-api-health.json.
