@@ -13,8 +13,13 @@
 ### Отчёт исполнителя
 
 - Ветка: `codex/t001-bed-inventory-notifications` (от `codex/platform-foundation`).
-- Коммит реализации: `64d2921`.
-- Статус деплоя: локальная реализация и верификация завершены; облачный деплой и пересборка мобильных пакетов не выполнялись (по условию T001).
+- Коммиты реализации: `64d2921`, `78c28be`, `cf8004e`.
+- Статус деплоя:
+  - **GitHub**: отправлено в `origin/codex/t001-bed-inventory-notifications`, `origin/codex/platform-foundation` и `origin/main`.
+  - **Supabase (`tynys_stage`)**: применены миграции `booking.0018`–`0020`; `verify_bed_inventory` выполнен (`roomsTotal: 36, placesTotal: 108, bookingsTotal: 16`, 0 расхождений/конфликтов).
+  - **Vercel API (`tynys-api`)**: `VmjJgpTQ3ShAm5XLBSPYnaREE3vY` (`https://tynys-akb77ohhd-bekasyl00s-projects.vercel.app` → `https://tynys-api.vercel.app`, READY).
+  - **Vercel Public (`vercel-site`)**: `9GQvxSiMsQZLCo7qN5HopFfwqiZz` (`https://vercel-site-egnwg8kxg-bekasyl00s-projects.vercel.app` → `https://vercel-site-puce-two.vercel.app`, READY).
+  - **Vercel Staff (`tynys-staff`)**: `Esce6h4FivPUpGo1cYpqvCxNqzgo` (`https://tynys-staff-gmal2x239-bekasyl00s-projects.vercel.app` → `https://tynys-staff.vercel.app`, READY).
 - Статус этапов:
   - [x] A. Модель и миграция инвентаря (`RoomPlace`, `BookingAllocation`, staged migrations `0018`–`0020`, `verify_bed_inventory`)
   - [x] B. Бронь, цена, платежи, документы (`placeIds`, автоподбор свободных мест по `position`, синхронизация статусов при hold expiry/оплате/отмене, сохранение `pricingVersion=4`, `paymentTerms`, `OnsiteSettlement`, ваучеров, QR-приёма и `DocumentGuestRoster`)
