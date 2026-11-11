@@ -12,6 +12,6 @@ When the owner writes «Далее», «Следующее задание» or �
 4. Routine technical choices follow existing project conventions. Record assumptions. If a missing business decision or credential prevents safe progress, mark the affected stage BLOCKED with one specific question and continue independent stages.
 5. Never invent payment events, guest identities, successful deployment or test results. Never expose .env files, signing keys or real guest data. Do not send money, issue refunds or change provider access merely to test.
 6. At completion record changed modules, migrations, commands/results, unresolved risks, deployment status and commit in the task report. Update architecture/contracts/decisions when implementation changes them.
-7. Use an implementation branch from the verified current project head; preserve uncommitted changes. Commit scoped work. Deployment or native installation requires an explicit task instruction; readiness is not deployment.
+7. Use an implementation branch from the verified current project head; preserve uncommitted changes. Commit scoped work. Upon completion of each task, automatically push changes to GitHub (`main` / `codex/platform-foundation` and the task branch) and deploy affected services to Vercel (`tynys-api`, `vercel-site`, `tynys-staff`, running cloud database migrations first when schema changes are present). Native mobile app rebuild/installation still requires an explicit instruction.
 
 If there is no READY task, report that the queue is empty. Do not invent new features.
