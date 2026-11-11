@@ -13,6 +13,8 @@
 ### Отчёт исполнителя
 
 - Ветка: `codex/t001-bed-inventory-notifications` (от `codex/platform-foundation`).
+- Коммит реализации: `64d2921`.
+- Статус деплоя: локальная реализация и верификация завершены; облачный деплой и пересборка мобильных пакетов не выполнялись (по условию T001).
 - Статус этапов:
   - [x] A. Модель и миграция инвентаря (`RoomPlace`, `BookingAllocation`, staged migrations `0018`–`0020`, `verify_bed_inventory`)
   - [x] B. Бронь, цена, платежи, документы (`placeIds`, автоподбор свободных мест по `position`, синхронизация статусов при hold expiry/оплате/отмене, сохранение `pricingVersion=4`, `paymentTerms`, `OnsiteSettlement`, ваучеров, QR-приёма и `DocumentGuestRoster`)
