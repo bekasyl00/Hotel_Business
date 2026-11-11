@@ -99,7 +99,7 @@ test("discount and checkin survive later catalogue changes", async () => {
     discountPercent: 15,
   });
   const b = await api("POST", "/my-bookings", booking());
-  assert.equal(b.total, 84150);
+  assert.equal(b.total, 145350);
   assert.equal(b.cancellationPolicy.checkInTime, "16:30");
   workspace = await api("GET", "/workspace");
   await api("PATCH", `/resorts/${resort.id}`, {
@@ -143,7 +143,7 @@ test("payment confirms pending automatically; retry is idempotent and cancellati
     status: "cancelled",
   });
   const preview = await api("GET", `/cancellation-preview/${b.id}`);
-  assert.equal(preview.refundAmount, 9900);
+  assert.equal(preview.refundAmount, 17100);
   assert.equal(preview.finalized, true);
   assert.equal((await api("POST", "/payments/demo", pay)).status, "refunded");
 });
@@ -460,13 +460,13 @@ test("admin commission setting is frozen for each order and protected from manag
   const stored = (await api("GET", "/workspace")).bookings.find(
     (x) => x.id === b.id,
   );
-  assert.equal(stored.commissionTerms.amount, 7178);
-  assert.equal(stored.commissionTerms.resortAmount, 99000);
+  assert.equal(stored.commissionTerms.amount, 12398);
+  assert.equal(stored.commissionTerms.resortAmount, 171000);
   assert.equal(stored.commissionTerms.percent, "7.25");
   assert.equal(stored.commissionTerms.basis, "accommodation_markup");
-  assert.equal(stored.paymentTerms.onlineAmount, 7178);
-  assert.equal(stored.paymentTerms.total, 106178);
-  assert.equal(stored.paymentTerms.onsiteAmount, 99000);
+  assert.equal(stored.paymentTerms.onlineAmount, 12398);
+  assert.equal(stored.paymentTerms.total, 183398);
+  assert.equal(stored.paymentTerms.onsiteAmount, 171000);
   assert.equal(
     "commissionPercent" in (await api("GET", "/catalog")).resorts[0],
     false,

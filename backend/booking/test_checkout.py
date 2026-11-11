@@ -5,6 +5,7 @@ from unittest.mock import patch
 from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
+from psycopg.types.range import Range
 from rest_framework.test import APIClient
 
 from commerce.models import DemoPayment
@@ -55,6 +56,26 @@ class CheckoutTests(TestCase):
                 "requestId": request_id or str(uuid.uuid4()),
             },
         )
+
+    def test_scheduler_completes_due_paid_stay_idempotently(self):
+        from unittest.mock import patch
+
+        booking = self.create()
+        booking.status = "confirmed"
+        booking.stay = Range(
+            timezone.localdate() - timedelta(days=2), timezone.localdate() - timedelta(days=1), "[)"
+        )
+        booking.save(update_fields=["status", "stay"])
+        from .departures import complete_due_departures
+
+        now = timezone.now()
+        with patch("commerce.accounting.services.prepare_after_stay") as prepare:
+            self.assertEqual(complete_due_departures(now), 1)
+            self.assertEqual(complete_due_departures(now), 0)
+        booking.refresh_from_db()
+        self.assertIsNotNone(booking.checked_out_at)
+        self.assertIsNotNone(booking.checked_in_at)
+        prepare.assert_called_once()
 
     def test_failed_then_success_payment_confirms_once_without_manager(self):
         booking = self.create()
@@ -118,9 +139,9 @@ class CheckoutTests(TestCase):
         result = self.write("patch", url, {"version": 1, "commissionPercent": "7.25"})
         self.assertEqual(result.status_code, 200, result.content)
         booking = self.create()
-        self.assertEqual(booking.snapshot["commissionTerms"]["amount"], 5873)
-        self.assertEqual(booking.snapshot["commissionTerms"]["resortAmount"], 81000)
-        self.assertEqual(booking.snapshot["paymentTerms"]["total"], 86873)
+        self.assertEqual(booking.snapshot["commissionTerms"]["amount"], 9788)
+        self.assertEqual(booking.snapshot["commissionTerms"]["resortAmount"], 135000)
+        self.assertEqual(booking.snapshot["paymentTerms"]["total"], 144788)
         self.assertNotIn("commissionTerms", self.client.get("/api/my-bookings").json()[0])
         self.assertNotIn("commissionPercent", self.client.get("/api/catalog").json()["resorts"][0])
         self.assertEqual(
@@ -134,7 +155,7 @@ class CheckoutTests(TestCase):
         )
         self.assertEqual(
             self.client.get("/api/workspace").json()["bookings"][0]["commissionTerms"]["amount"],
-            5873,
+            9788,
         )
 
     def test_commission_blank_is_distinct_from_zero_and_invalid_values_are_rejected(self):

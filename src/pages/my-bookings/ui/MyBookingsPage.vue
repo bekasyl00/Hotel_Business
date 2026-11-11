@@ -101,11 +101,7 @@ function checkinLabel(booking) {
   if (!at)
     return t("public.checkinTimeToBeConfirmed", [dateLabel(booking.start)]);
   const match = at.match(/T(\d{2}:\d{2})/);
-  return t("public.fromInMyBookingsPage", [
-    dateLabel(booking.start),
-    match?.[1] || "—",
-    booking.cancellationPolicy.timeZone || `UTC${at.slice(-6)}`,
-  ]);
+  return t("public.fromInMyBookingsPage", [dateLabel(booking.start), match?.[1] || "—"]);
 }
 async function load() {
   loading.value = true;

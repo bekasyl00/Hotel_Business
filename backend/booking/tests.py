@@ -131,7 +131,7 @@ class ApiTests(TestCase):
     def test_pending_price_idempotency_and_manual_confirmation_denied(self):
         booking = self.create()
         self.assertEqual(booking["status"], "pending")
-        self.assertEqual(booking["total"], 81000)
+        self.assertEqual(booking["total"], 135000)
         self.assertEqual(self.create()["id"], booking["id"])
         self.assertEqual(Booking.objects.count(), 1)
         self.assertEqual(Audit.objects.count(), 1)
@@ -243,7 +243,7 @@ class ApiTests(TestCase):
         self.assertEqual(self.write("post", "/api/my-bookings", self.data).status_code, 422)
         self.data["end"] = str(self.start + timedelta(days=3))
         self.data["total"] = 1
-        self.assertEqual(self.create()["total"], 81000)
+        self.assertEqual(self.create()["total"], 135000)
 
     def test_db_constraint_independent_of_api(self):
         b = Booking.objects.get(pk=self.create()["id"])

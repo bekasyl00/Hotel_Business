@@ -112,7 +112,7 @@ export function quoteStay(room, tariff, search) {
     );
     const roomPrice = period ? period.price : room.price;
     const supplementTotal = tariff.supplement * chargeableGuests;
-    const regularNightly = roomPrice + supplementTotal;
+    const regularNightly = (roomPrice + tariff.supplement) * chargeableGuests;
     return {
       date,
       roomPrice,
@@ -129,7 +129,7 @@ export function quoteStay(room, tariff, search) {
       ? nightlyBreakdown[0][key]
       : null;
   return {
-    pricingVersion: 3,
+    pricingVersion: 4,
     childrenAges: [...childrenAges],
     childrenUnderTwoFree: !!childrenFree,
     freeChildren,

@@ -160,7 +160,7 @@ test("new resort requires inventory and tariff before publishing; published data
 test("booking collision, totals, availability, cancellation and immutable history", async () => {
   const { api } = await setup();
   const b = await api("POST", "/bookings", booking());
-  assert.equal(b.total, 99000);
+  assert.equal(b.total, 171000);
   await assert.rejects(
     api("POST", "/bookings", booking()),
     (e) => e.status === 409,
@@ -332,7 +332,7 @@ test("staff room-only booking locks the room price, while guest still requires a
   const created = await api("POST", "/bookings", payload);
   assert.equal(created.tariffId, null);
   assert.equal(created.pricingBasis, "room");
-  assert.equal(created.total, room.price * 3);
+  assert.equal(created.total, room.price * 3 * 2);
   assert.equal(created.status, "pending");
   const paid = await api("POST", "/payments/demo/staff", {
     bookingId: created.id,

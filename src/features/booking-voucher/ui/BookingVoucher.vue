@@ -206,7 +206,7 @@ onBeforeUnmount(() => {
           </div>
           <div>
             <dt>{{ t("common.voucher.checkIn") }}</dt>
-            <dd>{{ voucher.checkInTime }} · {{ voucher.timeZone }}</dd>
+            <dd>{{ voucher.checkInTime }}</dd>
           </div>
           <div>
             <dt>{{ t("common.voucher.guests") }}</dt>

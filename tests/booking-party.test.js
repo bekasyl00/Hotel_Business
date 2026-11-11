@@ -116,10 +116,10 @@ test("add/remove child changes total, preserves older guests and remaining child
     assert.equal(state.form.guests, 4);
     assert.deepEqual(state.form.childrenAges, [0, 10]);
     assert.equal(state.price.value.freeChildren, 1);
-    assert.equal(state.price.value.total, 39000);
-    assert.equal(state.displayPrice.value.total, 42900);
-    assert.equal(state.settlement.value.onlineAmount, 3900);
-    assert.equal(state.settlement.value.onsiteAmount, 39000);
+    assert.equal(state.price.value.total, 99000);
+    assert.equal(state.displayPrice.value.total, 108900);
+    assert.equal(state.settlement.value.onlineAmount, 9900);
+    assert.equal(state.settlement.value.onsiteAmount, 99000);
     state.addChild();
     assert.equal(state.children.value.length, 2);
     const keptId = state.children.value[1].id;

@@ -47,7 +47,7 @@ class PlannerTests(TestCase):
         )
         b = self.create()
         self.assertIsNone(b.tariff_id)
-        self.assertEqual(b.snapshot["total"], 12345 + self.room.price * 2)
+        self.assertEqual(b.snapshot["total"], 12345 * 2 + self.room.price * 2 * 2)
         self.assertEqual(b.snapshot["pricingBasis"], "room")
         result = self.post(
             "/api/payments/demo/staff",
@@ -61,7 +61,7 @@ class PlannerTests(TestCase):
         self.room.price += 100
         self.room.save()
         b.refresh_from_db()
-        self.assertEqual(b.snapshot["total"], 12345 + (self.room.price - 100) * 2)
+        self.assertEqual(b.snapshot["total"], 12345 * 2 + (self.room.price - 100) * 2 * 2)
 
     def test_guest_cannot_use_room_only_price(self):
         self.client.logout()

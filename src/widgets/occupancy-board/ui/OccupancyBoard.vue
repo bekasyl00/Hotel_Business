@@ -176,9 +176,7 @@ onBeforeUnmount(() => clearInterval(timer));
           </button>
         </div>
       </div>
-      <p class="board-hint">
-        {{ t("staff.board.hint") }} · {{ resort?.timeZone || "Asia/Almaty" }}
-      </p>
+      <p class="board-hint">{{ t("staff.board.hint") }}</p>
       <div
         class="board-scroll"
         tabindex="0"

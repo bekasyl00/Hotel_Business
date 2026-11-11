@@ -687,7 +687,9 @@ onBeforeUnmount(() => generation++);
   color: #b4bcb6;
 }
 .availability-grid .selected {
-  background: #e4eee6;
+  background: #c6dfcc;
+  color: #234d32;
+  box-shadow: inset 0 0 0 2px #6f9e7d;
 }
 .availability-grid .departure {
   border-color: #bccfbe;
@@ -695,6 +697,10 @@ onBeforeUnmount(() => generation++);
 .availability-grid .endpoint {
   background: #34513d;
   color: white;
+}
+.availability-grid .selected.endpoint {
+  background: #234d32;
+  box-shadow: inset 0 0 0 2px #9fc8aa;
 }
 .availability-grid .endpoint .calendar-day-price {
   color: white;

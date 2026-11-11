@@ -228,8 +228,10 @@ def run_one(*, provider=None, payment_id=None, kinds=None):
 
 def schedule_due():
     from booking.holds import expire_resort_holds
+    from booking.departures import complete_due_departures
 
     now = timezone.now()
+    complete_due_departures(now)
     resort_ids = (
         Booking.objects.filter(status="pending", hold_expires_at__lte=now)
         .values_list("resort_id", flat=True)

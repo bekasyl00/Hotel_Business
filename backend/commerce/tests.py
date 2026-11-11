@@ -256,9 +256,9 @@ class CommerceTests(TestCase):
         self.assertEqual(result.status_code, 201, result.content)
         data = result.json()
         self.assertEqual(data["status"], "pending")
-        self.assertEqual(data["regularNightly"], 5)
-        self.assertEqual(data["nightly"], 3)
-        self.assertEqual(data["total"], 9)
+        self.assertEqual(data["regularNightly"], 10)
+        self.assertEqual(data["nightly"], 5)
+        self.assertEqual(data["total"], 15)
         self.assertEqual(data["discountPercent"], 50)
         self.assertEqual(data["cancellationPolicy"]["checkInTime"], "17:45")
         self.assertTrue(data["cancellationPolicy"]["checkinAt"].endswith("17:45:00+05:00"))
@@ -272,7 +272,7 @@ class CommerceTests(TestCase):
             "/api/my-bookings", payload, format="json", HTTP_X_CSRFTOKEN=self.token
         ).json()
         self.assertEqual(replay["id"], data["id"])
-        self.assertEqual(replay["nightly"], 3)
+        self.assertEqual(replay["nightly"], 5)
         self.assertEqual(replay["cancellationPolicy"]["checkInTime"], "17:45")
 
     def test_booking_api_cancel_refunds_and_returns_snapshot(self):

@@ -153,11 +153,11 @@ class PricingTests(TestCase):
         response = self.book([2])
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.json()["freeChildren"], 0)
-        self.assertEqual(response.json()["total"], 108000)
+        self.assertEqual(response.json()["total"], 180000)
         Booking.objects.all().delete()
         response = self.book()
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.json()["total"], 108000)
+        self.assertEqual(response.json()["total"], 180000)
 
     def test_invalid_children_cannot_reduce_charges(self):
         for ages in [[-1], [14], [18], [0, 0], ["bad"]]:

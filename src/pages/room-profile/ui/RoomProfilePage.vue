@@ -278,10 +278,6 @@ watch(() => route.params.id, load, { immediate: true });
                   <dt>{{ t("public.checkout") }}</dt>
                   <dd>{{ resort.checkOutTime }}</dd>
                 </div>
-                <div>
-                  <dt>{{ t("public.localTime") }}</dt>
-                  <dd>{{ resort.timeZone || "Asia/Almaty" }}</dd>
-                </div>
               </dl>
             </section>
             <AvailabilityCalendar
@@ -351,9 +347,8 @@ watch(() => route.params.id, load, { immediate: true });
               <h2>{{ t("public.cancellationAndRefunds") }}</h2>
               <p class="profile-description">
                 {{ t("public.theDeadlineIsCalculatedBeforeCheckin") }}
-                {{ resort.checkInTime || "14:00" }},
-                {{ resort.timeZone || "Asia/Almaty"
-                }}{{ t("public.theseTermsAreSavedWhenYouBook") }}
+                {{ resort.checkInTime || "14:00" }}.
+                {{ t("public.theseTermsAreSavedWhenYouBook") }}
               </p>
               <div class="refund-steps">
                 <div>
@@ -411,8 +406,7 @@ watch(() => route.params.id, load, { immediate: true });
               </div>
               <p class="small muted">
                 {{ t("public.checkinFrom") }}
-                {{ resort.checkInTime || "14:00" }} ·
-                {{ resort.timeZone || "Asia/Almaty" }}
+                {{ resort.checkInTime || "14:00" }}
               </p>
               <p v-if="searchError" class="form-error" role="alert">
                 {{ searchError }}

@@ -240,10 +240,6 @@ watch(() => route.params.id, load, { immediate: true });
                   <dt>{{ t("public.checkout") }}</dt>
                   <dd>{{ resort.checkOutTime }}</dd>
                 </div>
-                <div>
-                  <dt>{{ t("public.localTime") }}</dt>
-                  <dd>{{ resort.timeZone || "Asia/Almaty" }}</dd>
-                </div>
               </dl>
             </section>
             <section id="rooms" class="profile-section">
@@ -466,9 +462,7 @@ watch(() => route.params.id, load, { immediate: true });
                 <h3>{{ t("public.cancellationPolicy") }}</h3>
                 <p>
                   {{ t("public.beforeCheckinAt") }}
-                  {{ resort.checkInTime || "14:00" }} ({{
-                    resort.timeZone || "Asia/Almaty"
-                  }}):
+                  {{ resort.checkInTime || "14:00" }}:
                 </p>
                 <ul>
                   <li>{{ t("public.48HoursOrMore100Refund") }}</li>

@@ -76,8 +76,8 @@ class ChildBirthTests(TestCase):
                 data["childrenAges"],
             )
             self.assertEqual(quote["freeChildren"], free)
-            self.assertEqual(quote["total"], room.price + 1000 * (2 - free))
-            self.assertEqual(quote["pricingVersion"], 3)
+            self.assertEqual(quote["total"], (room.price + 1000) * (2 - free))
+            self.assertEqual(quote["pricingVersion"], 4)
             self.assertNotIn("childrenUnderThreeFree", quote)
 
     def test_booking_and_audit_only_keep_age(self):

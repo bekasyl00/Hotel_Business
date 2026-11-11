@@ -99,8 +99,8 @@ class ClassPricingTests(TestCase):
                 },
             )
         self.assertEqual(calendar.status_code, 200, calendar.content)
-        self.assertEqual(calendar.json()["days"][11]["price"], 5500)
-        self.assertEqual(calendar.json()["days"][13]["price"], 19800)
+        self.assertEqual(calendar.json()["days"][11]["price"], 11000)
+        self.assertEqual(calendar.json()["days"][13]["price"], 39600)
         booking.refresh_from_db()
         self.assertEqual(booking.snapshot, frozen)
         self.assertEqual(self.post(payload).status_code, 409)

@@ -212,11 +212,7 @@ onBeforeUnmount(() => window.removeEventListener("storage", storageChanged));
                       : t('public.illustrativeResortImage')
                   "
                   loading="lazy"
-                /><span
-                  v-if="cover(r) === '/assets/resort.jpg'"
-                  class="catalogue-image-note"
-                  >{{ t("public.illustrativeResortImage") }}</span
-                ></RouterLink
+                /></RouterLink
               >
               <div class="discovery-card-content">
                 <div class="card-title-row">

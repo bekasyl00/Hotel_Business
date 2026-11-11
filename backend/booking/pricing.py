@@ -27,7 +27,10 @@ def quote_stay(room, tariff, start, end, guests, children_ages=None):
         day = start + timedelta(days=offset)
         room_line = room_night_price(room, day, periods)
         room_price = room_line["roomPrice"]
-        regular = room_price + supplement * chargeable_guests
+        # Public prices are per guest per day.  A free under-two child does
+        # not contribute a chargeable place; every other guest pays the room's
+        # daily base plus any selected tariff supplement.
+        regular = (room_price + supplement) * chargeable_guests
         lines.append(
             {
                 "date": day.isoformat(),
@@ -41,7 +44,7 @@ def quote_stay(room, tariff, start, end, guests, children_ages=None):
     prices = {line["nightly"] for line in lines}
     regular_prices = {line["regularNightly"] for line in lines}
     return {
-        "pricingVersion": 3,
+        "pricingVersion": 4,
         "childrenAges": children_ages,
         "childrenUnderTwoFree": children_free,
         "freeChildren": free_children,

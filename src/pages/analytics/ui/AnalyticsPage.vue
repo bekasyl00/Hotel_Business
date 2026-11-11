@@ -415,13 +415,6 @@ onBeforeUnmount(() => {
                 :placeholder="t('staff.searchNameRoom')"
             /></label>
           </form>
-          <p class="analytics-filter-note">
-            {{
-              t("staff.eventTimeNote", {
-                zone: data?.period.timeZone || "Asia/Almaty",
-              })
-            }}
-          </p>
         </aside>
         <section
           class="analytics-report"

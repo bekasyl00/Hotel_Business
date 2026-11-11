@@ -82,13 +82,9 @@ watch(expanded, () => video.value?.pause());
         @error="failed = true"
         @click="expanded = true"
       />
-      <span class="media-caption" role="status">{{
-        !current
-          ? t("public.illustrativePhoto")
-          : failed
-            ? t("public.mediaCouldNotLoadAnIllustrativeImageIsShown")
-            : `${index + 1} / ${items.length}`
-      }}</span>
+      <span class="media-caption" role="status">
+        {{ failed ? t("public.mediaCouldNotLoadAnIllustrativeImageIsShown") : `${index + 1} / ${items.length || 1}` }}
+      </span>
       <button
         v-if="items.length > 1"
         type="button"

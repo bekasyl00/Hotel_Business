@@ -158,14 +158,14 @@ test("seasonal and discounted guest quotes keep accommodation snapshots unchange
   });
   const snapshot = structuredClone(quote);
   const display = customerQuote({ bookingFeePercent: "10" }, quote);
-  assert.equal(quote.total, 36900);
-  assert.equal(display.total, 40590);
-  assert.equal(display.regularTotal, 45100);
+  assert.equal(quote.total, 68400);
+  assert.equal(display.total, 75240);
+  assert.equal(display.regularTotal, 83600);
   assert.equal(display.nightly, null);
   assert.equal(display.regularNightly, null);
   assert.deepEqual(
     display.nightlyBreakdown.map((line) => line.nightly),
-    [11880, 16830, 11880],
+    [21780, 31680, 21780],
   );
   assert.equal(display.nightlyBreakdown[1].periodLabel, "Winter");
   assert.deepEqual(quote, snapshot);
@@ -241,8 +241,8 @@ test("arrival price honors rate supplements and does not mislabel a price increa
     start: "2027-01-02",
     guests: 2,
   });
-  assert.equal(current.price, 16830);
-  assert.equal(current.regularPrice, 13200);
+  assert.equal(current.price, 31680);
+  assert.equal(current.regularPrice, 24200);
   assert.equal(current.kind, "seasonal");
   assert.equal(
     customerNightPrice(resort, room, tariff, { start: "2027-01-03", guests: 2 })

@@ -23,7 +23,7 @@ def inclusive_price(amount, percent):
     return amount + (amount * rate_units + 5000) // 10000
 
 
-def available_price(day, available_ids, room_by_id, periods_by_room, percent):
+def available_price(day, available_ids, room_by_id, periods_by_room, guests, percent):
     candidates = [
         (room_night_price(room_by_id[pk], day, periods_by_room[pk]), room_by_id[pk])
         for pk in available_ids
@@ -41,8 +41,8 @@ def available_price(day, available_ids, room_by_id, periods_by_room, percent):
     if line["hasPricePeriod"]:
         kind = "discount" if line["roomPrice"] < room.price else "seasonal"
     return {
-        "price": inclusive_price(line["roomPrice"], percent),
-        "regularPrice": inclusive_price(room.price, percent),
+        "price": inclusive_price(line["roomPrice"] * guests, percent),
+        "regularPrice": inclusive_price(room.price * guests, percent),
         "priceKind": kind,
         "hasPricePeriod": line["hasPricePeriod"],
         "periodLabel": line["periodLabel"],
@@ -126,7 +126,12 @@ def availability_calendar(params):
                 "departureRooms": departures,
                 "bookable": bookable,
                 **available_price(
-                    day, available_ids, room_by_id, periods_by_room, resort.commission_percent
+                    day,
+                    available_ids,
+                    room_by_id,
+                    periods_by_room,
+                    data["guests"],
+                    resort.commission_percent,
                 ),
             }
         )

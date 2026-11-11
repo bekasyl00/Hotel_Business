@@ -41,11 +41,11 @@ test("reject invalid, past, zero-night, long and impossible dates", () => {
   ])
     assert.ok(validateSearch({ ...search, ...change }));
 });
-test("price is per room; supplements are per guest per night", () => {
+test("price is per guest per day; supplements apply to each guest", () => {
   assert.deepEqual(quote(room, tariffs[1], search), {
     nights: 3,
-    nightly: 33000,
-    total: 99000,
+    nightly: 57000,
+    total: 171000,
   });
   assert.equal(nightsBetween("2027-03-27", "2027-03-30"), 3);
 });
