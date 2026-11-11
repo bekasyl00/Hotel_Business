@@ -2,6 +2,7 @@ export function staffNavigation(role) {
   const finance = ["accounting", "₸", "common.accounting.title"];
   const analytics = ["analytics", "↗", "staff.analytics"];
   const planner = ["bookings", "▤", "staff.board.title"];
+  const notifications = ["notifications", "◉", "staff.notifications.title"];
   if (role === "accountant") return [finance, analytics, planner];
   return [
     ...(role === "admin" ? [finance] : []),
@@ -10,6 +11,7 @@ export function staffNavigation(role) {
     ["resorts", "⌖", "staff.resorts"],
     ["rooms", "▦", "staff.rooms"],
     planner,
+    notifications,
     ["documents", "▧", "common.staffDocuments.title"],
     ["reviews", "☆", "staff.reviews"],
     ...(role === "admin"

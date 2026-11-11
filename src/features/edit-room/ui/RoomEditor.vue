@@ -3,7 +3,7 @@ import { useI18n } from "vue-i18n";
 import { reactive, ref } from "vue";
 import { Modal, MediaEditor } from "@/shared/ui";
 import { useEditor } from "@/shared/api/use-editor.js";
-import { validatePricePeriods } from "@/entities/booking";
+import { validatePricePeriods, placeLabel } from "@/entities/booking";
 import { categoryNames } from "@/shared/lib";
 const { t } = useI18n();
 const props = defineProps({ item: Object, resortId: String });
@@ -112,6 +112,15 @@ async function saveRoom() {
           </select></label
         >
       </div>
+      <p v-if="form.number && form.capacity >= 1" class="field-help">
+        {{ t("staff.board.places") }}:
+        {{
+          Array.from(
+            { length: Math.min(4, Math.max(1, Number(form.capacity) || 1)) },
+            (_, i) => `${form.number}${placeLabel(i + 1)}`,
+          ).join(", ")
+        }}
+      </p>
       <fieldset class="pricing-fields">
         <legend>{{ t("common.pricing.periods") }}</legend>
         <p class="field-help">{{ t("common.pricing.periodHint") }}</p>

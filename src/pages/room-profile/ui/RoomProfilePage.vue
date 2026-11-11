@@ -425,7 +425,19 @@ watch(() => route.params.id, load, { immediate: true });
                 class="availability-note"
                 role="status"
               >
-                {{ t("public.thisRoomIsAvailableForYourDates") }}
+                {{ t("public.thisRoomIsAvailableForYourDates") }} ·
+                {{
+                  t("public.calendar.bookedPlaces", {
+                    guests: dates.guests,
+                    capacity: room.capacity,
+                  })
+                }}
+              </p>
+              <p
+                v-if="room.capacity > 1 && dates.guests < room.capacity"
+                class="field-help"
+              >
+                {{ t("public.calendar.sharedRoomNotice") }}
               </p>
               <button
                 v-if="available !== true"

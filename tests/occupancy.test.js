@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   calendarRows,
+  calendarRoomGroups,
+  roomPlaces,
+  placeLabel,
   occupancyState,
   shiftDay,
   propertyToday,
@@ -112,4 +115,40 @@ test("property date remains ISO when a device Intl locale uses slash ordering", 
   } finally {
     Intl.DateTimeFormat = DateTimeFormat;
   }
+});
+
+test("place labels and room groups map multi-place and single-place bookings accurately", () => {
+  assert.equal(placeLabel(1), "a");
+  assert.equal(placeLabel(26), "z");
+  assert.equal(placeLabel(27), "aa");
+  const room3 = { id: "r102", number: "102", title: "Standard", capacity: 3 };
+  const places = roomPlaces(room3);
+  assert.deepEqual(
+    places.map((p) => p.unitLabel),
+    ["102a", "102b", "102c"],
+  );
+  const groups = calendarRoomGroups(
+    [room3],
+    [
+      b("b1", "2026-01-01", "2026-01-04", {
+        roomId: "r102",
+        guests: 1,
+        placeIds: ["r102:p1"],
+        placeLabels: ["102a"],
+      }),
+      b("b2", "2026-01-01", "2026-01-04", {
+        roomId: "r102",
+        guests: 2,
+        placeIds: ["r102:p2", "r102:p3"],
+        placeLabels: ["102b", "102c"],
+      }),
+    ],
+    "2026-01-01",
+    5,
+  );
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].rows.length, 3);
+  assert.equal(groups[0].rows[0].bars[0].booking.id, "b1");
+  assert.equal(groups[0].rows[1].bars[0].booking.id, "b2");
+  assert.equal(groups[0].rows[2].bars[0].booking.id, "b2");
 });

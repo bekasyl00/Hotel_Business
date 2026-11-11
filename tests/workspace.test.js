@@ -383,3 +383,75 @@ test("staff notes enforce tenant and version, never copy free text to audit or g
     (e) => e.status === 403,
   );
 });
+test("demo transport supports partial room place allocation, planner window, and scoped notifications", async () => {
+  const { api } = await setup();
+  const room = await api("POST", "/rooms", {
+    resortId: "altun",
+    number: "305",
+    category: "standard",
+    title: "Трёхместный",
+    capacity: 3,
+    area: 26,
+    beds: "Три кровати",
+    price: 20000,
+    status: "active",
+  });
+  assert.deepEqual(
+    room.places.map((p) => p.unitLabel),
+    ["305a", "305b", "305c"],
+  );
+  const start = dateAfter(15),
+    end = dateAfter(18);
+  const b1 = await api("POST", "/bookings", {
+    roomId: room.id,
+    start,
+    end,
+    guests: 1,
+    guestLabel: "Гость 1",
+  });
+  assert.deepEqual(b1.placeLabels, ["305a"]);
+  assert.equal(b1.placesCount, 1);
+
+  const avail2 = await api(
+    "GET",
+    `/availability?start=${start}&end=${end}&guests=2`,
+  );
+  assert.ok(avail2.roomIds.includes(room.id));
+  assert.equal(avail2.availablePlacesByRoom[room.id], 2);
+
+  const b2 = await api("POST", "/bookings", {
+    roomId: room.id,
+    start,
+    end,
+    guests: 2,
+    guestLabel: "Гость 2 и 3",
+  });
+  assert.deepEqual(b2.placeLabels, ["305b", "305c"]);
+
+  await assert.rejects(
+    api("POST", "/bookings", {
+      roomId: room.id,
+      start,
+      end,
+      guests: 1,
+      guestLabel: "Лишний гость",
+    }),
+    (e) => e.status === 409,
+  );
+
+  const planner = await api(
+    "GET",
+    `/planner?resortId=altun&start=${start}&end=${dateAfter(75)}`,
+  );
+  assert.equal(planner.days, 60);
+  assert.ok(planner.bookings.some((b) => b.id === b1.id));
+
+  await api("POST", "/auth/login", { accountId: "manager-altun" });
+  const notifs = await api("GET", "/staff/notifications");
+  assert.equal(notifs.unreadCount, 2);
+  assert.equal(notifs.items.length, 2);
+  await api("POST", `/staff/notifications/${notifs.items[0].id}/read`, {});
+  assert.equal((await api("GET", "/staff/notifications")).unreadCount, 1);
+  await api("POST", "/staff/notifications/read-all", { resortId: "altun" });
+  assert.equal((await api("GET", "/staff/notifications")).unreadCount, 0);
+});

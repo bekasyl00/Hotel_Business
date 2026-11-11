@@ -1,8 +1,12 @@
+from datetime import timedelta
+
 from django.contrib.auth import logout
 from django.middleware.csrf import get_token
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import never_cache
+from psycopg.types.range import Range
 from rest_framework import serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -12,8 +16,16 @@ from . import services as svc
 from .authentication import bearer_or_csrf_protect
 from .availability import availability_calendar
 from .errors import Problem
-from .holds import active_inventory
-from .models import Audit, Booking, Resort, Review, Room, Tariff, User
+from .holds import active_allocation_inventory
+from .models import Audit, Booking, BookingAllocation, Resort, Review, Room, Tariff, User
+from .notifications import (
+    list_staff_notifications,
+    mark_all_notifications_read,
+    mark_notification_read,
+    register_staff_push_device,
+    revoke_staff_push_device,
+    unread_notification_count,
+)
 from .rate_limits import enforce_limit, request_subject
 from .serializers import (
     ResortSerializer,
@@ -57,7 +69,9 @@ class Endpoint(APIView):
                 {
                     "resort": ResortSerializer(resort).data,
                     "rooms": RoomSerializer(
-                        resort.rooms.filter(status="active").prefetch_related("price_periods"),
+                        resort.rooms.filter(status="active").prefetch_related(
+                            "price_periods", "places"
+                        ),
                         many=True,
                     ).data,
                     "tariffs": TariffSerializer(
@@ -73,7 +87,7 @@ class Endpoint(APIView):
             )
         if resource == "rooms" and pk:
             room = get_object_or_404(
-                Room.objects.select_related("resort"),
+                Room.objects.select_related("resort").prefetch_related("price_periods", "places"),
                 pk=pk,
                 status="active",
                 resort__status="published",
@@ -127,7 +141,7 @@ class Endpoint(APIView):
                     "resorts": ResortSerializer(resorts_with_reviews(resorts), many=True).data,
                     "rooms": RoomSerializer(
                         Room.objects.filter(resort__in=resorts, status="active").prefetch_related(
-                            "price_periods"
+                            "price_periods", "places"
                         ),
                         many=True,
                     ).data,
@@ -145,17 +159,37 @@ class Endpoint(APIView):
                 request.query_params.get("guests", 1)
             )
             stay = svc.validated_dates(start, end)
-            occupied = Booking.objects.filter(active_inventory(), stay__overlap=stay).values(
-                "room_id"
-            )
-            ids = (
+            candidate_rooms = list(
                 Room.objects.filter(
                     resort__status="published", status="active", capacity__gte=guests
-                )
-                .exclude(pk__in=occupied)
-                .values_list("id", flat=True)
+                ).only("id", "capacity")
             )
-            return Response({"roomIds": list(ids)})
+            candidate_ids = [r.pk for r in candidate_rooms]
+            busy_rows = list(
+                BookingAllocation.objects.filter(
+                    active_allocation_inventory(),
+                    room_id__in=candidate_ids,
+                    place__status="active",
+                    stay__overlap=stay,
+                ).values_list("room_id", "place_id")
+            )
+            busy_by_room = {}
+            for r_id, p_id in busy_rows:
+                busy_by_room.setdefault(r_id, set()).add(p_id)
+            room_ids = []
+            available_places_by_room = {}
+            for rm in candidate_rooms:
+                free_count = max(0, rm.capacity - len(busy_by_room.get(rm.pk, ())))
+                if free_count >= guests:
+                    room_ids.append(rm.pk)
+                    available_places_by_room[rm.pk] = free_count
+            return Response(
+                {
+                    "roomIds": room_ids,
+                    "availablePlacesByRoom": available_places_by_room,
+                    "totalAvailablePlaces": sum(available_places_by_room.values()),
+                }
+            )
         if resource == "my-bookings":
             return Response(
                 [
@@ -163,10 +197,65 @@ class Endpoint(APIView):
                     for b in Booking.objects.filter(
                         owner=svc.guest_owner(request), source="website"
                     )
-                    .select_related("review", "bank_payment__refund")
-                    .prefetch_related("demo_payments")
+                    .select_related("review", "bank_payment__refund", "room")
+                    .prefetch_related("demo_payments", "allocations__place")
                     .order_by("-created_at")
                 ]
+            )
+        if resource == "planner":
+            svc.require_staff(request.user, roles=("admin", "manager", "accountant"))
+            resorts = (
+                Resort.objects.all()
+                if svc.admin(request.user) or request.user.role == "accountant"
+                else Resort.objects.filter(account=request.user)
+            )
+            resort_id = request.query_params.get("resortId", "").strip()
+            if resort_id:
+                if not resorts.filter(pk=resort_id).exists():
+                    if Resort.objects.filter(pk=resort_id).exists():
+                        raise Problem("Недостаточно прав для этого санатория.", 403, "forbidden")
+                    raise Problem("Санаторий не найден.", 404, "not_found")
+                resorts = resorts.filter(pk=resort_id)
+            today = timezone.localdate()
+            start_raw = request.query_params.get("start")
+            end_raw = request.query_params.get("end")
+            start_date = (
+                serializers.DateField().run_validation(start_raw)
+                if start_raw
+                else today - timedelta(days=14)
+            )
+            end_date = (
+                serializers.DateField().run_validation(end_raw)
+                if end_raw
+                else start_date + timedelta(days=60)
+            )
+            days = (end_date - start_date).days
+            if days < 1 or days > 120:
+                raise Problem(
+                    "Окно плана размещения должно составлять от 1 до 120 дней.",
+                    422,
+                    "invalid_planner_window",
+                )
+            window = Range(start_date, end_date, bounds="[)")
+            return Response(
+                {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                    "days": days,
+                    "rooms": RoomSerializer(
+                        Room.objects.filter(resort__in=resorts).prefetch_related(
+                            "price_periods", "places"
+                        ),
+                        many=True,
+                    ).data,
+                    "bookings": [
+                        booking_data(b, staff=True)
+                        for b in Booking.objects.filter(resort__in=resorts, stay__overlap=window)
+                        .select_related("review", "bank_payment__refund", "room")
+                        .prefetch_related("demo_payments", "allocations__place")
+                        .order_by("-created_at")
+                    ],
+                }
             )
         if resource == "workspace":
             svc.require_staff(request.user, roles=("admin", "manager", "accountant"))
@@ -179,7 +268,9 @@ class Endpoint(APIView):
                 {
                     "resorts": StaffResortSerializer(resorts_with_reviews(resorts), many=True).data,
                     "rooms": RoomSerializer(
-                        Room.objects.filter(resort__in=resorts).prefetch_related("price_periods"),
+                        Room.objects.filter(resort__in=resorts).prefetch_related(
+                            "price_periods", "places"
+                        ),
                         many=True,
                     ).data,
                     "tariffs": TariffSerializer(
@@ -188,10 +279,11 @@ class Endpoint(APIView):
                     "bookings": [
                         booking_data(b, staff=True)
                         for b in Booking.objects.filter(resort__in=resorts)
-                        .select_related("review", "bank_payment__refund")
-                        .prefetch_related("demo_payments")
+                        .select_related("review", "bank_payment__refund", "room")
+                        .prefetch_related("demo_payments", "allocations__place")
                         .order_by("-created_at")
                     ],
+                    "unreadNotificationCount": unread_notification_count(request.user),
                     "accounts": [
                         account_data(u)
                         for u in User.objects.all()
@@ -281,3 +373,53 @@ class Endpoint(APIView):
             raise Problem("Не найдено.", 404)
         result = svc.delete_catalog(request, resource, pk)
         return Response(result, status=200 if result else 204)
+
+
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(bearer_or_csrf_protect, name="dispatch")
+class StaffNotificationsView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        unread_only = str(request.query_params.get("unreadOnly", "")).lower() in {
+            "1",
+            "true",
+            "yes",
+        }
+        return Response(
+            list_staff_notifications(
+                request.user,
+                cursor=request.query_params.get("cursor", ""),
+                limit=request.query_params.get("limit", 30),
+                unread_only=unread_only,
+                resort_id=request.query_params.get("resortId", ""),
+            )
+        )
+
+
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(bearer_or_csrf_protect, name="dispatch")
+class StaffNotificationReadView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, pk=None):
+        if pk is None:
+            resort_id = ""
+            if isinstance(request.data, dict):
+                resort_id = str(request.data.get("resortId") or "").strip()
+            return Response(mark_all_notifications_read(request.user, resort_id=resort_id))
+        return Response(mark_notification_read(request.user, pk))
+
+
+@method_decorator(never_cache, name="dispatch")
+@method_decorator(bearer_or_csrf_protect, name="dispatch")
+class StaffPushDeviceView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request, pk=None):
+        if pk is not None:
+            return Response(revoke_staff_push_device(request.user, pk))
+        return Response(register_staff_push_device(request.user, request.data), status=201)
+
+    def delete(self, request, pk):
+        return Response(revoke_staff_push_device(request.user, pk))

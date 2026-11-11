@@ -166,11 +166,17 @@ def _create_demo_payment(request, staff=False):
         amount=online_amount(booking),
     )
     if payment.outcome == "success":
+        from booking.models import BookingAllocation
+        from booking.notifications import emit_booking_notification
+
         before = booking_data(booking)
         if booking.status == "pending":
+            booking._managed_allocations = True
             booking.status = "confirmed"
             booking.version += 1
             booking.save(update_fields=["status", "version"])
+            BookingAllocation.objects.filter(booking=booking).update(status="confirmed")
+            emit_booking_notification(booking, "booking_paid")
         payment.receipt = freeze_receipt(payment)
         payment.save(update_fields=["receipt"])
         log_change(

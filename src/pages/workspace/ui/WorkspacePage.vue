@@ -55,6 +55,7 @@ const titles = computed(() => ({
   resorts: t("staff.resorts"),
   rooms: t("staff.inventory"),
   bookings: t("staff.board.title"),
+  notifications: t("staff.notifications.title"),
   reviews: t("staff.guestReviews"),
   history: t("staff.history"),
   accounts: t("staff.managers"),
@@ -64,6 +65,7 @@ const subtitles = computed(() => ({
   resorts: t("staff.resortsSubtitle"),
   rooms: t("staff.roomsSubtitle"),
   bookings: t("staff.board.subtitle"),
+  notifications: t("staff.notifications.subtitle"),
   reviews: t("staff.reviewsSubtitle"),
   history: t("staff.historySubtitle"),
   accounts: t("staff.accountsSubtitle"),
@@ -77,6 +79,8 @@ const selected = ref(""),
   accounts = ref([]),
   audit = ref([]),
   reviews = ref([]),
+  notifications = ref([]),
+  unreadNotifications = ref(0),
   editor = ref(null),
   confirm = ref(null),
   busy = ref(false);
@@ -220,6 +224,65 @@ const filteredReviews = computed(() =>
     .filter(matches)
     .filter((r) => status.value === "all" || r.status === status.value),
 );
+const filteredNotifications = computed(() =>
+  notifications.value
+    .filter((n) => !selected.value || n.resortId === selected.value)
+    .filter(matches)
+    .filter((n) => status.value === "all" || (status.value === "unread" && !n.readAt)),
+);
+async function loadNotifications() {
+  if (!session.user || session.isAccountant) return;
+  try {
+    const res = await request("GET", "/staff/notifications");
+    notifications.value = res.items || [];
+    unreadNotifications.value = Number(res.unreadCount || 0);
+  } catch (e) {
+    error.value = e.message;
+  }
+}
+async function markNotificationRead(item) {
+  if (item.readAt) return;
+  try {
+    const updated = await request(
+      "POST",
+      `/staff/notifications/${item.id}/read`,
+      {},
+    );
+    const idx = notifications.value.findIndex((n) => n.id === item.id);
+    if (idx >= 0) notifications.value[idx] = updated;
+    unreadNotifications.value = notifications.value.filter(
+      (n) => !n.readAt,
+    ).length;
+  } catch (e) {
+    error.value = e.message;
+  }
+}
+async function markAllNotificationsRead() {
+  busy.value = true;
+  error.value = "";
+  try {
+    const res = await request("POST", "/staff/notifications/read-all", {
+      resortId: selected.value || undefined,
+    });
+    unreadNotifications.value = Number(res.unreadCount || 0);
+    await loadNotifications();
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = false;
+  }
+}
+async function openNotificationBooking(item) {
+  await markNotificationRead(item);
+  if (item.resortId && item.resortId !== selected.value) {
+    selected.value = item.resortId;
+  }
+  await router.push("/staff/bookings");
+  bookingView.value = "calendar";
+  if (item.bookingId) {
+    focusedId.value = item.bookingId;
+  }
+}
 async function moderateReview(review, target) {
   busy.value = true;
   error.value = "";
@@ -297,6 +360,10 @@ async function load(quiet = false) {
     accounts.value = session.isAdmin ? data.accounts : [];
     audit.value = session.isAdmin ? data.audit : [];
     reviews.value = data.reviews || [];
+    unreadNotifications.value = Number(data.unreadNotifications || 0);
+    if (!session.isAccountant && section.value === "notifications") {
+      await loadNotifications();
+    }
     if (!catalog.resorts.some((r) => r.id === selected.value))
       selected.value =
         catalog.resorts.find((r) => r.status !== "archived")?.id ||
@@ -436,11 +503,14 @@ const display = (value) =>
             staff: t("staff.manual"),
           }[value] ||
           String(value);
-watch(section, () => {
+watch(section, (next) => {
   query.value = "";
   status.value = "all";
   editor.value = null;
   focusedId.value = null;
+  if (next === "notifications" && !session.isAccountant) {
+    loadNotifications();
+  }
 });
 const storageChanged = (e) => {
   if (e.key === "tynys:workspace:v2") load();
@@ -455,7 +525,11 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <StaffShell :section="section" @logout="logout"
+  <StaffShell
+    :section="section"
+    :unread-count="unreadNotifications"
+    @logout="logout"
+    @unread="unreadNotifications = $event"
     ><main
       class="work-main"
       :class="{ 'planner-workspace': section === 'bookings' }"
@@ -469,7 +543,8 @@ onBeforeUnmount(() => {
       <div
         v-if="
           !titles[section] ||
-          (['accounts', 'history'].includes(section) && !session.isAdmin)
+          (['accounts', 'history'].includes(section) && !session.isAdmin) ||
+          (section === 'notifications' && session.isAccountant)
         "
         class="surface work-empty"
       >
@@ -517,7 +592,15 @@ onBeforeUnmount(() => {
         </p>
         <template v-else-if="!error"
           ><div
-            v-if="['rooms', 'bookings', 'reviews', 'history'].includes(section)"
+            v-if="
+              [
+                'rooms',
+                'bookings',
+                'notifications',
+                'reviews',
+                'history',
+              ].includes(section)
+            "
             class="context-bar"
           >
             <label
@@ -658,6 +741,10 @@ onBeforeUnmount(() => {
                       <option value="rejected">
                         {{ t("staff.rejected") }}
                       </option></template
+                    ><template v-else-if="section === 'notifications'"
+                      ><option value="unread">
+                        {{ t("staff.notifications.unreadOnly") }}
+                      </option></template
                     ><template v-else
                       ><option value="active">{{ t("staff.active") }}</option>
                       <option
@@ -674,6 +761,15 @@ onBeforeUnmount(() => {
                     >
                   </select></label
                 ><button
+                  v-if="section === 'notifications' && unreadNotifications > 0"
+                  type="button"
+                  class="secondary"
+                  :disabled="busy"
+                  @click="markAllNotificationsRead"
+                >
+                  {{ t("staff.notifications.markAllRead") }}
+                </button>
+                <button
                   class="text-button"
                   @click="load"
                   :aria-label="t('staff.refreshData')"
@@ -682,7 +778,51 @@ onBeforeUnmount(() => {
                 </button>
               </div>
               <div
-                v-if="section === 'resorts' && filteredResorts.length"
+                v-if="
+                  section === 'notifications' && filteredNotifications.length
+                "
+                class="audit-list"
+              >
+                <article
+                  v-for="item in filteredNotifications"
+                  :key="item.id"
+                  class="staff-review"
+                  :style="{
+                    borderLeft: item.readAt
+                      ? '3px solid #cbd6cf'
+                      : '4px solid #143e2c',
+                  }"
+                >
+                  <div class="row-actions" style="justify-content: space-between">
+                    <strong
+                      >{{ item.title }} ·
+                      {{ t(`staff.notifications.${item.kind}`) }}</strong
+                    >
+                    <small>{{ timeLabel(item.createdAt) }}</small>
+                  </div>
+                  <p>{{ item.body }}</p>
+                  <div class="row-actions">
+                    <button
+                      v-if="item.bookingId"
+                      type="button"
+                      class="primary"
+                      @click="openNotificationBooking(item)"
+                    >
+                      {{ t("staff.notifications.openBooking") }}
+                    </button>
+                    <button
+                      v-if="!item.readAt"
+                      type="button"
+                      class="secondary"
+                      @click="markNotificationRead(item)"
+                    >
+                      {{ t("staff.notifications.markRead") }}
+                    </button>
+                  </div>
+                </article>
+              </div>
+              <div
+                v-else-if="section === 'resorts' && filteredResorts.length"
                 class="table-scroll"
                 tabindex="0"
                 role="region"

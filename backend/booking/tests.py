@@ -440,7 +440,7 @@ class ConcurrencyTests(TransactionTestCase):
                         "tariffId": tariff.pk,
                         "start": str(start),
                         "end": str(start + timedelta(days=2)),
-                        "guests": 1,
+                        "guests": 2,
                         "guestLabel": "Гость",
                         "guestPhone": "+70000000000",
                         "requestId": str(uuid.uuid4()),

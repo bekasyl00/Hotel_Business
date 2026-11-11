@@ -351,6 +351,13 @@ watch(() => route.params.id, load, { immediate: true });
                     {{ t("public.upTo") }} {{ room.capacity }}
                     {{ t("public.guestsInResortProfilePage") }} {{ room.area }}
                     {{ t("public.m") }} {{ room.beds }}
+                    ·
+                    {{
+                      t("public.calendar.bookedPlaces", {
+                        guests: Math.min(dates.guests, room.capacity),
+                        capacity: room.capacity,
+                      })
+                    }}
                   </p>
                   <p class="room-description-preview">
                     {{

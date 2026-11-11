@@ -312,6 +312,16 @@ async function save() {
       <p v-if="selectedRoomNotice" class="field-help" role="status">
         {{ selectedRoomNotice }}
       </p>
+      <p v-if="room" class="field-help" role="status">
+        {{
+          t("public.calendar.bookedPlaces", {
+            guests: form.guests,
+            capacity: room.capacity,
+          })
+        }}<template v-if="room.capacity > 1 && form.guests < room.capacity">
+          · {{ t("public.calendar.sharedRoomNotice") }}</template
+        >
+      </p>
       <div v-if="capacityError" class="form-error" role="alert">
         <p>{{ capacityError }}</p>
         <RouterLink

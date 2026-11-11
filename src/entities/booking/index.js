@@ -19,6 +19,9 @@ export {
   shiftDay,
   propertyToday,
   occupancyState,
+  placeLabel,
+  roomPlaces,
+  calendarRoomGroups,
   calendarRows,
 } from "./model/occupancy.js";
 

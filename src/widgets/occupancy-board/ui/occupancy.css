@@ -140,8 +140,56 @@
   width: calc(var(--room-width) + var(--days) * var(--day-width));
 }
 .board-head,
-.board-row {
+.board-row,
+.board-group-header {
   display: flex;
+}
+.board-group-header {
+  border-bottom: 1px solid #d9e2dc;
+  background: #f4f7f5;
+}
+.board-room-group-label {
+  background: #f4f7f5;
+  padding: 10px 14px;
+}
+.room-group-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.room-collapse-toggle {
+  min-width: 32px;
+  min-height: 32px;
+  border: 1px solid #cbd6cf;
+  border-radius: 6px;
+  background: #fff;
+  color: #193e2b;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+.board-group-track {
+  min-height: 52px;
+  background: #f6f8f7;
+}
+.board-group-cell {
+  flex: 0 0 var(--day-width);
+  width: var(--day-width);
+  border-right: 1px solid #e6ece8;
+}
+.board-group-cell.today {
+  border-left: 2px solid #427b56;
+  background: #eaf3ec;
+}
+.board-place-label {
+  padding: 8px 14px 8px 22px;
+  background: #fff;
+}
+.board-place-label strong {
+  font-size: 13px;
+  color: #1a3d2b;
 }
 .board-head {
   position: sticky;

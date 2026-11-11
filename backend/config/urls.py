@@ -10,7 +10,12 @@ from booking.media import MediaFile, MediaUpload, ProfileAvatar
 from booking.mobile_auth import MobileAuthView, MobileSessionView
 from booking.staff_mobile_auth import StaffMobileAuthView, StaffMobileSessionView
 from booking.staff_profile import StaffCompanyView, StaffProfileView
-from booking.views import Endpoint
+from booking.views import (
+    Endpoint,
+    StaffNotificationReadView,
+    StaffNotificationsView,
+    StaffPushDeviceView,
+)
 from commerce.accounting.document_guests import DocumentGuestsView
 from commerce.accounting.views import AccountingView, BookingDocumentsView, GuestDocumentsView
 from commerce.arrivals import ArrivalAcceptView, ArrivalResolveView
@@ -26,6 +31,12 @@ from .observability import metrics
 api_patterns = [
     path("staff-profile", StaffProfileView.as_view()),
     path("staff-profile/company/<str:resort_id>", StaffCompanyView.as_view()),
+    path("staff/notifications", StaffNotificationsView.as_view()),
+    path("staff/notifications/read-all", StaffNotificationReadView.as_view()),
+    path("staff/notifications/<str:pk>/read", StaffNotificationReadView.as_view()),
+    path("staff/push-devices", StaffPushDeviceView.as_view()),
+    path("staff/push-devices/<str:pk>/revoke", StaffPushDeviceView.as_view()),
+    path("staff/push-devices/<str:pk>", StaffPushDeviceView.as_view()),
     path("staff/arrivals/resolve", ArrivalResolveView.as_view()),
     path("bookings/<str:pk>/accept-arrival", ArrivalAcceptView.as_view()),
     path("resorts/<str:pk>/class-pricing", ClassPricingView.as_view()),

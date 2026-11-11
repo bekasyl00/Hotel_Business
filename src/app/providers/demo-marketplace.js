@@ -66,6 +66,8 @@ export function amenities(value = []) {
 export function upgradeMarketplace(db) {
   db.reviews ||= [];
   db.payments ||= [];
+  db.notifications ||= [];
+  db.pushDevices ||= [];
   db.resorts.forEach((r, i) => {
     const approved = db.reviews.filter(
       (review) => review.resortId === r.id && review.status === "approved",
@@ -158,6 +160,57 @@ export function applyDemoCancellation(booking, staff = false) {
       booking.payment.status = "partially_refunded";
   }
   return preview;
+}
+export function emitDemoBookingNotification(db, booking, kind) {
+  const resort = db.resorts.find((r) => r.id === booking.resortId);
+  if (!resort) return;
+  const recipients = db.accounts.filter(
+    (a) =>
+      a.status === "active" &&
+      (a.role === "admin" ||
+        (a.role === "manager" &&
+          (resort.accountId === a.id || a.resortIds?.includes(resort.id)))),
+  );
+  const titles = {
+    booking_created: `Новая бронь № ${booking.unit}`,
+    booking_paid: `Бронь оплачена № ${booking.unit}`,
+    booking_cancelled: `Бронь отменена № ${booking.unit}`,
+    booking_expired: `Истёк резерв № ${booking.unit}`,
+  };
+  const placesCount = Number(booking.placesCount || booking.guests || 1);
+  const labels = Array.isArray(booking.placeLabels)
+    ? booking.placeLabels.join(", ")
+    : "";
+  for (const recipient of recipients) {
+    const dedupKey = `${booking.id}:${kind}:${recipient.id}`;
+    if (db.notifications.some((n) => n.dedupKey === dedupKey)) continue;
+    db.notifications.unshift({
+      id: crypto.randomUUID(),
+      dedupKey,
+      recipientId: recipient.id,
+      resortId: resort.id,
+      bookingId: booking.id,
+      kind,
+      title: titles[kind] || `Событие брони № ${booking.unit}`,
+      body: `${booking.resortName || resort.name} · № ${booking.unit}${labels ? ` (${labels})` : ""} · ${booking.start} — ${booking.end} · мест: ${placesCount}`,
+      payload: {
+        bookingId: booking.id,
+        resortId: resort.id,
+        resortName: booking.resortName || resort.name,
+        roomId: booking.roomId,
+        unit: booking.unit,
+        start: booking.start,
+        end: booking.end,
+        guests: booking.guests,
+        placesCount,
+        placeIds: booking.placeIds || [],
+        placeLabels: booking.placeLabels || [],
+        status: booking.status,
+      },
+      readAt: null,
+      createdAt: new Date().toISOString(),
+    });
+  }
 }
 export function marketplaceRequest({
   db,
@@ -346,6 +399,7 @@ export function marketplaceRequest({
       b.version++;
       payment.receiptUrl = `/receipts/${payment.id}`;
       payment.receipt = freezeDemoReceipt(db, b, payment);
+      emitDemoBookingNotification(db, b, "booking_paid");
     }
     b.payment = payment;
     db.payments.push(payment);

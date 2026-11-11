@@ -438,7 +438,30 @@
     "saveNotes": "Save notes",
     "notesSaved": "Notes saved",
     "historyHint": "Recent events from the available property history.",
-    "notesLength": "Note length"
+    "notesLength": "Note length",
+    "placesCount": "Places: {count}",
+    "place": "Place",
+    "places": "Places",
+    "expandRoom": "Expand places for room {room}",
+    "collapseRoom": "Collapse places for room {room}",
+    "customRange": "Custom date range",
+    "fromDate": "Period start",
+    "toDate": "Period end"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "New bookings, payments, cancellations and expired holds for your resorts.",
+    "unread": "Unread: {count}",
+    "markAllRead": "Mark all as read",
+    "markRead": "Mark read",
+    "openBooking": "Open booking →",
+    "empty": "No notifications yet.",
+    "all": "All",
+    "unreadOnly": "Unread",
+    "booking_created": "New booking",
+    "booking_paid": "Paid",
+    "booking_cancelled": "Cancelled",
+    "booking_expired": "Hold expired"
   },
   "directory": {
     "clients": "Clients",

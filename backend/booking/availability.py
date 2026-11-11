@@ -10,8 +10,8 @@ from psycopg.types.range import Range
 from rest_framework import serializers
 
 from .errors import Problem
-from .holds import active_inventory
-from .models import Booking, Resort, Room, RoomPricePeriod
+from .holds import active_allocation_inventory
+from .models import BookingAllocation, Resort, Room, RoomPricePeriod
 from .pricing import room_night_price
 
 
@@ -85,7 +85,7 @@ def availability_calendar(params):
         rooms = rooms.filter(pk=room.pk)
     eligible_rooms = list(
         rooms.filter(capacity__gte=data["guests"])
-        .only("id", "price")
+        .only("id", "price", "capacity")
         .prefetch_related(
             Prefetch(
                 "price_periods",
@@ -99,31 +99,52 @@ def availability_calendar(params):
     # A single range query covers both the displayed month and a selected arrival.
     lower = min(first, arrival) if arrival else first
     occupied = list(
-        Booking.objects.filter(
-            active_inventory(now), room_id__in=room_ids, stay__overlap=Range(lower, last, "[)")
-        ).values_list("room_id", "stay")
+        BookingAllocation.objects.filter(
+            active_allocation_inventory(now),
+            room_id__in=room_ids,
+            place__status="active",
+            stay__overlap=Range(lower, last, "[)"),
+        ).values_list("room_id", "place_id", "stay")
     )
     can_arrive_today = local_now < datetime.combine(
         today, resort.check_in_time, tzinfo=ZoneInfo(resort.time_zone)
     )
+    guests_needed = data["guests"]
     days = []
     for offset in range((last - first).days):
         day = first + timedelta(days=offset)
-        busy = {room_id for room_id, stay in occupied if stay.lower <= day < stay.upper}
         bookable = today <= day <= horizon and (day != today or can_arrive_today)
-        available_ids = room_ids - busy if bookable else set()
+        available_ids = set()
+        available_places = 0
+        if bookable:
+            busy_by_room = {}
+            for r_id, place_id, stay in occupied:
+                if stay.lower <= day < stay.upper:
+                    busy_by_room.setdefault(r_id, set()).add(place_id)
+            for r_id, rm in room_by_id.items():
+                free_in_room = max(0, rm.capacity - len(busy_by_room.get(r_id, ())))
+                if free_in_room >= guests_needed:
+                    available_ids.add(r_id)
+                    available_places += free_in_room
         departures = 0
-        if arrival and 0 < (day - arrival).days <= 30:
-            blocked = {
-                room_id for room_id, stay in occupied if stay.lower < day and arrival < stay.upper
-            }
-            if arrival != today or can_arrive_today:
-                departures = len(room_ids - blocked)
+        departure_places = 0
+        if arrival and 0 < (day - arrival).days <= 30 and (arrival != today or can_arrive_today):
+            blocked_by_room = {}
+            for r_id, place_id, stay in occupied:
+                if stay.lower < day and arrival < stay.upper:
+                    blocked_by_room.setdefault(r_id, set()).add(place_id)
+            for r_id, rm in room_by_id.items():
+                continuous_free = max(0, rm.capacity - len(blocked_by_room.get(r_id, ())))
+                if continuous_free >= guests_needed:
+                    departures += 1
+                    departure_places += continuous_free
         days.append(
             {
                 "date": day.isoformat(),
                 "availableRooms": len(available_ids),
+                "availablePlaces": available_places,
                 "departureRooms": departures,
+                "departurePlaces": departure_places,
                 "bookable": bookable,
                 **available_price(
                     day,
@@ -140,5 +161,6 @@ def availability_calendar(params):
         "today": today.isoformat(),
         "timeZone": resort.time_zone,
         "totalRooms": len(room_ids),
+        "totalPlaces": sum(rm.capacity for rm in eligible_rooms),
         "days": days,
     }

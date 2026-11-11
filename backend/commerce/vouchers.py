@@ -46,6 +46,9 @@ def voucher_data(booking):
     if not payment or payment.get("status") not in ("paid", "refunded", "partially_refunded"):
         raise Problem("Билет появится после подтверждения онлайн-оплаты.", 409)
     terms = cancellation_terms(booking)
+    serialized = booking_data(booking)
+    place_ids = serialized.get("placeIds", [])
+    place_labels = serialized.get("placeLabels", [])
     return {
         "number": "TYNYS-" + booking.pk.upper(),
         "bookingId": booking.pk,
@@ -54,6 +57,9 @@ def voucher_data(booking):
         "resortName": booking.snapshot.get("resortName", booking.resort.name),
         "roomName": booking.snapshot.get("roomName", booking.room.title),
         "unit": booking.snapshot.get("unit", booking.room.number),
+        "placeIds": place_ids,
+        "placeLabels": place_labels,
+        "placesCount": len(place_ids) or int(booking.guests or 1),
         "start": booking.stay.lower.isoformat(),
         "end": booking.stay.upper.isoformat(),
         "guests": booking.guests,
@@ -158,10 +164,13 @@ def voucher_pdf(data):
 
     terms = data["paymentTerms"]
     state = "ДЕЙСТВУЕТ" if data["status"] == "confirmed" else "ОТМЕНЁН / НЕ ДЕЙСТВУЕТ"
+    places_suffix = (
+        f" ({', '.join(data['placeLabels'])})" if data.get("placeLabels") else ""
+    )
     rows = [
         ("Гость", data["guestName"]),
         ("Санаторий", data["resortName"]),
-        ("Номер", f"{data['roomName']} · № {data['unit']}"),
+        ("Номер", f"{data['roomName']} · № {data['unit']}{places_suffix}"),
         ("Проживание", f"{data['start']} — {data['end']}"),
         ("Заезд", f"{data['checkInTime']} ({data['timeZone']})"),
         ("Гостей", data["guests"]),

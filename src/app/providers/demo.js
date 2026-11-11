@@ -10,6 +10,7 @@ import {
   marketplaceRequest,
   freezePolicy,
   applyDemoCancellation,
+  emitDemoBookingNotification,
   safeMedia,
   amenities,
 } from "./demo-marketplace.js";
@@ -26,6 +27,8 @@ import {
   paymentTerms,
   validatePricePeriods,
   validateChildren,
+  roomPlaces,
+  placeLabel,
 } from "../../entities/booking/rules.js";
 import { ApiError } from "../../shared/api/index.js";
 import { demoAnalytics } from "./demo-analytics.js";
@@ -123,8 +126,8 @@ function initialState(legacy = []) {
       version: 1,
     });
     for (const type of r.rooms)
-      for (const unit of type.units)
-        db.rooms.push({
+      for (const unit of type.units) {
+        const roomObj = {
           id: `${r.id}-${unit}`,
           resortId: r.id,
           number: unit,
@@ -136,7 +139,11 @@ function initialState(legacy = []) {
           price: type.price,
           status: "active",
           version: 1,
-        });
+        };
+        roomObj.places = roomPlaces(roomObj);
+        roomObj.placeStates = roomObj.places;
+        db.rooms.push(roomObj);
+      }
     for (const t of seedTariffs)
       db.tariffs.push({
         ...t,
@@ -222,6 +229,27 @@ export function createDemoTransport({
       account.resortId = account.resortIds[0] || null;
     }
     upgradeMarketplace(db);
+    for (const r of db.rooms) {
+      if (!Array.isArray(r.places) || !r.places.length) {
+        r.places = roomPlaces(r);
+      }
+      r.placeStates = r.places;
+    }
+    for (const b of db.bookings) {
+      const room = db.rooms.find((r) => r.id === b.roomId);
+      if (room && (!Array.isArray(b.placeIds) || !b.placeIds.length)) {
+        const activePlaces = roomPlaces(room);
+        const take = ["pending", "confirmed"].includes(b.status)
+          ? activePlaces
+          : activePlaces.slice(
+              0,
+              Math.max(1, Math.min(Number(b.guests) || 1, activePlaces.length)),
+            );
+        b.placeIds = take.map((p) => p.id);
+        b.placeLabels = take.map((p) => p.unitLabel);
+        b.placesCount = take.length;
+      }
+    }
     resolveGuest(db, session);
     upgradeGuests(db);
     return db;
@@ -342,6 +370,7 @@ export function createDemoTransport({
         const before = clone(booking);
         booking.status = "expired";
         booking.version++;
+        emitDemoBookingNotification(db, booking, "booking_expired");
         commit("bookings", booking, before, "payment_expired");
       }
     }
@@ -466,22 +495,230 @@ export function createDemoTransport({
         validateSearch(search) ||
         validateChildren(search.guests, search.childrenAges);
       if (error) fail(error);
+      const roomIds = [];
+      const availablePlacesByRoom = {};
+      let totalAvailablePlaces = 0;
+      for (const r of db.rooms) {
+        if (!isPublic(r.resortId) || r.status !== "active") continue;
+        const activePlaces = roomPlaces(r);
+        if (activePlaces.length < search.guests) continue;
+        const busyIds = new Set();
+        for (const b of db.bookings) {
+          if (
+            b.roomId === r.id &&
+            ["pending", "confirmed"].includes(b.status) &&
+            overlaps(b, search)
+          ) {
+            const ids =
+              Array.isArray(b.placeIds) && b.placeIds.length
+                ? b.placeIds
+                : activePlaces.map((p) => p.id);
+            for (const pid of ids) busyIds.add(pid);
+          }
+        }
+        const freePlaces = activePlaces.filter(
+          (p) => !busyIds.has(p.id),
+        ).length;
+        availablePlacesByRoom[r.id] = freePlaces;
+        totalAvailablePlaces += freePlaces;
+        if (freePlaces >= search.guests) roomIds.push(r.id);
+      }
       return {
-        roomIds: db.rooms
-          .filter(
-            (r) =>
-              isPublic(r.resortId) &&
-              r.status === "active" &&
-              r.capacity >= search.guests &&
-              !db.bookings.some(
-                (b) =>
-                  b.roomId === r.id &&
-                  ["pending", "confirmed"].includes(b.status) &&
-                  overlaps(b, search),
-              ),
-          )
-          .map((r) => r.id),
+        roomIds,
+        availablePlacesByRoom,
+        totalAvailablePlaces,
       };
+    }
+    if (pathname === "/planner" && method === "GET") {
+      if (!user) fail("Войдите в кабинет сотрудника.", 401);
+      if (!["admin", "manager", "accountant"].includes(user.role))
+        fail("Недостаточно прав.", 403);
+      const today = dateAfter();
+      const start = params.get("start") || dateAfter(-14, today);
+      const end = params.get("end") || dateAfter(46, today);
+      const nights = nightsBetween(start, end);
+      if (!Number.isInteger(nights) || nights < 1 || nights > 120)
+        fail("Диапазон шахматки должен быть от 1 до 120 дней.");
+      const resortId = params.get("resortId");
+      if (
+        resortId &&
+        !["admin", "accountant"].includes(user.role) &&
+        !user.resortIds.includes(resortId)
+      )
+        fail("У вас нет доступа к этому санаторию.", 403);
+      return clone({
+        start,
+        end,
+        days: nights,
+        rooms: db.rooms.filter(
+          (item) =>
+            (user.role === "accountant" || scoped(item)) &&
+            (!resortId || item.resortId === resortId),
+        ),
+        bookings: db.bookings.filter(
+          (item) =>
+            (user.role === "accountant" || scoped(item)) &&
+            (!resortId || item.resortId === resortId) &&
+            item.start < end &&
+            item.end > start,
+        ),
+      });
+    }
+    if (pathname === "/staff/notifications" && method === "GET") {
+      if (!user) fail("Войдите в кабинет сотрудника.", 401);
+      if (!["admin", "manager"].includes(user.role))
+        fail("Уведомления о бронированиях недоступны для этой роли.", 403);
+      const accessibleResortIds = new Set(
+        user.role === "admin"
+          ? db.resorts.map((r) => r.id)
+          : user.resortIds || [],
+      );
+      const resortId = params.get("resortId");
+      if (resortId && !accessibleResortIds.has(resortId))
+        fail("У вас нет доступа к этому санаторию.", 403);
+      const unreadOnly = ["1", "true", "yes"].includes(
+        (params.get("unread") || "").toLowerCase(),
+      );
+      const scopedNotifications = (db.notifications || []).filter(
+        (n) =>
+          n.recipientId === user.id &&
+          accessibleResortIds.has(n.resortId) &&
+          (!resortId || n.resortId === resortId),
+      );
+      const unreadCount = scopedNotifications.filter((n) => !n.readAt).length;
+      const items = (
+        unreadOnly
+          ? scopedNotifications.filter((n) => !n.readAt)
+          : scopedNotifications
+      ).slice(0, 100);
+      return clone({ items, unreadCount });
+    }
+    if (pathname === "/staff/notifications/read-all" && method === "POST") {
+      if (!user) fail("Войдите в кабинет сотрудника.", 401);
+      if (!["admin", "manager"].includes(user.role))
+        fail("Уведомления о бронированиях недоступны для этой роли.", 403);
+      const accessibleResortIds = new Set(
+        user.role === "admin"
+          ? db.resorts.map((r) => r.id)
+          : user.resortIds || [],
+      );
+      const resortId = payload?.resortId || params.get("resortId");
+      if (resortId && !accessibleResortIds.has(resortId))
+        fail("У вас нет доступа к этому санаторию.", 403);
+      let updated = 0;
+      const nowIso = new Date().toISOString();
+      for (const n of db.notifications || []) {
+        if (
+          n.recipientId === user.id &&
+          accessibleResortIds.has(n.resortId) &&
+          (!resortId || n.resortId === resortId) &&
+          !n.readAt
+        ) {
+          n.readAt = nowIso;
+          updated++;
+        }
+      }
+      storage.setItem(DATABASE_KEY, serializeDemo(db));
+      const unreadCount = (db.notifications || []).filter(
+        (n) =>
+          n.recipientId === user.id &&
+          accessibleResortIds.has(n.resortId) &&
+          !n.readAt,
+      ).length;
+      return clone({ updated, unreadCount });
+    }
+    const notifReadMatch = pathname.match(
+      /^\/staff\/notifications\/([^/]+)\/read$/,
+    );
+    if (notifReadMatch && method === "POST") {
+      if (!user) fail("Войдите в кабинет сотрудника.", 401);
+      if (!["admin", "manager"].includes(user.role))
+        fail("Уведомления о бронированиях недоступны для этой роли.", 403);
+      const accessibleResortIds = new Set(
+        user.role === "admin"
+          ? db.resorts.map((r) => r.id)
+          : user.resortIds || [],
+      );
+      const notif = (db.notifications || []).find(
+        (n) =>
+          n.id === notifReadMatch[1] &&
+          n.recipientId === user.id &&
+          accessibleResortIds.has(n.resortId),
+      );
+      if (!notif) fail("Уведомление не найдено.", 404);
+      if (!notif.readAt) {
+        notif.readAt = new Date().toISOString();
+        storage.setItem(DATABASE_KEY, serializeDemo(db));
+      }
+      return clone(notif);
+    }
+    if (pathname === "/staff/push-devices" && method === "POST") {
+      if (!user) fail("Войдите в кабинет сотрудника.", 401);
+      if (!["admin", "manager"].includes(user.role))
+        fail("Уведомления о бронированиях недоступны для этой роли.", 403);
+      const platform = choice(payload.platform, ["ios", "android"]);
+      const token = text(payload.token, "Push-токен", 512);
+      if (token.length < 16) fail("Некорректный push-токен устройства.");
+      let device = (db.pushDevices || []).find((d) => d.token === token);
+      const nowIso = new Date().toISOString();
+      if (device) {
+        Object.assign(device, {
+          userId: user.id,
+          platform,
+          deviceLabel: String(payload.deviceLabel || "").slice(0, 120),
+          appVersion: String(payload.appVersion || "").slice(0, 40),
+          status: "active",
+          revokedAt: null,
+          updatedAt: nowIso,
+        });
+      } else {
+        device = {
+          id: crypto.randomUUID(),
+          userId: user.id,
+          platform,
+          token,
+          deviceLabel: String(payload.deviceLabel || "").slice(0, 120),
+          appVersion: String(payload.appVersion || "").slice(0, 40),
+          status: "active",
+          revokedAt: null,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        };
+        db.pushDevices.push(device);
+      }
+      storage.setItem(DATABASE_KEY, serializeDemo(db));
+      return clone({
+        id: device.id,
+        platform: device.platform,
+        deviceLabel: device.deviceLabel,
+        appVersion: device.appVersion,
+        status: device.status,
+        updatedAt: device.updatedAt,
+      });
+    }
+    const pushRevokeMatch = pathname.match(
+      /^\/staff\/push-devices\/([^/]+)(?:\/revoke)?$/,
+    );
+    if (pushRevokeMatch && ["DELETE", "POST"].includes(method)) {
+      if (!user) fail("Войдите в кабинет сотрудника.", 401);
+      if (!["admin", "manager"].includes(user.role))
+        fail("Уведомления о бронированиях недоступны для этой роли.", 403);
+      const device = (db.pushDevices || []).find(
+        (d) => d.id === pushRevokeMatch[1] && d.userId === user.id,
+      );
+      if (!device) fail("Устройство не найдено.", 404);
+      device.status = "revoked";
+      device.revokedAt = new Date().toISOString();
+      device.updatedAt = device.revokedAt;
+      storage.setItem(DATABASE_KEY, serializeDemo(db));
+      return clone({
+        id: device.id,
+        platform: device.platform,
+        deviceLabel: device.deviceLabel,
+        appVersion: device.appVersion,
+        status: device.status,
+        updatedAt: device.updatedAt,
+      });
     }
     if (pathname === "/accounting" && method === "GET") {
       if (!user) fail("Войдите в кабинет.", 401);
@@ -548,6 +785,19 @@ export function createDemoTransport({
 
     if (pathname === "/workspace" && method === "GET") {
       if (!user) fail("Войдите в кабинет сотрудника.", 401);
+      const accessibleResortIds = new Set(
+        user.role === "admin"
+          ? db.resorts.map((r) => r.id)
+          : user.resortIds || [],
+      );
+      const unreadNotifications = ["admin", "manager"].includes(user.role)
+        ? (db.notifications || []).filter(
+            (n) =>
+              n.recipientId === user.id &&
+              accessibleResortIds.has(n.resortId) &&
+              !n.readAt,
+          ).length
+        : 0;
       return clone({
         resorts: db.resorts.filter(
           (r) =>
@@ -566,6 +816,7 @@ export function createDemoTransport({
         accounts: user.role === "admin" ? db.accounts : [],
         audit: user.role === "admin" ? db.audit.filter(scoped) : [],
         reviews: user.role === "accountant" ? [] : db.reviews.filter(scoped),
+        unreadNotifications,
       });
     }
     if (pathname === "/my-bookings" && method === "GET")
@@ -612,20 +863,54 @@ export function createDemoTransport({
           validateSearch(search) ||
           validateChildren(search.guests, search.childrenAges);
         if (error) fail(error);
-        if (search.guests > room.capacity)
+        const activePlaces = roomPlaces(room);
+        if (search.guests > activePlaces.length)
           fail("Вместимость номера меньше числа гостей.");
-        if (
-          db.bookings.some(
-            (b) =>
-              b.roomId === room.id &&
-              ["pending", "confirmed"].includes(b.status) &&
-              overlaps(b, search),
+        const busyPlaceIds = new Set();
+        for (const b of db.bookings) {
+          if (
+            b.roomId === room.id &&
+            ["pending", "confirmed"].includes(b.status) &&
+            overlaps(b, search)
+          ) {
+            const ids =
+              Array.isArray(b.placeIds) && b.placeIds.length
+                ? b.placeIds
+                : activePlaces.map((p) => p.id);
+            for (const pid of ids) busyPlaceIds.add(pid);
+          }
+        }
+        const freePlaces = activePlaces.filter((p) => !busyPlaceIds.has(p.id));
+        const requestedPlaceIds = Array.isArray(payload.placeIds)
+          ? payload.placeIds.filter(Boolean)
+          : [];
+        let selectedPlaces;
+        if (requestedPlaceIds.length) {
+          if (
+            new Set(requestedPlaceIds).size !== search.guests ||
+            requestedPlaceIds.length !== search.guests
           )
-        )
-          fail(
-            "Номер занят на выбранные даты. Выберите другой номер или даты.",
-            409,
-          );
+            fail(
+              "Количество выбранных мест должно совпадать с числом гостей.",
+              422,
+            );
+          const freeById = new Map(freePlaces.map((p) => [p.id, p]));
+          if (requestedPlaceIds.some((pid) => !freeById.has(pid)))
+            fail(
+              "Недостаточно свободных мест в номере на выбранные даты.",
+              409,
+            );
+          selectedPlaces = requestedPlaceIds
+            .map((pid) => freeById.get(pid))
+            .sort((a, b) => a.position - b.position);
+        } else {
+          if (freePlaces.length < search.guests)
+            fail(
+              "Номер занят на выбранные даты. Выберите другой номер или даты.",
+              409,
+            );
+          selectedPlaces = freePlaces.slice(0, search.guests);
+        }
         const price = quoteStay(room, tariff, search);
         const terms = paymentTerms(resort, price.total);
         if (!terms)
@@ -655,6 +940,9 @@ export function createDemoTransport({
           tariffName: tariff?.name || "",
           pricingBasis: tariff ? "tariff" : "room",
           staffNotes: "",
+          placeIds: selectedPlaces.map((p) => p.id),
+          placeLabels: selectedPlaces.map((p) => p.unitLabel),
+          placesCount: selectedPlaces.length,
           ...search,
           ...price,
           paymentTerms: terms,
@@ -699,6 +987,7 @@ export function createDemoTransport({
           createdAt: new Date().toISOString(),
         };
         collection.push(booking);
+        emitDemoBookingNotification(db, booking, "booking_created");
         return commit(entity, booking);
       }
       if (method === "PATCH" && item) {
@@ -734,6 +1023,9 @@ export function createDemoTransport({
         }
         item.status = payload.status;
         item.version++;
+        if (payload.status === "cancelled") {
+          emitDemoBookingNotification(db, item, "booking_cancelled");
+        }
         return commit(
           entity,
           item,
@@ -936,6 +1228,39 @@ export function createDemoTransport({
         fail(
           "Изменение конфликтует с текущими или будущими бронями. Сначала отмените их.",
         );
+      const roomId = item?.id || `${resortId}-${fields.number}`;
+      const existingPlaces = Array.isArray(item?.placeStates || item?.places)
+        ? item.placeStates || item.places
+        : [];
+      const maxPos = Math.max(
+        fields.capacity,
+        ...existingPlaces.map((p) => Number(p.position) || 0),
+      );
+      const places = [];
+      for (let pos = 1; pos <= maxPos; pos++) {
+        const label = placeLabel(pos);
+        const pid = `${roomId}:p${pos}`;
+        const prev = existingPlaces.find((p) => Number(p.position) === pos);
+        const status = pos <= fields.capacity ? "active" : "maintenance";
+        if (
+          status === "maintenance" &&
+          future.some((b) => Array.isArray(b.placeIds) && b.placeIds.includes(pid))
+        )
+          fail(
+            "Изменение конфликтует с текущими или будущими бронями. Сначала отмените их.",
+          );
+        places.push({
+          id: pid,
+          roomId,
+          position: pos,
+          label,
+          unitLabel: `${fields.number}${label}`,
+          status,
+          version: (prev?.version || 0) + 1,
+        });
+      }
+      fields.places = places.filter((p) => p.status === "active");
+      fields.placeStates = places;
     }
     if (entity === "tariffs")
       fields = {
@@ -1003,9 +1328,14 @@ export function createDemoTransport({
         fail("Этот логин уже занят.");
     }
     const before = item ? clone(item) : null;
+    const newId =
+      item?.id ||
+      (entity === "rooms"
+        ? `${resortId}-${fields.number}`
+        : crypto.randomUUID());
     const after = {
       ...(item || {
-        id: crypto.randomUUID(),
+        id: newId,
         ...(entity === "resorts" ? { rating: 0 } : {}),
       }),
       ...fields,

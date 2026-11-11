@@ -1,15 +1,26 @@
 <script setup>
 import { useI18n } from "vue-i18n";
 import { staffNavigation } from "../model/navigation.js";
-import { computed } from "vue";
+import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { useSessionStore } from "@/entities/session";
 import { LanguageSwitcher } from "@/shared/ui";
 import { ArrivalCheckIn } from "@/features/arrival-check-in";
 import { publicUrl, isStaffApp, isDemo } from "@/shared/config";
+import { request } from "@/shared/api";
 const { t } = useI18n();
-const props = defineProps({ section: String });
-const emit = defineEmits(["logout"]);
+const props = defineProps({
+  section: String,
+  unreadCount: { type: Number, default: null },
+});
+const emit = defineEmits(["logout", "unread"]);
 const session = useSessionStore();
+const localUnread = ref(0);
+const badgeCount = computed(() =>
+  props.unreadCount != null ? props.unreadCount : localUnread.value,
+);
+const canReceiveNotifications = computed(
+  () => session.user && ["admin", "manager"].includes(session.user.role),
+);
 const nav = computed(() =>
   staffNavigation(session.user?.role).map(([key, icon, label]) => [
     key,
@@ -17,6 +28,48 @@ const nav = computed(() =>
     t(label),
   ]),
 );
+let pollTimer = null;
+async function pollNotifications() {
+  if (!canReceiveNotifications.value) return;
+  if (typeof document !== "undefined" && document.visibilityState === "hidden")
+    return;
+  try {
+    const res = await request("GET", "/staff/notifications?unread=1");
+    localUnread.value = Number(res?.unreadCount || 0);
+    emit("unread", localUnread.value);
+  } catch {
+    // ignore transient poll failures
+  }
+}
+function onVisibilityChange() {
+  if (typeof document !== "undefined" && document.visibilityState === "visible")
+    pollNotifications();
+}
+watch(
+  () => props.unreadCount,
+  (val) => {
+    if (val != null) localUnread.value = val;
+  },
+);
+onMounted(() => {
+  pollNotifications();
+  pollTimer = setInterval(pollNotifications, 30000);
+  if (typeof document !== "undefined") {
+    document.addEventListener("visibilitychange", onVisibilityChange);
+  }
+  if (typeof window !== "undefined") {
+    window.addEventListener("focus", pollNotifications);
+  }
+});
+onBeforeUnmount(() => {
+  if (pollTimer) clearInterval(pollTimer);
+  if (typeof document !== "undefined") {
+    document.removeEventListener("visibilitychange", onVisibilityChange);
+  }
+  if (typeof window !== "undefined") {
+    window.removeEventListener("focus", pollNotifications);
+  }
+});
 </script>
 <template>
   <div class="staff-layout">
@@ -32,7 +85,12 @@ const nav = computed(() =>
           :class="{ selected: section === key }"
           :aria-current="section === key ? 'page' : undefined"
           ><span aria-hidden="true">{{ icon }}</span
-          >{{ title }}</RouterLink
+          >{{ title
+          }}<span
+            v-if="key === 'notifications' && badgeCount > 0"
+            class="notif-badge"
+            >{{ badgeCount }}</span
+          ></RouterLink
         >
       </nav>
       <div class="sidebar-footer">
@@ -83,6 +141,16 @@ const nav = computed(() =>
         <div class="staff-topbar-actions">
           <ArrivalCheckIn v-if="!isDemo && !session.isAccountant" />
           <RouterLink
+            v-if="canReceiveNotifications"
+            to="/staff/notifications"
+            class="topbar-notif-link"
+            :aria-current="section === 'notifications' ? 'page' : undefined"
+            >{{ t("staff.notifications.title")
+            }}<span v-if="badgeCount > 0" class="notif-badge">{{
+              badgeCount
+            }}</span></RouterLink
+          >
+          <RouterLink
             to="/staff/profile"
             :aria-current="section === 'profile' ? 'page' : undefined"
             >{{ t("common.staffProfile.title") }}</RouterLink
@@ -102,6 +170,25 @@ const nav = computed(() =>
   </div>
 </template>
 <style scoped>
+.notif-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  margin-left: 6px;
+  border-radius: 999px;
+  background: #143e2c;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+.topbar-notif-link {
+  display: inline-flex;
+  align-items: center;
+}
 .staff-sidebar {
   overflow-y: auto;
 }

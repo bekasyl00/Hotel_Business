@@ -83,7 +83,9 @@ class AvailabilityCalendarTests(TestCase):
             {
                 "date",
                 "availableRooms",
+                "availablePlaces",
                 "departureRooms",
+                "departurePlaces",
                 "bookable",
                 "price",
                 "regularPrice",

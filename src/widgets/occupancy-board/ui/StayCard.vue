@@ -145,6 +145,10 @@ const actionName = (action) =>
             <dt>{{ t("staff.guests") }}</dt>
             <dd>{{ booking.guests }}</dd>
           </div>
+          <div v-if="booking.placeLabels?.length">
+            <dt>{{ t("staff.board.places") }}</dt>
+            <dd>{{ booking.placeLabels.join(", ") }}</dd>
+          </div>
           <div>
             <dt>{{ t("staff.amount") }}</dt>
             <dd>{{ money(booking.paymentTerms?.total ?? booking.total) }}</dd>

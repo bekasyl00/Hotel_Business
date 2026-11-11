@@ -13,6 +13,7 @@ test("staff navigation has unique destinations and keeps accountant read-only de
     assert.equal(paths.includes("history"), role === "admin");
     assert.equal(paths.includes("accounting"), role !== "manager");
     assert.equal(paths.includes("documents"), role !== "accountant");
+    assert.equal(paths.includes("notifications"), role !== "accountant");
   }
   assert.deepEqual(
     staffNavigation("accountant").map(([path]) => path),

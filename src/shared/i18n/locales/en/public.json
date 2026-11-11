@@ -346,7 +346,11 @@
     "previousPrice": "Price before reduction",
     "howToRead": "Calendar key",
     "compactHint": "K = thousands, M = millions of ₸. Seasonal means a period price; ↓ marks a lower price. Select a day for the exact amount.",
-    "unknown": "Availability unknown"
+    "unknown": "Availability unknown",
+    "freePlaces": "Available places: {count}",
+    "departurePlaces": "Check-out available; places for the whole stay: {count}",
+    "bookedPlaces": "Places booked: {guests} of {capacity}",
+    "sharedRoomNotice": "This room has multiple places: remaining available places may be booked by other guests."
   },
   "refundOnlineAmountOnly": "Refunds are calculated from the amount paid online. Accommodation paid at the resort is recorded separately."
 }

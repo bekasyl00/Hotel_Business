@@ -286,17 +286,32 @@ def apply_transaction(payment_id, evidence):
     ):
         reconcile_reason(payment, "late_charge")
         return
+    from booking.holds import active_allocation_inventory
+    from booking.models import BookingAllocation
+    from booking.notifications import emit_booking_notification
+
+    place_ids = list(
+        BookingAllocation.objects.filter(booking=booking).values_list("place_id", flat=True)
+    )
     if (
-        Booking.objects.filter(active_inventory(), room=booking.room, stay__overlap=booking.stay)
-        .exclude(pk=booking.pk)
+        place_ids
+        and BookingAllocation.objects.filter(
+            active_allocation_inventory(),
+            place_id__in=place_ids,
+            stay__overlap=booking.stay,
+        )
+        .exclude(booking=booking)
         .exists()
     ):
         reconcile_reason(payment, "inventory_conflict")
         return
     before = booking.status
+    booking._managed_allocations = True
     booking.status = "confirmed"
     booking.version += 1
     booking.save(update_fields=["status", "version"])
+    BookingAllocation.objects.filter(booking=booking).update(status="confirmed")
+    emit_booking_notification(booking, "booking_paid")
     event.applied = True
     event.save(update_fields=["applied"])
     payment.status = "succeeded"

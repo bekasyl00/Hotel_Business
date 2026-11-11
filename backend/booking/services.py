@@ -22,14 +22,19 @@ from .holds import expire_locked_holds
 from .models import (
     Audit,
     Booking,
+    BookingAllocation,
     GuestAccount,
     GuestProfile,
     Resort,
     Review,
     Room,
+    RoomPlace,
     Tariff,
     User,
+    place_label,
+    place_pk_for,
 )
+from .notifications import emit_booking_notification
 from .pricing import quote_stay
 from .rate_limits import client_ip, consume_limits
 from .serializers import (
@@ -207,7 +212,7 @@ def create_booking(request, staff=False):
     ).hexdigest()
     room = get_object_or_404(Room, pk=data["roomId"])
     resort = Resort.objects.select_for_update().get(pk=room.resort_id)
-    room.refresh_from_db()
+    room = Room.objects.select_for_update().get(pk=room.pk)
     if staff:
         require_staff(request.user, resort.pk)
     expire_locked_holds(resort.pk)
@@ -216,6 +221,22 @@ def create_booking(request, staff=False):
         if previous.owner != owner or previous.request_hash != fingerprint:
             raise Problem("Ключ запроса уже использован для другой брони.", 409)
         return previous
+    if data.get("allocationMode") in {"exclusive_room", "whole_room", "legacy_room"}:
+        raise Problem(
+            "Обновите приложение для бронирования мест в номере.",
+            409,
+            "update_required",
+        )
+    requested_place_ids = data.get("placeIds")
+    if requested_place_ids is not None:
+        if len(set(requested_place_ids)) != len(requested_place_ids) or len(
+            requested_place_ids
+        ) != int(data["guests"]):
+            raise Problem(
+                "Количество выбранных мест должно совпадать с числом гостей.",
+                422,
+                "update_required",
+            )
     if not staff and not data.get("tariffId"):
         raise Problem("Выберите тариф.")
     tariff = (
@@ -229,13 +250,52 @@ def create_booking(request, staff=False):
         or (tariff and tariff.status != "active")
     ):
         raise Problem("Санаторий, номер или тариф недоступен.", 409)
-    if data["guests"] > room.capacity:
+    room.ensure_places()
+    room_places = list(
+        RoomPlace.objects.select_for_update().filter(room=room).order_by("position", "id")
+    )
+    active_places = [p for p in room_places if p.status == "active"]
+    if data["guests"] > room.capacity or data["guests"] > len(active_places):
         raise Problem("Число гостей превышает вместимость номера.")
     if not staff and not data.get("guestPhone"):
         raise Problem("Укажите телефон для связи с управляющим.")
     stay = validated_dates(data["start"], data["end"])
-    if Booking.objects.filter(room=room, status__in=ACTIVE, stay__overlap=stay).exists():
-        raise Problem("Номер уже занят на выбранные даты. Выберите другой.", 409)
+    busy_place_ids = set(
+        BookingAllocation.objects.filter(
+            place__in=active_places,
+            status__in=ACTIVE,
+            stay__overlap=stay,
+        ).values_list("place_id", flat=True)
+    )
+    if requested_place_ids is not None:
+        active_by_id = {p.pk: p for p in active_places}
+        if any(pid not in active_by_id for pid in requested_place_ids):
+            raise Problem(
+                "Выбранное место не принадлежит этому номеру или недоступно.",
+                422,
+                "invalid_places",
+            )
+        if any(pid in busy_place_ids for pid in requested_place_ids):
+            raise Problem(
+                "Выбранные места уже заняты на указанные даты.",
+                409,
+                "insufficient_places",
+            )
+        selected_places = sorted(
+            [active_by_id[pid] for pid in requested_place_ids],
+            key=lambda item: (item.position, item.pk),
+        )
+    else:
+        free_places = [p for p in active_places if p.pk not in busy_place_ids]
+        if len(free_places) < data["guests"]:
+            raise Problem(
+                "В номере недостаточно свободных мест на выбранные даты. Выберите другой.",
+                409,
+                "insufficient_places",
+            )
+        selected_places = free_places[: data["guests"]]
+    place_ids = [p.pk for p in selected_places]
+    place_labels = [f"{room.number}{p.label}" for p in selected_places]
     price = quote_stay(
         room, tariff, data["start"], data["end"], data["guests"], data["childrenAges"]
     )
@@ -246,7 +306,7 @@ def create_booking(request, staff=False):
     checkin_at = datetime.fromisoformat(cancellation_policy["checkinAt"])
     if checkin_at <= timezone.now():
         raise Problem("Время заезда уже наступило. Выберите другую дату.", 409)
-    booking = Booking.objects.create(
+    booking = Booking(
         resort=resort,
         room=room,
         tariff=tariff,
@@ -266,6 +326,9 @@ def create_booking(request, staff=False):
             "resortName": resort.name,
             "roomName": room.title,
             "unit": room.number,
+            "placeIds": place_ids,
+            "placeLabels": place_labels,
+            "placesCount": len(selected_places),
             "tariffName": tariff.name if tariff else "",
             "pricingBasis": "tariff" if tariff else "room",
             **price,
@@ -278,6 +341,17 @@ def create_booking(request, staff=False):
             "paymentTerms": payment_terms,
         },
     )
+    booking._managed_allocations = True
+    booking.save()
+    for place in selected_places:
+        BookingAllocation.objects.create(
+            booking=booking,
+            room=room,
+            place=place,
+            stay=stay,
+            status="pending",
+        )
+    emit_booking_notification(booking, "booking_created")
     log_change(
         request.user,
         "bookings",
@@ -317,9 +391,13 @@ def transition_booking(request, pk, staff=False):
             **item.snapshot,
             "cancellation": apply_cancellation(item, request.user, staff=staff),
         }
+    item._managed_allocations = True
     item.status = target
     item.version += 1
     item.save(update_fields=["status", "version", "snapshot"])
+    BookingAllocation.objects.filter(booking=item).update(status=target)
+    if target == "cancelled":
+        emit_booking_notification(item, "booking_cancelled")
     log_change(
         request.user,
         "bookings",
@@ -382,13 +460,82 @@ def save_catalog(request, kind, pk=None):
         ):
             raise Problem("Для публикации добавьте активный номер и тариф.")
     if kind == "rooms" and item:
+        Room.objects.select_for_update().get(pk=item.pk)
+        item.ensure_places()
+        places = list(
+            RoomPlace.objects.select_for_update().filter(room=item).order_by("position", "id")
+        )
         future = Booking.objects.filter(
             room=item, status__in=ACTIVE, stay__endswith__gt=timezone.localdate()
         )
-        if data.get("status") == "maintenance" and future.exists():
+        future_allocs = BookingAllocation.objects.filter(
+            room=item, status__in=ACTIVE, stay__endswith__gt=timezone.localdate()
+        )
+        if data.get("status") == "maintenance" and (future.exists() or future_allocs.exists()):
             raise Problem("Есть активные брони. Сначала отмените их.", 409)
-        if future.filter(guests__gt=data.get("capacity", item.capacity)).exists():
-            raise Problem("Вместимость меньше числа гостей в активной брони.", 409)
+        place_states = data.get("placeStates")
+        if place_states is not None:
+            by_id = {p.pk: p for p in places}
+            if any(ps["id"] not in by_id for ps in place_states):
+                raise Problem("Указано неизвестное место комнаты.", 422)
+            busy_future_place_ids = set(future_allocs.values_list("place_id", flat=True))
+            next_status_by_id = {p.pk: p.status for p in places}
+            for ps in place_states:
+                if ps["status"] == "maintenance" and ps["id"] in busy_future_place_ids:
+                    raise Problem(
+                        "На выбранном месте есть активные или будущие брони.", 409
+                    )
+                next_status_by_id[ps["id"]] = ps["status"]
+            active_count = sum(1 for st in next_status_by_id.values() if st == "active")
+            if active_count < 1 or active_count > 4:
+                raise Problem("В номере должно быть от 1 до 4 активных мест.", 422)
+            if future.filter(guests__gt=active_count).exists():
+                raise Problem("Вместимость меньше числа гостей в активной брони.", 409)
+            for p in places:
+                target_st = next_status_by_id[p.pk]
+                if p.status != target_st:
+                    p.status = target_st
+                    p.version += 1
+                    p.save(update_fields=["status", "version"])
+            data["capacity"] = active_count
+        else:
+            target_capacity = int(data.get("capacity", item.capacity))
+            if future.filter(guests__gt=target_capacity).exists():
+                raise Problem("Вместимость меньше числа гостей в активной брони.", 409)
+            active_places = [p for p in places if p.status == "active"]
+            busy_future_place_ids = set(future_allocs.values_list("place_id", flat=True))
+            if target_capacity < len(active_places):
+                need_to_deactivate = len(active_places) - target_capacity
+                removable = [
+                    p for p in reversed(active_places) if p.pk not in busy_future_place_ids
+                ]
+                if len(removable) < need_to_deactivate:
+                    raise Problem(
+                        "На местах номера есть активные брони. Сначала отмените их.", 409
+                    )
+                for p in removable[:need_to_deactivate]:
+                    p.status = "maintenance"
+                    p.version += 1
+                    p.save(update_fields=["status", "version"])
+            elif target_capacity > len(active_places):
+                need_to_activate = target_capacity - len(active_places)
+                inactive_places = [p for p in places if p.status != "active"]
+                for p in inactive_places[:need_to_activate]:
+                    p.status = "active"
+                    p.version += 1
+                    p.save(update_fields=["status", "version"])
+                    need_to_activate -= 1
+                max_pos = max((p.position for p in places), default=0)
+                for offset in range(1, need_to_activate + 1):
+                    pos = max_pos + offset
+                    RoomPlace.objects.create(
+                        id=place_pk_for(item.pk, pos),
+                        room=item,
+                        position=pos,
+                        label=place_label(pos),
+                        status="active",
+                    )
+        getattr(item, "_prefetched_objects_cache", {}).pop("places", None)
     before = dict(serializer_cls(item).data) if item else None
     old_account = item.account_id if kind == "resorts" and item else None
     result = inp.save(version=item.version + 1 if item else 1)

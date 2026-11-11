@@ -438,7 +438,30 @@
     "saveNotes": "Сохранить примечание",
     "notesSaved": "Примечание сохранено",
     "historyHint": "Последние события из доступной истории санатория.",
-    "notesLength": "Длина примечания"
+    "notesLength": "Длина примечания",
+    "placesCount": "Мест: {count}",
+    "place": "Место",
+    "places": "Места",
+    "expandRoom": "Развернуть места номера {room}",
+    "collapseRoom": "Свернуть места номера {room}",
+    "customRange": "Период с — по",
+    "fromDate": "Начало периода",
+    "toDate": "Конец периода"
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "subtitle": "Новые заявки, оплаты, отмены и истёкшие резервы по вашим санаториям.",
+    "unread": "Непрочитанные: {count}",
+    "markAllRead": "Прочитать все",
+    "markRead": "Отметить прочитанным",
+    "openBooking": "Открыть бронь →",
+    "empty": "Новых уведомлений пока нет.",
+    "all": "Все",
+    "unreadOnly": "Непрочитанные",
+    "booking_created": "Новая бронь",
+    "booking_paid": "Оплачена",
+    "booking_cancelled": "Отменена",
+    "booking_expired": "Истёк резерв"
   },
   "directory": {
     "clients": "Клиенты",

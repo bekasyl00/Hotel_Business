@@ -248,7 +248,14 @@ class PricePeriodsField(serializers.Field):
         return periods
 
 
+class PlaceStateInput(serializers.Serializer):
+    id = serializers.CharField(max_length=64)
+    status = serializers.ChoiceField(choices=["active", "maintenance"])
+
+
 class RoomSerializer(serializers.ModelSerializer):
+    places = serializers.SerializerMethodField(read_only=True)
+    placeStates = PlaceStateInput(many=True, max_length=12, required=False, write_only=True)
     pricePeriods = PricePeriodsField(source="price_periods", required=False)
     resortId = serializers.PrimaryKeyRelatedField(source="resort", queryset=Resort.objects.all())
     capacity = serializers.IntegerField(min_value=1, max_value=4)
@@ -260,6 +267,22 @@ class RoomSerializer(serializers.ModelSerializer):
     )
     amenities = FeatureList(required=False)
     media = MediaItem(many=True, max_length=20, required=False)
+
+    def get_places(self, obj):
+        places = list(obj.places.all())
+        if not places and obj.pk:
+            places = obj.ensure_places()
+        places.sort(key=lambda item: (item.position, item.pk))
+        return [
+            {
+                "id": p.pk,
+                "position": p.position,
+                "label": p.label,
+                "unitLabel": f"{obj.number}{p.label}",
+                "status": p.status,
+            }
+            for p in places
+        ]
 
     def save_periods(self, room, periods):
         if periods is not None:
@@ -279,10 +302,12 @@ class RoomSerializer(serializers.ModelSerializer):
         return room
 
     def create(self, validated_data):
+        validated_data.pop("placeStates", None)
         periods = validated_data.pop("price_periods", None)
         return self.save_periods(super().create(validated_data), periods)
 
     def update(self, instance, validated_data):
+        validated_data.pop("placeStates", None)
         periods = validated_data.pop("price_periods", None)
         return self.save_periods(super().update(instance, validated_data), periods)
 
@@ -298,6 +323,8 @@ class RoomSerializer(serializers.ModelSerializer):
             "area",
             "capacity",
             "beds",
+            "places",
+            "placeStates",
             "price",
             "pricePeriods",
             "status",
@@ -306,7 +333,7 @@ class RoomSerializer(serializers.ModelSerializer):
             "amenities",
             "media",
         ]
-        read_only_fields = ["id", "version"]
+        read_only_fields = ["id", "version", "places"]
         validators = []
 
 
@@ -385,6 +412,10 @@ class BookingInput(serializers.Serializer):
     start = serializers.DateField()
     end = serializers.DateField()
     guests = serializers.IntegerField(min_value=1, max_value=4)
+    placeIds = serializers.ListField(
+        child=serializers.CharField(max_length=64), min_length=1, max_length=4, required=False
+    )
+    allocationMode = serializers.CharField(max_length=32, required=False)
     childrenAges = serializers.ListField(
         child=serializers.IntegerField(min_value=0, max_value=13), max_length=3, default=list
     )
@@ -520,6 +551,22 @@ def booking_data(b, staff=False):
     snapshot = dict(b.snapshot)
     if not staff:
         snapshot.pop("commissionTerms", None)
+    if "placeIds" not in snapshot or "placeLabels" not in snapshot:
+        allocs = list(b.allocations.all())
+        room_number = snapshot.get("unit") or getattr(b.room, "number", "")
+        snapshot.setdefault("placeIds", [a.place_id for a in allocs])
+        snapshot.setdefault(
+            "placeLabels",
+            [
+                f"{room_number}{a.place.label}"
+                for a in allocs
+                if getattr(a, "place", None) is not None
+            ],
+        )
+    snapshot.setdefault(
+        "placesCount",
+        len(snapshot.get("placeIds") or []) or int(b.guests or 1),
+    )
     return {
         "id": b.id,
         "version": b.version,

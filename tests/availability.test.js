@@ -73,7 +73,9 @@ test("calendar scopes class, capacity and publication without PII", () => {
     [
       "date",
       "availableRooms",
+      "availablePlaces",
       "departureRooms",
+      "departurePlaces",
       "bookable",
       "price",
       "regularPrice",

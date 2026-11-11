@@ -179,6 +179,10 @@ function label(day) {
     year: "numeric",
     timeZone: "UTC",
   }).format(new Date(`${day.date}T12:00:00Z`));
+  const placesInfo =
+    day.availablePlaces != null
+      ? ` (${t("public.calendar.freePlaces", { count: day.availablePlaces })})`
+      : "";
   const state = !data.value
     ? t(loading.value ? "public.calendar.loading" : "public.calendar.unknown")
     : anchor.value && day.departureRooms > 0
@@ -186,7 +190,7 @@ function label(day) {
       : !day.bookable
         ? t("public.calendar.unavailable")
         : day.availableRooms
-          ? t("public.calendar.freeCount", { count: day.availableRooms })
+          ? `${t("public.calendar.freeCount", { count: day.availableRooms })}${placesInfo}`
           : t("public.calendar.busy");
   const price = day.priceDisplay;
   return `${date}: ${state}${price ? `; ${priceText(day)}${price.kind !== "regular" ? `; ${t(`public.calendar.${price.kind}`)}` : ""}` : ""}`;
