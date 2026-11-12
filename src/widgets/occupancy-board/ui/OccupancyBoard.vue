@@ -22,8 +22,10 @@ const now = ref(Date.now());
 const today = computed(() =>
   propertyToday(props.resort?.timeZone, new Date(now.value)),
 );
-const start = ref(shiftDay(today.value, -14)),
-  days = ref(60),
+const isMobile =
+  typeof window !== "undefined" && window.innerWidth < 760;
+const start = ref(shiftDay(today.value, isMobile ? -3 : -14)),
+  days = ref(isMobile ? 14 : 60),
   endInput = computed(() => shiftDay(start.value, days.value - 1)),
   query = ref(""),
   state = ref("all"),
@@ -42,14 +44,48 @@ const groups = computed(() =>
 const totalActivePlaces = computed(() =>
   groups.value.reduce((sum, g) => sum + g.places.length, 0),
 );
-const fmt = (day, options) =>
-  new Intl.DateTimeFormat(locale.value, { timeZone: "UTC", ...options }).format(
-    new Date(`${day}T00:00:00Z`),
-  );
-const period = computed(
-  () =>
-    `${fmt(start.value, { day: "numeric", month: "long" })} — ${fmt(shiftDay(start.value, days.value - 1), { day: "numeric", month: "long", year: "numeric" })}`,
-);
+const dateFormatters = computed(() => {
+  const loc = locale.value;
+  return {
+    month: new Intl.DateTimeFormat(loc, { timeZone: "UTC", month: "short" }),
+    day: new Intl.DateTimeFormat(loc, { timeZone: "UTC", day: "numeric" }),
+    weekday: new Intl.DateTimeFormat(loc, {
+      timeZone: "UTC",
+      weekday: "short",
+    }),
+    periodStart: new Intl.DateTimeFormat(loc, {
+      timeZone: "UTC",
+      day: "numeric",
+      month: "long",
+    }),
+    periodEnd: new Intl.DateTimeFormat(loc, {
+      timeZone: "UTC",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }),
+  };
+});
+const dayHeaders = computed(() => {
+  const f = dateFormatters.value;
+  return dates.value.map((day) => {
+    const dt = new Date(`${day}T00:00:00Z`);
+    const weekdayNum = dt.getUTCDay();
+    return {
+      day,
+      isToday: day === today.value,
+      isWeekend: weekdayNum === 0 || weekdayNum === 6,
+      month: f.month.format(dt),
+      dayNum: f.day.format(dt),
+      weekday: f.weekday.format(dt),
+    };
+  });
+});
+const period = computed(() => {
+  const f = dateFormatters.value;
+  const end = shiftDay(start.value, days.value - 1);
+  return `${f.periodStart.format(new Date(`${start.value}T00:00:00Z`))} — ${f.periodEnd.format(new Date(`${end}T00:00:00Z`))}`;
+});
 const liveBookings = computed(() =>
   props.bookings.filter((b) => occupancyState(b, now.value) !== "closed"),
 );
@@ -251,19 +287,19 @@ onBeforeUnmount(() => clearInterval(timer));
               >
             </div>
             <div
-              v-for="day in dates"
-              :key="day"
+              v-for="h in dayHeaders"
+              :key="h.day"
               :class="[
                 'board-date',
                 {
-                  today: day === today,
-                  weekend: [0, 6].includes(new Date(day).getUTCDay()),
+                  today: h.isToday,
+                  weekend: h.isWeekend,
                 },
               ]"
             >
-              <small>{{ fmt(day, { month: "short" }) }}</small
-              ><strong>{{ fmt(day, { day: "numeric" }) }}</strong
-              ><small>{{ fmt(day, { weekday: "short" }) }}</small>
+              <small>{{ h.month }}</small
+              ><strong>{{ h.dayNum }}</strong
+              ><small>{{ h.weekday }}</small>
             </div>
           </div>
           <template v-for="group in groups" :key="group.room.id">
@@ -337,12 +373,7 @@ onBeforeUnmount(() => clearInterval(timer));
                       :key="day"
                       :disabled="!available(group.room, row.place, day) || busy"
                       :class="{ today: day === today }"
-                      :aria-label="
-                        t('staff.board.createAt', {
-                          room: row.place.unitLabel,
-                          date: day,
-                        })
-                      "
+                      :aria-label="`${row.place.unitLabel} · ${day}`"
                       @click="create(group.room, day, row.place)"
                     >
                       <span aria-hidden="true">+</span>

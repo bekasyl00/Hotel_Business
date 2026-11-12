@@ -75,4 +75,16 @@ public final class TynysKeychain extends Plugin {
             call.reject("Could not open notification settings.", "settings_open");
         }
     }
+
+    @PluginMethod
+    public void pushAvailable(PluginCall call) {
+        int resId = getContext().getResources().getIdentifier(
+            "google_app_id",
+            "string",
+            getContext().getPackageName()
+        );
+        JSObject result = new JSObject();
+        result.put("available", resId != 0);
+        call.resolve(result);
+    }
 }

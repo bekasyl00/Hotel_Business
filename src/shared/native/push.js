@@ -1,5 +1,6 @@
 import { reactive, ref } from "vue";
 import { Capacitor } from "@capacitor/core";
+import { isNativePushAvailable } from "./keychain.js";
 
 export const staffPushState = reactive({
   permission: "unknown",
@@ -16,6 +17,17 @@ let listenersBound = false;
 let currentUser = null;
 let currentRequest = null;
 let actionHandler = null;
+let syncInFlight = null;
+
+function withTimeout(promise, ms = 4000, message = "push_timeout") {
+  let timer;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
 
 export function __setPushPluginForTests(plugin) {
   pushPluginOverride = plugin;
@@ -23,6 +35,7 @@ export function __setPushPluginForTests(plugin) {
   currentUser = null;
   currentRequest = null;
   actionHandler = null;
+  syncInFlight = null;
   staffPushState.permission = "unknown";
   staffPushState.registeredDeviceId = null;
   staffPushState.registeredUserId = null;
@@ -67,15 +80,16 @@ export async function initStaffPushListeners(onOpenTarget) {
     activePlatform() === "android" &&
     typeof plugin.createChannel === "function"
   ) {
-    await plugin
-      .createChannel({
+    await withTimeout(
+      plugin.createChannel({
         id: "bookings",
         name: "Бронирования",
         description: "Системные уведомления о новых и оплаченных бронях",
         importance: 5,
         visibility: 1,
-      })
-      .catch(() => {});
+      }),
+      2000,
+    ).catch(() => {});
   }
 
   await plugin.addListener("registration", async (tokenObj) => {
@@ -125,6 +139,16 @@ export async function revokeStaffPushDevice(requestFn = currentRequest) {
 }
 
 export async function syncStaffPushSession(user, requestFn, onOpenTarget) {
+  if (syncInFlight) return syncInFlight;
+  syncInFlight = runSyncStaffPushSession(user, requestFn, onOpenTarget).finally(
+    () => {
+      syncInFlight = null;
+    },
+  );
+  return syncInFlight;
+}
+
+async function runSyncStaffPushSession(user, requestFn, onOpenTarget) {
   if (requestFn) currentRequest = requestFn;
   if (onOpenTarget) actionHandler = onOpenTarget;
   const plugin = await getPushPlugin();
@@ -141,6 +165,15 @@ export async function syncStaffPushSession(user, requestFn, onOpenTarget) {
   }
 
   if (
+    staffPushState.registeredUserId === user.id &&
+    staffPushState.token &&
+    staffPushState.permission === "granted"
+  ) {
+    currentUser = user;
+    return;
+  }
+
+  if (
     staffPushState.registeredUserId &&
     staffPushState.registeredUserId !== user.id
   ) {
@@ -151,12 +184,20 @@ export async function syncStaffPushSession(user, requestFn, onOpenTarget) {
   currentUser = user;
 
   try {
-    let perm = await plugin.checkPermissions();
+    let perm = await withTimeout(
+      plugin.checkPermissions(),
+      4000,
+      "push_permission_timeout",
+    );
     if (
       perm?.receive === "prompt" ||
       perm?.receive === "prompt-with-rationale"
     ) {
-      perm = await plugin.requestPermissions();
+      perm = await withTimeout(
+        plugin.requestPermissions(),
+        15000,
+        "push_permission_timeout",
+      );
     }
     staffPushState.permission = perm?.receive || "unknown";
   } catch (e) {
@@ -167,9 +208,17 @@ export async function syncStaffPushSession(user, requestFn, onOpenTarget) {
 
   if (staffPushState.permission !== "granted") return;
 
+  if (!pushPluginOverride && activePlatform() === "android") {
+    const pushReady = await isNativePushAvailable();
+    if (!pushReady) {
+      staffPushState.error = "fcm_unconfigured";
+      return;
+    }
+  }
+
   const tokenBeforeRegister = staffPushState.token;
   try {
-    await plugin.register();
+    await withTimeout(plugin.register(), 4000, "push_register_timeout");
   } catch (e) {
     staffPushState.error = e?.message || "push_register_failed";
     return;

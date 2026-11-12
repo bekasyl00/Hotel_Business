@@ -728,12 +728,9 @@ def upsert_guest_profile(owner, name, phone):
 
 
 def profile_bookings(queryset):
-    return [
-        booking_data(b)
-        for b in queryset.select_related("review", "bank_payment__refund")
-        .prefetch_related("demo_payments")
-        .order_by("-created_at")
-    ]
+    from .serializers import bookings_with_relations
+
+    return [booking_data(b) for b in bookings_with_relations(queryset)]
 
 
 def current_guest_profile(request):

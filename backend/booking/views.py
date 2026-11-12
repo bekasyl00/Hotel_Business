@@ -14,7 +14,7 @@ from rest_framework.views import APIView
 
 from . import services as svc
 from .authentication import bearer_or_csrf_protect
-from .availability import availability_calendar
+from .availability import availability_calendar, availability_summary, planner_window
 from .errors import Problem
 from .holds import active_allocation_inventory
 from .models import Audit, Booking, BookingAllocation, Resort, Review, Room, Tariff, User
@@ -35,6 +35,7 @@ from .serializers import (
     account_data,
     audit_data,
     booking_data,
+    bookings_with_relations,
     resorts_with_reviews,
     review_data,
 )
@@ -153,117 +154,23 @@ class Endpoint(APIView):
         if resource == "availability-calendar":
             return Response(availability_calendar(request.query_params))
         if resource == "availability":
-            start = serializers.DateField().run_validation(request.query_params.get("start"))
-            end = serializers.DateField().run_validation(request.query_params.get("end"))
-            guests = serializers.IntegerField(min_value=1, max_value=4).run_validation(
-                request.query_params.get("guests", 1)
-            )
-            stay = svc.validated_dates(start, end)
-            candidate_rooms = list(
-                Room.objects.filter(
-                    resort__status="published", status="active", capacity__gte=guests
-                ).only("id", "capacity")
-            )
-            candidate_ids = [r.pk for r in candidate_rooms]
-            busy_rows = list(
-                BookingAllocation.objects.filter(
-                    active_allocation_inventory(),
-                    room_id__in=candidate_ids,
-                    place__status="active",
-                    stay__overlap=stay,
-                ).values_list("room_id", "place_id")
-            )
-            busy_by_room = {}
-            for r_id, p_id in busy_rows:
-                busy_by_room.setdefault(r_id, set()).add(p_id)
-            room_ids = []
-            available_places_by_room = {}
-            for rm in candidate_rooms:
-                free_count = max(0, rm.capacity - len(busy_by_room.get(rm.pk, ())))
-                if free_count >= guests:
-                    room_ids.append(rm.pk)
-                    available_places_by_room[rm.pk] = free_count
-            return Response(
-                {
-                    "roomIds": room_ids,
-                    "availablePlacesByRoom": available_places_by_room,
-                    "totalAvailablePlaces": sum(available_places_by_room.values()),
-                }
-            )
+            return Response(availability_summary(request.query_params))
         if resource == "my-bookings":
             return Response(
                 [
                     booking_data(b)
-                    for b in Booking.objects.filter(
-                        owner=svc.guest_owner(request), source="website"
+                    for b in bookings_with_relations(
+                        Booking.objects.filter(
+                            owner=svc.guest_owner(request), source="website"
+                        )
                     )
-                    .select_related("review", "bank_payment__refund", "room")
-                    .prefetch_related("demo_payments", "allocations__place")
-                    .order_by("-created_at")
                 ]
             )
         if resource == "planner":
-            svc.require_staff(request.user, roles=("admin", "manager", "accountant"))
-            resorts = (
-                Resort.objects.all()
-                if svc.admin(request.user) or request.user.role == "accountant"
-                else Resort.objects.filter(account=request.user)
-            )
-            resort_id = request.query_params.get("resortId", "").strip()
-            if resort_id:
-                if not resorts.filter(pk=resort_id).exists():
-                    if Resort.objects.filter(pk=resort_id).exists():
-                        raise Problem("Недостаточно прав для этого санатория.", 403, "forbidden")
-                    raise Problem("Санаторий не найден.", 404, "not_found")
-                resorts = resorts.filter(pk=resort_id)
-            today = timezone.localdate()
-            start_raw = request.query_params.get("start")
-            end_raw = request.query_params.get("end")
-            start_date = (
-                serializers.DateField().run_validation(start_raw)
-                if start_raw
-                else today - timedelta(days=14)
-            )
-            end_date = (
-                serializers.DateField().run_validation(end_raw)
-                if end_raw
-                else start_date + timedelta(days=60)
-            )
-            days = (end_date - start_date).days
-            if days < 1 or days > 120:
-                raise Problem(
-                    "Окно плана размещения должно составлять от 1 до 120 дней.",
-                    422,
-                    "invalid_planner_window",
-                )
-            window = Range(start_date, end_date, bounds="[)")
-            return Response(
-                {
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat(),
-                    "days": days,
-                    "rooms": RoomSerializer(
-                        Room.objects.filter(resort__in=resorts).prefetch_related(
-                            "price_periods", "places"
-                        ),
-                        many=True,
-                    ).data,
-                    "bookings": [
-                        booking_data(b, staff=True)
-                        for b in Booking.objects.filter(resort__in=resorts, stay__overlap=window)
-                        .select_related("review", "bank_payment__refund", "room")
-                        .prefetch_related("demo_payments", "allocations__place")
-                        .order_by("-created_at")
-                    ],
-                }
-            )
+            return Response(planner_window(request.user, request.query_params))
         if resource == "workspace":
             svc.require_staff(request.user, roles=("admin", "manager", "accountant"))
-            resorts = (
-                Resort.objects.all()
-                if svc.admin(request.user) or request.user.role == "accountant"
-                else Resort.objects.filter(account=request.user)
-            )
+            resorts = svc.scoped_resorts(request.user)
             return Response(
                 {
                     "resorts": StaffResortSerializer(resorts_with_reviews(resorts), many=True).data,
@@ -278,10 +185,7 @@ class Endpoint(APIView):
                     ).data,
                     "bookings": [
                         booking_data(b, staff=True)
-                        for b in Booking.objects.filter(resort__in=resorts)
-                        .select_related("review", "bank_payment__refund", "room")
-                        .prefetch_related("demo_payments", "allocations__place")
-                        .order_by("-created_at")
+                        for b in bookings_with_relations(Booking.objects.filter(resort__in=resorts))
                     ],
                     "unreadNotificationCount": unread_notification_count(request.user),
                     "accounts": [

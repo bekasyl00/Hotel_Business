@@ -170,7 +170,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/lib 'Исходный код'
   }
   shared_native = module 'shared/native' {
-    description 'Компоненты и действия среза shared/native. Файлов: 3'
+    description 'Компоненты и действия среза shared/native. Файлов: 4'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/native 'Исходный код'
   }
   shared_ui = module 'shared/ui' {

@@ -1,20 +1,23 @@
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import {
+  isNative,
+  nativePlatform,
+  keychainPlugin,
+  isNativePushAvailable,
+} from "./keychain.js";
 
-export const isNative = () => Capacitor.isNativePlatform();
-export const nativePlatform = () => Capacitor.getPlatform();
-const session = registerPlugin("TynysKeychain");
+export { isNative, nativePlatform, isNativePushAvailable };
 export const nativeVault = {
   async read() {
-    const { value } = await session.read();
+    const { value } = await keychainPlugin.read();
     return value ? JSON.parse(value) : null;
   },
-  write: (value) => session.write({ value: JSON.stringify(value) }),
-  clear: () => session.clear(),
+  write: (value) => keychainPlugin.write({ value: JSON.stringify(value) }),
+  clear: () => keychainPlugin.clear(),
 };
 
 export async function openSystemNotificationSettings() {
-  if (!isNative() || typeof session.openSettings !== "function") return;
-  await session.openSettings().catch(() => {});
+  if (!isNative() || typeof keychainPlugin.openSettings !== "function") return;
+  await keychainPlugin.openSettings().catch(() => {});
 }
 
 export async function shareNativeFile(file, title) {

@@ -11,7 +11,7 @@ from rest_framework import serializers
 
 from .errors import Problem
 from .holds import active_allocation_inventory
-from .models import BookingAllocation, Resort, Room, RoomPricePeriod
+from .models import Booking, BookingAllocation, Resort, Room, RoomPricePeriod
 from .pricing import room_night_price
 
 
@@ -163,4 +163,97 @@ def availability_calendar(params):
         "totalRooms": len(room_ids),
         "totalPlaces": sum(rm.capacity for rm in eligible_rooms),
         "days": days,
+    }
+
+
+def availability_summary(params):
+    from .services import validated_dates
+
+    start = serializers.DateField().run_validation(params.get("start"))
+    end = serializers.DateField().run_validation(params.get("end"))
+    guests = serializers.IntegerField(min_value=1, max_value=4).run_validation(
+        params.get("guests", 1)
+    )
+    stay = validated_dates(start, end)
+    candidate_rooms = list(
+        Room.objects.filter(
+            resort__status="published", status="active", capacity__gte=guests
+        ).only("id", "capacity")
+    )
+    candidate_ids = [r.pk for r in candidate_rooms]
+    busy_rows = list(
+        BookingAllocation.objects.filter(
+            active_allocation_inventory(),
+            room_id__in=candidate_ids,
+            place__status="active",
+            stay__overlap=stay,
+        ).values_list("room_id", "place_id")
+    )
+    busy_by_room = {}
+    for r_id, p_id in busy_rows:
+        busy_by_room.setdefault(r_id, set()).add(p_id)
+    room_ids = []
+    available_places_by_room = {}
+    for rm in candidate_rooms:
+        free_count = max(0, rm.capacity - len(busy_by_room.get(rm.pk, ())))
+        if free_count >= guests:
+            room_ids.append(rm.pk)
+            available_places_by_room[rm.pk] = free_count
+    return {
+        "roomIds": room_ids,
+        "availablePlacesByRoom": available_places_by_room,
+        "totalAvailablePlaces": sum(available_places_by_room.values()),
+    }
+
+
+def planner_window(user, params):
+    from .serializers import RoomSerializer, booking_data, bookings_with_relations
+    from .services import require_staff, scoped_resorts
+
+    require_staff(user, roles=("admin", "manager", "accountant"))
+    resorts = scoped_resorts(user)
+    resort_id = params.get("resortId", "").strip()
+    if resort_id:
+        if not resorts.filter(pk=resort_id).exists():
+            if Resort.objects.filter(pk=resort_id).exists():
+                raise Problem("Недостаточно прав для этого санатория.", 403, "forbidden")
+            raise Problem("Санаторий не найден.", 404, "not_found")
+        resorts = resorts.filter(pk=resort_id)
+    today = timezone.localdate()
+    start_raw = params.get("start")
+    end_raw = params.get("end")
+    start_date = (
+        serializers.DateField().run_validation(start_raw)
+        if start_raw
+        else today - timedelta(days=14)
+    )
+    end_date = (
+        serializers.DateField().run_validation(end_raw)
+        if end_raw
+        else start_date + timedelta(days=60)
+    )
+    days = (end_date - start_date).days
+    if days < 1 or days > 120:
+        raise Problem(
+            "Окно плана размещения должно составлять от 1 до 120 дней.",
+            422,
+            "invalid_planner_window",
+        )
+    window = Range(start_date, end_date, bounds="[)")
+    return {
+        "start": start_date.isoformat(),
+        "end": end_date.isoformat(),
+        "days": days,
+        "rooms": RoomSerializer(
+            Room.objects.filter(resort__in=resorts).prefetch_related(
+                "price_periods", "places"
+            ),
+            many=True,
+        ).data,
+        "bookings": [
+            booking_data(b, staff=True)
+            for b in bookings_with_relations(
+                Booking.objects.filter(resort__in=resorts, stay__overlap=window)
+            )
+        ],
     }

@@ -15,7 +15,8 @@ public class TynysKeychain: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "read", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "write", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pushAvailable", returnType: CAPPluginReturnPromise)
     ]
     private var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
@@ -65,5 +66,8 @@ public class TynysKeychain: CAPPlugin, CAPBridgedPlugin {
                 call.resolve()
             }
         }
+    }
+    @objc func pushAvailable(_ call: CAPPluginCall) {
+        call.resolve(["available": true])
     }
 }

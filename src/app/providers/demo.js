@@ -185,6 +185,36 @@ function initialState(legacy = []) {
   });
   return db;
 }
+function busyRoomPlaceIds(bookings, roomId, activePlaces, range) {
+  const busy = new Set();
+  for (const b of bookings) {
+    if (
+      b.roomId === roomId &&
+      ["pending", "confirmed"].includes(b.status) &&
+      overlaps(b, range)
+    ) {
+      const ids =
+        Array.isArray(b.placeIds) && b.placeIds.length
+          ? b.placeIds
+          : activePlaces.map((p) => p.id);
+      for (const pid of ids) busy.add(pid);
+    }
+  }
+  return busy;
+}
+
+function requireNotificationScope(db, user, resortId = "") {
+  if (!user) fail("Войдите в кабинет сотрудника.", 401);
+  if (!["admin", "manager"].includes(user.role))
+    fail("Уведомления о бронированиях недоступны для этой роли.", 403);
+  const accessibleResortIds = new Set(
+    user.role === "admin" ? db.resorts.map((r) => r.id) : user.resortIds || [],
+  );
+  if (resortId && !accessibleResortIds.has(resortId))
+    fail("У вас нет доступа к этому санаторию.", 403);
+  return accessibleResortIds;
+}
+
 export function createDemoTransport({
   storage = localStorage,
   session = sessionStorage,
@@ -502,20 +532,7 @@ export function createDemoTransport({
         if (!isPublic(r.resortId) || r.status !== "active") continue;
         const activePlaces = roomPlaces(r);
         if (activePlaces.length < search.guests) continue;
-        const busyIds = new Set();
-        for (const b of db.bookings) {
-          if (
-            b.roomId === r.id &&
-            ["pending", "confirmed"].includes(b.status) &&
-            overlaps(b, search)
-          ) {
-            const ids =
-              Array.isArray(b.placeIds) && b.placeIds.length
-                ? b.placeIds
-                : activePlaces.map((p) => p.id);
-            for (const pid of ids) busyIds.add(pid);
-          }
-        }
+        const busyIds = busyRoomPlaceIds(db.bookings, r.id, activePlaces, search);
         const freePlaces = activePlaces.filter(
           (p) => !busyIds.has(p.id),
         ).length;
@@ -565,17 +582,8 @@ export function createDemoTransport({
       });
     }
     if (pathname === "/staff/notifications" && method === "GET") {
-      if (!user) fail("Войдите в кабинет сотрудника.", 401);
-      if (!["admin", "manager"].includes(user.role))
-        fail("Уведомления о бронированиях недоступны для этой роли.", 403);
-      const accessibleResortIds = new Set(
-        user.role === "admin"
-          ? db.resorts.map((r) => r.id)
-          : user.resortIds || [],
-      );
       const resortId = params.get("resortId");
-      if (resortId && !accessibleResortIds.has(resortId))
-        fail("У вас нет доступа к этому санаторию.", 403);
+      const accessibleResortIds = requireNotificationScope(db, user, resortId);
       const unreadOnly = ["1", "true", "yes"].includes(
         (params.get("unread") || "").toLowerCase(),
       );
@@ -594,17 +602,8 @@ export function createDemoTransport({
       return clone({ items, unreadCount });
     }
     if (pathname === "/staff/notifications/read-all" && method === "POST") {
-      if (!user) fail("Войдите в кабинет сотрудника.", 401);
-      if (!["admin", "manager"].includes(user.role))
-        fail("Уведомления о бронированиях недоступны для этой роли.", 403);
-      const accessibleResortIds = new Set(
-        user.role === "admin"
-          ? db.resorts.map((r) => r.id)
-          : user.resortIds || [],
-      );
       const resortId = payload?.resortId || params.get("resortId");
-      if (resortId && !accessibleResortIds.has(resortId))
-        fail("У вас нет доступа к этому санаторию.", 403);
+      const accessibleResortIds = requireNotificationScope(db, user, resortId);
       let updated = 0;
       const nowIso = new Date().toISOString();
       for (const n of db.notifications || []) {
@@ -631,14 +630,7 @@ export function createDemoTransport({
       /^\/staff\/notifications\/([^/]+)\/read$/,
     );
     if (notifReadMatch && method === "POST") {
-      if (!user) fail("Войдите в кабинет сотрудника.", 401);
-      if (!["admin", "manager"].includes(user.role))
-        fail("Уведомления о бронированиях недоступны для этой роли.", 403);
-      const accessibleResortIds = new Set(
-        user.role === "admin"
-          ? db.resorts.map((r) => r.id)
-          : user.resortIds || [],
-      );
+      const accessibleResortIds = requireNotificationScope(db, user);
       const notif = (db.notifications || []).find(
         (n) =>
           n.id === notifReadMatch[1] &&
@@ -653,9 +645,7 @@ export function createDemoTransport({
       return clone(notif);
     }
     if (pathname === "/staff/push-devices" && method === "POST") {
-      if (!user) fail("Войдите в кабинет сотрудника.", 401);
-      if (!["admin", "manager"].includes(user.role))
-        fail("Уведомления о бронированиях недоступны для этой роли.", 403);
+      requireNotificationScope(db, user);
       const platform = choice(payload.platform, ["ios", "android"]);
       const token = text(
         payload.pushToken || payload.token,
@@ -704,9 +694,7 @@ export function createDemoTransport({
       /^\/staff\/push-devices\/([^/]+)(?:\/revoke)?$/,
     );
     if (pushRevokeMatch && ["DELETE", "POST"].includes(method)) {
-      if (!user) fail("Войдите в кабинет сотрудника.", 401);
-      if (!["admin", "manager"].includes(user.role))
-        fail("Уведомления о бронированиях недоступны для этой роли.", 403);
+      requireNotificationScope(db, user);
       const device = (db.pushDevices || []).find(
         (d) =>
           (d.id === pushRevokeMatch[1] || d.token === pushRevokeMatch[1]) &&
@@ -872,20 +860,12 @@ export function createDemoTransport({
         const activePlaces = roomPlaces(room);
         if (search.guests > activePlaces.length)
           fail("Вместимость номера меньше числа гостей.");
-        const busyPlaceIds = new Set();
-        for (const b of db.bookings) {
-          if (
-            b.roomId === room.id &&
-            ["pending", "confirmed"].includes(b.status) &&
-            overlaps(b, search)
-          ) {
-            const ids =
-              Array.isArray(b.placeIds) && b.placeIds.length
-                ? b.placeIds
-                : activePlaces.map((p) => p.id);
-            for (const pid of ids) busyPlaceIds.add(pid);
-          }
-        }
+        const busyPlaceIds = busyRoomPlaceIds(
+          db.bookings,
+          room.id,
+          activePlaces,
+          search,
+        );
         const freePlaces = activePlaces.filter((p) => !busyPlaceIds.has(p.id));
         const requestedPlaceIds = Array.isArray(payload.placeIds)
           ? payload.placeIds.filter(Boolean)

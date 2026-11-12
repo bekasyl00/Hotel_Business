@@ -11,16 +11,16 @@ export const useSessionStore = defineStore("session", {
     async restore() {
       this.user = await request("GET", "/auth/session");
       this.ready = true;
-      await syncStaffPushSession(this.user, request);
+      void syncStaffPushSession(this.user, request).catch(() => {});
     },
     async login(payload) {
-      if (this.user) await revokeStaffPushDevice(request);
+      if (this.user) await revokeStaffPushDevice(request).catch(() => {});
       this.user = await request("POST", "/auth/login", payload);
       this.ready = true;
-      await syncStaffPushSession(this.user, request);
+      void syncStaffPushSession(this.user, request).catch(() => {});
     },
     async logout() {
-      await revokeStaffPushDevice(request);
+      await revokeStaffPushDevice(request).catch(() => {});
       await request("POST", "/auth/logout");
       this.user = null;
       this.ready = true;

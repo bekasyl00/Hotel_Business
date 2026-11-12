@@ -17,6 +17,14 @@ def resorts_with_reviews(queryset):
     )
 
 
+def bookings_with_relations(queryset):
+    return (
+        queryset.select_related("review", "bank_payment__refund", "room")
+        .prefetch_related("demo_payments", "allocations__place")
+        .order_by("-created_at")
+    )
+
+
 def validate_media_url(value):
     if not isinstance(value, str) or len(value) > 1500:
         raise serializers.ValidationError("Укажите ссылку на файл.")
