@@ -463,3 +463,18 @@ Source commit c5f46eb6e0f46d8db0386def3d8ce5ced9cd41d8 опубликован в
 - Облачный деплой (Supabase + Vercel):
   - В схеме `tynys_stage` применены `booking.0018`–`0020`; `verify_bed_inventory` подтвердил `roomsTotal: 36, placesTotal: 108, bookingsTotal: 16` и `0` конфликтов.
   - Опубликованы и проверены: `tynys-api` (`VmjJgpTQ3ShAm5XLBSPYnaREE3vY`, https://tynys-api.vercel.app), `vercel-site` (`9GQvxSiMsQZLCo7qN5HopFfwqiZz`, https://vercel-site-puce-two.vercel.app), `tynys-staff` (`Esce6h4FivPUpGo1cYpqvCxNqzgo`, https://tynys-staff.vercel.app). Проверены `/health/ready` (`200`), `/api/v1/auth/csrf` (`200`), анонимные `/api/v1/planner` и `/api/v1/staff/notifications` (`401`), `/api/v1/catalog` (`places: ['211a', '211b']`) и `/api/v1/availability-calendar` (`availablePlaces: 2`). Пересборка нативных приложений (iOS/Android APK) не выполнялась.
+
+## 13.11.2026 — T002: обновление iOS-приложений на iPhone и выпуск Android APK 1.1 (6)
+
+- Базовый код: `0d38e381b0ddc11ee0ba1367b0a854c5ec28bd85` (завершённый T001).
+- **iPhone (`iPhone (bekasyl)`, `382C5382-2865-5BB6-B641-D7DC9C634C0B`, iPhone 13)**:
+  - Собраны и подписаны (`Apple Development: bekajaksylyk@icloud.com (K35MF6HX6T)`, team `SGJ2Y7WQ5S`) release-сборки поверх `ios/` и `ios-staff/` после `npm run ios:release:sync` и `npm run ios:staff:release:sync` (`CURRENT_PROJECT_VERSION` поднят с `3` до `4`, `MARKETING_VERSION = 1.1`).
+  - Оба приложения установлены поверх прежних версий и запущены через `devicectl`:
+    - **Тыныс** (`kz.tynys.booking`, `1.1 (4)`): установлен и запущен (`Launched application with kz.tynys.booking bundle identifier`).
+    - **Тыныс Команда** (`kz.tynys.staff`, `1.1 (4)`): установлен и запущен (`Launched application with kz.tynys.staff bundle identifier`).
+  - Проверены живые API-эндпоинты (`https://tynys-api.vercel.app/health/ready` → `200`, `/api/v1/catalog` → `200`, `/api/v1/availability-calendar` → `200` с `availablePlaces`).
+  - Ограничение: интерактивный UI на экране физического iPhone (каталог/календарь мест у клиента; вход, план мест и раздел уведомлений у сотрудника) не управляется через CLI (`devicectl`) и остаётся для визуальной проверки на устройстве.
+- **Android APK `1.1 (6)`** (`npm run android:apks`):
+  - `tynys-guest-1.1-6.apk`: `kz.tynys.booking`, `versionCode=6`, `versionName=1.1`, `targetSdkVersion=36`, `minSdkVersion=24`, v2-подпись `CN=Tynys guest application signing` (SHA-256 сертификата `335fef97f37d5fe0f12d708fa11f774aeec9470d89fc1b51657d7ea29062eeab`), SHA-256 файла `0cdd37ad3517a9ac546bedcea996271159260ee560f5acc02b91439cfaf26946`.
+  - `tynys-staff-1.1-6.apk`: `kz.tynys.staff`, `versionCode=6`, `versionName=1.1`, `targetSdkVersion=36`, `minSdkVersion=24`, v2-подпись `CN=Tynys staff application signing` (SHA-256 сертификата `71031cdf085168b49bf003a2465f57d2ea27bcc5f120604f71ccacc0e1a04dc`), SHA-256 файла `e59590dd886eae27c3e1e2eb83e14bb6cb3fab72d9466aebf0b40ac7db8f00ef`.
+  - Опубликованы в [GitHub pre-release android-v1.1.6](https://github.com/bekasyl00/Hotel_Business/releases/tag/android-v1.1.6); обе прямые ссылки скачаны анонимно с HTTP 200 и совпали по SHA-256 с локальными файлами. Физическое Android-устройство к Mac не подключено; проверка установки на реальном Android остаётся за владельцем.
