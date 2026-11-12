@@ -14,6 +14,7 @@ from .models import (
     StaffPushDevice,
     User,
 )
+from .push import platform_configured, send_due_pushes
 
 
 def is_operational_staff(user) -> bool:
@@ -119,19 +120,20 @@ def emit_booking_notification(booking, kind: str):
             active_devices = list(
                 StaffPushDevice.objects.filter(user=recipient, is_active=True)
             )
-            push_configured = bool(
-                getattr(settings, "FCM_SERVER_CREDENTIAL", "")
-                or getattr(settings, "APNS_KEY_ID", "")
-            )
+            has_pending = False
             for device in active_devices:
+                configured = platform_configured(device.platform)
                 StaffPushDelivery.objects.get_or_create(
                     dedup_key=f"push:{notification.pk}:{device.pk}",
                     defaults={
                         "notification": notification,
                         "device": device,
-                        "status": "pending" if push_configured else "skipped_unconfigured",
+                        "status": "pending" if configured else "skipped_unconfigured",
                     },
                 )
+                has_pending = has_pending or configured
+            if has_pending:
+                transaction.on_commit(lambda: send_due_pushes(limit=10))
     return created_notifications
 
 
@@ -325,7 +327,7 @@ def revoke_staff_push_device(user, device_id: str):
     require_operational_staff(user)
     device = (
         StaffPushDevice.objects.select_for_update()
-        .filter(pk=device_id, user=user)
+        .filter(Q(pk=device_id) | Q(push_token=device_id), user=user)
         .first()
     )
     if device is None:

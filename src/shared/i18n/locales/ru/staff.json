@@ -461,7 +461,10 @@
     "booking_created": "Новая бронь",
     "booking_paid": "Оплачена",
     "booking_cancelled": "Отменена",
-    "booking_expired": "Истёк резерв"
+    "booking_expired": "Истёк резерв",
+    "pushDeniedTitle": "Системные push-уведомления отключены",
+    "pushDeniedBody": "Разрешите уведомления для «Тыныс Команда» в настройках телефона, чтобы получать оповещения о новых бронях на заблокированном экране.",
+    "openSystemSettings": "Открыть системные настройки"
   },
   "directory": {
     "clients": "Клиенты",

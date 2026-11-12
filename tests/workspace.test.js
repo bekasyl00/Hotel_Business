@@ -455,3 +455,104 @@ test("demo transport supports partial room place allocation, planner window, and
   await api("POST", "/staff/notifications/read-all", { resortId: "altun" });
   assert.equal((await api("GET", "/staff/notifications")).unreadCount, 0);
 });
+
+test("native staff push lifecycle: permission, registration, refresh, account switch, logout revoke, and tap deep-link", async () => {
+  const {
+    staffPushState,
+    pendingPushTarget,
+    syncStaffPushSession,
+    revokeStaffPushDevice,
+    consumePendingPushTarget,
+    __setPushPluginForTests,
+  } = await import("../src/shared/native/index.js");
+
+  const { api } = await setup();
+  await api("POST", "/auth/login", { accountId: "manager-altun" });
+  const managerAltun = await api("GET", "/auth/session");
+
+  const listeners = {};
+  let permissionState = "prompt";
+  let requestedCount = 0;
+  let channelCreated = null;
+
+  const mockPlugin = {
+    platform: "android",
+    async createChannel(ch) {
+      channelCreated = ch;
+    },
+    async checkPermissions() {
+      return { receive: permissionState };
+    },
+    async requestPermissions() {
+      requestedCount++;
+      permissionState = "granted";
+      return { receive: permissionState };
+    },
+    async register() {
+      await listeners.registration?.({ value: "fcm-device-token-initial-123456" });
+    },
+    async addListener(event, cb) {
+      listeners[event] = cb;
+      return { remove: async () => {} };
+    },
+  };
+
+  __setPushPluginForTests(mockPlugin);
+  try {
+    let openedTarget = null;
+    await syncStaffPushSession(managerAltun, api, (target) => {
+      openedTarget = target;
+    });
+    assert.equal(requestedCount, 1);
+    assert.equal(channelCreated?.id, "bookings");
+    assert.equal(staffPushState.permission, "granted");
+    assert.ok(staffPushState.registeredDeviceId);
+    assert.equal(staffPushState.registeredUserId, managerAltun.id);
+    const firstDeviceId = staffPushState.registeredDeviceId;
+
+    // Token refresh updates registration for current user
+    await listeners.registration({ value: "fcm-device-token-refreshed-654321" });
+    assert.equal(staffPushState.token, "fcm-device-token-refreshed-654321");
+    assert.ok(staffPushState.registeredDeviceId);
+    assert.notEqual(staffPushState.registeredDeviceId, firstDeviceId);
+
+    // Safe account switch revokes previous user's registration and binds new user
+    await revokeStaffPushDevice(api);
+    await api("POST", "/auth/login", { accountId: "manager-arasan" });
+    const managerArasan = await api("GET", "/auth/session");
+    await syncStaffPushSession(managerArasan, api);
+    assert.equal(staffPushState.registeredUserId, managerArasan.id);
+    assert.ok(staffPushState.registeredDeviceId);
+
+    // Tapping a system push stores deep-link target and invokes callback
+    listeners.pushNotificationActionPerformed({
+      notification: {
+        data: {
+          bookingId: "booking-123",
+          resortId: "arasan",
+          notificationId: "notif-456",
+        },
+      },
+    });
+    assert.deepEqual(openedTarget, {
+      bookingId: "booking-123",
+      resortId: "arasan",
+      notificationId: "notif-456",
+    });
+    assert.deepEqual( pendingPushTarget.value, openedTarget);
+    assert.deepEqual(consumePendingPushTarget(), openedTarget);
+    assert.equal(pendingPushTarget.value, null);
+
+    // Logout revokes push device
+    await revokeStaffPushDevice(api);
+    assert.equal(staffPushState.registeredDeviceId, null);
+    assert.equal(staffPushState.registeredUserId, null);
+
+    // Denied permission surfaces in staffPushState.permission
+    permissionState = "denied";
+    await syncStaffPushSession(managerArasan, api);
+    assert.equal(staffPushState.permission, "denied");
+  } finally {
+    __setPushPluginForTests(null);
+  }
+});

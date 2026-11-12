@@ -657,7 +657,11 @@ export function createDemoTransport({
       if (!["admin", "manager"].includes(user.role))
         fail("Уведомления о бронированиях недоступны для этой роли.", 403);
       const platform = choice(payload.platform, ["ios", "android"]);
-      const token = text(payload.token, "Push-токен", 512);
+      const token = text(
+        payload.pushToken || payload.token,
+        "Push-токен",
+        512,
+      );
       if (token.length < 16) fail("Некорректный push-токен устройства.");
       let device = (db.pushDevices || []).find((d) => d.token === token);
       const nowIso = new Date().toISOString();
@@ -704,7 +708,9 @@ export function createDemoTransport({
       if (!["admin", "manager"].includes(user.role))
         fail("Уведомления о бронированиях недоступны для этой роли.", 403);
       const device = (db.pushDevices || []).find(
-        (d) => d.id === pushRevokeMatch[1] && d.userId === user.id,
+        (d) =>
+          (d.id === pushRevokeMatch[1] || d.token === pushRevokeMatch[1]) &&
+          d.userId === user.id,
       );
       if (!device) fail("Устройство не найдено.", 404);
       device.status = "revoked";

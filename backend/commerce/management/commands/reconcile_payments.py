@@ -2,6 +2,7 @@ import time
 
 from django.core.management.base import BaseCommand, CommandError
 
+from booking.push import send_due_pushes
 from commerce.jobs import run_one, schedule_due
 from commerce.operations import finish_heartbeat, start_heartbeat
 
@@ -18,19 +19,21 @@ class Command(BaseCommand):
         started = time.monotonic()
         token = start_heartbeat("payment_worker")
         count = 0
+        push_count = 0
         try:
             schedule_due()
             for _ in range(options["limit"]):
                 if not run_one():
                     break
                 count += 1
+            push_count = send_due_pushes(limit=options["limit"])
         except Exception:
             finish_heartbeat(
                 "payment_worker",
                 token,
                 succeeded=False,
                 duration=time.monotonic() - started,
-                processed=count,
+                processed=count + push_count,
             )
             raise
         finish_heartbeat(
@@ -38,6 +41,6 @@ class Command(BaseCommand):
             token,
             succeeded=True,
             duration=time.monotonic() - started,
-            processed=count,
+            processed=count + push_count,
         )
-        self.stdout.write(f"Processed {count} payment jobs")
+        self.stdout.write(f"Processed {count} payment jobs, {push_count} staff pushes")

@@ -2,11 +2,17 @@
 import { useI18n } from "vue-i18n";
 import { staffNavigation } from "../model/navigation.js";
 import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useSessionStore } from "@/entities/session";
 import { LanguageSwitcher } from "@/shared/ui";
 import { ArrivalCheckIn } from "@/features/arrival-check-in";
 import { publicUrl, isStaffApp, isDemo } from "@/shared/config";
 import { request } from "@/shared/api";
+import {
+  pendingPushTarget,
+  initStaffPushListeners,
+  syncStaffPushSession,
+} from "@/shared/native";
 const { t } = useI18n();
 const props = defineProps({
   section: String,
@@ -14,6 +20,8 @@ const props = defineProps({
 });
 const emit = defineEmits(["logout", "unread"]);
 const session = useSessionStore();
+const route = useRoute(),
+  router = useRouter();
 const localUnread = ref(0);
 const badgeCount = computed(() =>
   props.unreadCount != null ? props.unreadCount : localUnread.value,
@@ -42,9 +50,39 @@ async function pollNotifications() {
   }
 }
 function onVisibilityChange() {
-  if (typeof document !== "undefined" && document.visibilityState === "visible")
+  if (
+    typeof document !== "undefined" &&
+    document.visibilityState === "visible"
+  ) {
     pollNotifications();
+    if (session.user && !session.isAccountant) {
+      syncStaffPushSession(session.user, request);
+    }
+  }
 }
+function routeToPushTarget(target) {
+  if (!target?.bookingId || session.isAccountant) return;
+  if (route.path !== "/staff/bookings") {
+    router
+      .push({
+        path: "/staff/bookings",
+        query: {
+          bookingId: target.bookingId,
+          ...(target.resortId ? { resortId: target.resortId } : {}),
+          ...(target.notificationId
+            ? { notificationId: target.notificationId }
+            : {}),
+        },
+      })
+      .catch(() => {});
+  }
+}
+watch(
+  () => pendingPushTarget.value,
+  (target) => {
+    if (target?.bookingId) routeToPushTarget(target);
+  },
+);
 watch(
   () => props.unreadCount,
   (val) => {
@@ -52,6 +90,7 @@ watch(
   },
 );
 onMounted(() => {
+  initStaffPushListeners(routeToPushTarget);
   pollNotifications();
   pollTimer = setInterval(pollNotifications, 30000);
   if (typeof document !== "undefined") {

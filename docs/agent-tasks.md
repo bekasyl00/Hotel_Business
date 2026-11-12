@@ -4,6 +4,64 @@
 
 ## T001 — места в номере, длинный план размещения, уведомления
 
+Приёмка Codex 13 ноября: системный push на телефоне не прошёл. Исправление T003 приоритетно.
+
+## T003 — системный push о брони в «Тыныс Команда»
+
+- Статус: AWAITING_DEVICE_CHECK (READY_FOR_REVIEW для Codex — весь код, тесты, деплой и сборки `1.1 (5)` iOS / `1.1 (7)` Android выпущены; для получения реального системного push-баннера от APNs/FCM требуются внешние ключи Apple Developer Program / Firebase). Приоритет P0. Предыдущий DONE T002 относится к выпуску приложений.
+- На входе: booking/notifications.py создаёт StaffPushDelivery; обработчика отправки в коде не найдено. Проверить native staff регистрацию и фактическую конфигурацию по платформам.
+- 1. Подключить получение разрешения, регистрацию device token после входа через имеющийся staff API, обновление токена, logout/revoke и безопасную смену аккаунта. Android: FCM, канал и runtime permission. iOS: APNs, AppDelegate, entitlement и соответствующий provisioning profile. Отказ в разрешении отображать в кабинете с переходом к системным настройкам.
+- 2. После commit заказа обрабатывать durable delivery посредством существующего scheduler/worker. Настройки и ошибки отдельно для iOS/Android, повтор только для временных ошибок, деактивация недействительных токенов, повторная проверка получателя/владения санаторием. Системный alert без персональных данных. Нажатие открывает нужную карточку после проверки сессии, включая холодный запуск.
+- 3. Проверить целевой сценарий на изолированной тестовой брони. Выпустить исправленный backend и подписанные staff-сборки обычным способом. При недостающих правах Apple/Firebase записать конкретную настройку и продолжить доступную платформу. Секреты хранить в закрытых настройках.
+- 4. Отчёт по каждой ОС: версия приложения, факт регистрации устройства, результат провайдера, фактический баннер на заблокированном телефоне с приложением в фоне, открытая по нажатию бронь. Проверить отсутствие уведомления у постороннего менеджера. Ответ провайдера сам по себе недостаточен. До физической проверки — AWAITING_DEVICE_CHECK. Передать Codex на приёмку.
+
+### Отчёт исполнителя (T003)
+
+- **Статус**: `AWAITING_DEVICE_CHECK` / `READY_FOR_REVIEW`
+- **Ветка**: `codex/t001-bed-inventory-notifications` (синхронизирована с `codex/platform-foundation` и `main`).
+- **Что реализовано и проверено**:
+  - **1. Нативная регистрация, разрешения и смена аккаунта (`src/shared/native/push.js`, `src/entities/session/model/store.js`, `src/pages/workspace/ui/WorkspacePage.vue`, `src/widgets/staff-shell/ui/StaffShell.vue`, `src/pages/login/ui/LoginPage.vue`)**:
+    - Подключён `@capacitor/push-notifications@8.1.3` (в `capacitor.config.ts` плагин включён только для `staff`-сборки `kz.tynys.staff`, чтобы не затрагивать клиентское приложение).
+    - После входа или восстановления сессии сотрудника (`admin`/`manager`; для `accountant` отключено) запрашивается runtime-разрешение ОС (`checkPermissions`/`requestPermissions`), на Android создаётся высокоприоритетный канал `bookings` (`importance: 5`), выполняется `PushNotifications.register()`, и полученный токен отправляется в `POST /api/v1/staff/push-devices` (`{platform, pushToken, appVersion: "1.1"}`).
+    - При ротации токена запись обновляется; перед `logout` и при смене аккаунта предыдущая привязка отзывается через `DELETE /api/v1/staff/push-devices/:id`.
+    - При отказе в разрешении (`staffPushState.permission === "denied"`) в кабинете отображается баннер с кнопкой «Открыть системные настройки» (`TynysKeychain.openSettings` реализован в `native/ios/TynysViewController.swift` через `UIApplication.openSettingsURLString` и в `native/android/.../TynysKeychain.java` через `Settings.ACTION_APP_NOTIFICATION_SETTINGS`). При возврате в приложение статус разрешения перепроверяется автоматически.
+    - В `android-staff/app/src/main/AndroidManifest.xml` добавлено разрешение `android.permission.POST_NOTIFICATIONS`. В `ios-staff/App/App/AppDelegate.swift` добавлены делегаты `didRegisterForRemoteNotificationsWithDeviceToken` и `didFailToRegisterForRemoteNotificationsWithError`, подготовлен `ios-staff/App/App/App.entitlements` (`aps-environment`).
+  - **2. Durable delivery worker и защита данных (`backend/booking/push.py`, `backend/booking/notifications.py`, `backend/commerce/scheduler.py`, `backend/commerce/management/commands/reconcile_payments.py`, `backend/booking/management/commands/send_staff_push.py`)**:
+    - `send_due_pushes()` вызывается сразу после commit транзакции заказа (`transaction.on_commit` в `emit_booking_notification`), а также в `commerce/scheduler.py` (`tick`), `reconcile_payments` и отдельной команде `manage.py send_staff_push`.
+    - Настройки и ошибки разделены по платформам: `platform_configured("android")` проверяет `FCM_SERVICE_ACCOUNT_JSON` (FCM HTTP v1 с OAuth2 JWT RS256), `platform_configured("ios")` проверяет `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` (APNs HTTP/2 с JWT ES256 и `APNS_TOPIC=kz.tynys.staff`).
+    - Временные ошибки (5xx / сетевые сбои) увеличивают `attempts` и оставляют статус `pending` до `MAX_ATTEMPTS = 5`, после чего переводят запись в `failed`. Недействительные токены (`404`/`UNREGISTERED` в FCM, `410`/`BadDeviceToken`/`Unregistered`/`DeviceTokenNotForTopic` в APNs) сразу переводят доставку в `failed` и деактивируют устройство (`StaffPushDevice.is_active = False`, `revoked_at = now`).
+    - Перед фактической отправкой `_recipient_still_allowed` повторно проверяет под блокировкой строки, что устройство активно, пользователь активен, имеет роль `admin`/`manager` и (для менеджера) по-прежнему владеет санаторием (`notification.resort.account_id == user.pk`). При передаче санатория другому менеджеру старая доставка отклоняется (`failed`, `recipient_not_allowed`), посторонний менеджер уведомлений не получает.
+    - В системном alert передаются только название санатория, номер/места, даты заезда-выезда и количество мест — без ФИО, телефона, ИИН или платёжных реквизитов гостя.
+    - Нажатие на системное уведомление (`pushNotificationActionPerformed`), включая холодный старт и прохождение через `/staff/login?next=...`, после проверки сессии открывает `/staff/bookings`, переключает на нужный санаторий, открывает карточку брони (`StayCard`) и отмечает уведомление прочитанным.
+- **Отчёт по платформам и необходимые внешние настройки для Codex / владельца**:
+  - **iOS (`kz.tynys.staff`, версия `1.1 (5)`, `CURRENT_PROJECT_VERSION = 5`)**:
+    - **Сборка и установка**: собрана в Release, установлена поверх прежней версии и запущена на подключённом `iPhone (bekasyl)` (`382C5382-2865-5BB6-B641-D7DC9C634C0B`, Xcode UDID `00008110-001C14AE3491A01E`). Клиентское приложение `kz.tynys.booking` также обновлено до `1.1 (5)`.
+    - **Статус регистрации APNs и провайдера**: на текущем сертификате `Apple Development: bekajaksylyk@icloud.com` (Team `SGJ2Y7WQ5S`) используется **бесплатный Personal Development Team**. При включении `CODE_SIGN_ENTITLEMENTS = App/App.entitlements` Xcode возвращает ошибку: `Cannot create a iOS App Development provisioning profile for "kz.tynys.staff". Personal development teams, including "bekasyl jaksylyk", do not support the Push Notifications capability.` Серверные переменные `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY` не заданы, поэтому для iOS-устройств `StaffPushDelivery` фиксируется со статусом `skipped_unconfigured` (при подстановке тестовых ключей в изолированном тесте на PostgreSQL 17 проверена отправка `status="sent"` и деактивация по `410 BadDeviceToken`).
+    - **Что нужно настроить владельцу/Codex для живого APNs**:
+      1. Подключить платный аккаунт **Apple Developer Program** и включить capability **Push Notifications** для App ID `kz.tynys.staff`.
+      2. В `ios-staff/App/App.xcodeproj/project.pbxproj` указать `CODE_SIGN_ENTITLEMENTS = App/App.entitlements;` (сам файл `ios-staff/App/App/App.entitlements` уже в репозитории) и пересобрать приложение с платным provisioning profile.
+      3. Выпустить ключ APNs (`.p8`) в Apple Developer Portal и задать в секретах окружения (`backend/.env.stage` и Vercel `tynys-api`): `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY`, `APNS_TOPIC=kz.tynys.staff`, `APNS_USE_SANDBOX=True` (для development-сборки) или `False` (для TestFlight/App Store).
+  - **Android (`kz.tynys.staff`, версия `1.1 (7)`, `versionCode = 7`)**:
+    - **Прямые ссылки на подписанные APK `1.1 (7)`**:
+      - **Тыныс Команда (сотрудники)**: `https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.7/tynys-staff-1.1-7.apk` (`kz.tynys.staff`, SHA-256 `61efc542c934611038e5f4e937ce75ea199380aa4268e35e6f8a4b86a6d569a8`)
+      - **Тыныс (клиент)**: `https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.7/tynys-guest-1.1-7.apk` (`kz.tynys.booking`, SHA-256 `bafb920b8c3fc9c91fc797d996be85ba897c2a535b9aa08220757fead7b60612`)
+      - [Страница выпуска `android-v1.1.7`](https://github.com/bekasyl00/Hotel_Business/releases/tag/android-v1.1.7)
+    - **Статус регистрации FCM и провайдера**: в репозитории отсутствует `android-staff/app/google-services.json` (плагин `com.google.gms.google-services` в `android-staff/app/build.gradle` подключается автоматически при наличии файла), а на сервере не задан `FCM_SERVICE_ACCOUNT_JSON`. Физическое Android-устройство к Mac не подключено. В изолированном тесте на PostgreSQL 17 и в unit-тесте клиентского цикла проверены: создание канала `bookings`, регистрация/обновление/отзыв токена в `/api/v1/staff/push-devices`, `status="sent"` через FCM HTTP v1, отсутствие PII в payload, отсутствие уведомления у постороннего менеджера (`0` доставок) и открытие целевой карточки брони по нажатию (`pushNotificationActionPerformed`).
+    - **Что нужно настроить владельцу/Codex для живого FCM**:
+      1. В Firebase Console создать проект (или использовать существующий), зарегистрировать Android-приложение с package name `kz.tynys.staff` и положить скачанный конфиг в `android-staff/app/google-services.json`, после чего выполнить `npm run android:staff:apk`.
+      2. В Firebase Console → Project settings → Service accounts сгенерировать JSON-ключ сервисного аккаунта (Firebase Cloud Messaging API v1) и задать его JSON (или base64) в переменной `FCM_SERVICE_ACCOUNT_JSON` в `backend/.env.stage` и Vercel `tynys-api`.
+- **Деплой и проверочные команды**:
+  - **Vercel API (`tynys-api`)**: `7yXvz79qJZajYJkwVwVwzSfoqRvK` (`https://tynys-ppyqk353t-bekasyl00s-projects.vercel.app` → `https://tynys-api.vercel.app`, READY).
+  - **Vercel Public (`vercel-site`)**: `5HdUhCH3ZvhKUbvXU56rafFTCdLL` (`https://vercel-site-cy91fpf9j-bekasyl00s-projects.vercel.app` → `https://vercel-site-puce-two.vercel.app`, READY).
+  - **Vercel Staff (`tynys-staff`)**: `9uuyhuL7QHCJhQyDiFaTPnCULEwJ` (`https://tynys-staff-pxs2g436p-bekasyl00s-projects.vercel.app` → `https://tynys-staff.vercel.app`, READY).
+  - `backend/.venv/bin/python backend/manage.py makemigrations --check --dry-run` → `No changes detected`.
+  - `backend/.venv/bin/python backend/manage.py test booking commerce --noinput` (PostgreSQL 17) → `Ran 382 tests — OK`.
+  - `npm test` → `195 pass, 0 fail`, `FSD: 154 files, 412 imports checked`.
+  - `npm run build && npm run build:surfaces && npm run build:release && npm run arch:check` → `✓ Valid (2 files)`.
+  - `npm run ios:check && npm run ios:staff:check` → `BUILD SUCCEEDED`.
+
+### Предыдущий отчёт T001
+
 - Статус: DONE
 - Спецификация: [tasks/T001-bed-inventory.md](tasks/T001-bed-inventory.md)
 - Приоритет: сначала целостность БД и совместимость платежей, затем UI и уведомления.

@@ -35,6 +35,11 @@ Tests in `booking/test_mobile_auth.py` cover guest ownership, cookie/role isolat
 
 Apply identity migration 0002 before serving staff-native traffic. Native app files and API transport are shared, but bundle IDs, routes, storage, audience and credentials are separate. Browser writes continue to require CSRF; the wrapper skips it only after successfully authenticating an explicit native token. The mobile client serializes refresh and never retries a consumed token following an uncertain result.
 
+### Staff system push notifications (T003)
+
+- After operational staff login/restore (`admin` or `manager`), the staff native client (`kz.tynys.staff`) requests OS notification permission, creates Android notification channel `bookings`, registers with FCM/APNs, and binds the device token via `POST /staff/push-devices` (`{platform, pushToken, appVersion}`). Token rotation updates the registration; logout and account switching revoke the previous registration via `DELETE /staff/push-devices/:id`. Denied permission is shown in the staff workspace with an action (`TynysKeychain.openSettings`) to open system notification settings.
+- `booking/push.py` (`send_due_pushes`, invoked after order commit and by `commerce/scheduler.py` `tick()`, `reconcile_payments`, and `manage.py send_staff_push`) delivers `StaffPushDelivery` rows using separate per-platform configuration (`FCM_SERVICE_ACCOUNT_JSON` for Android FCM HTTP v1; `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY`, `APNS_TOPIC` for iOS APNs HTTP/2). It re-verifies recipient active status, role (`admin`/`manager`), and `Resort.account` ownership at send time, retries transient errors up to 5 attempts, and deactivates invalid tokens (`410`/`UNREGISTERED`/`BadDeviceToken`). Push alert text contains no guest personal data; tapping a notification opens `/staff/bookings?bookingId=<id>&resortId=<resortId>` and focuses the booking card after session verification.
+
 
 Web-only temporary signup (08.11.2026): `GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION` can enable web phone/password registration while SMS is pending. It does not add a native registration/reset endpoint or relax Bearer/CSRF rules. Existing native login/refresh account data now includes `phoneVerified:boolean`; temporary and demo accounts remain false. No phone-only reset is introduced.
 

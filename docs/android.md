@@ -2,9 +2,9 @@
 
 ## Скачать APK
 
-[Тыныс — клиент](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.6/tynys-guest-1.1-6.apk) · [Тыныс Команда — сотрудники](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.6/tynys-staff-1.1-6.apk)
+[Тыныс — клиент](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.7/tynys-guest-1.1-7.apk) · [Тыныс Команда — сотрудники](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.7/tynys-staff-1.1-7.apk)
 
-Предварительный выпуск 1.1 (6), бесплатные файлы без входа в GitHub. Открыть ссылку на Android, скачать APK и установить; при запросе Android разрешить установку из выбранного браузера. На [странице выпуска](https://github.com/bekasyl00/Hotel_Business/releases/tag/android-v1.1.6) также опубликованы SHA-256. Код выпуска: T001 + T002 (инвентарь спальных мест `RoomPlace`/`BookingAllocation`, план размещения 30–120 суток, центр уведомлений сотрудников; подписи сохранены от 1.1 (5) для обновления поверх установленных версий). Проверки и оставшиеся ограничения — в verification.md.
+Предварительный выпуск 1.1 (7), бесплатные файлы без входа в GitHub. Открыть ссылку на Android, скачать APK и установить; при запросе Android разрешить установку из выбранного браузера. На [странице выпуска](https://github.com/bekasyl00/Hotel_Business/releases/tag/android-v1.1.7) также опубликованы SHA-256. Код выпуска: T001–T003 (инвентарь спальных мест `RoomPlace`/`BookingAllocation`, план размещения 30–120 суток, центр уведомлений и системные push-уведомления сотрудников с deep-link переходом к карточке брони; подписи сохранены от 1.1 (5)–(6) для обновления поверх установленных версий). Проверки и оставшиеся ограничения — в verification.md.
 
 ## Объём текущего этапа
 

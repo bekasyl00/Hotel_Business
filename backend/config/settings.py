@@ -49,6 +49,13 @@ HALYK_EPAY_INVOICE_END = env.int("HALYK_EPAY_INVOICE_END", default=999999)
 PAYMENTS_PUBLIC_API_ORIGIN = env("PAYMENTS_PUBLIC_API_ORIGIN", default="")
 PAYMENTS_PUBLIC_SITE_ORIGIN = env("PAYMENTS_PUBLIC_SITE_ORIGIN", default="")
 PAYMENTS_PUBLIC_STAFF_ORIGIN = env("PAYMENTS_PUBLIC_STAFF_ORIGIN", default="")
+# Staff system push. Android: Firebase service-account JSON (raw or base64). iOS: APNs .p8 token key.
+FCM_SERVICE_ACCOUNT_JSON = env("FCM_SERVICE_ACCOUNT_JSON", default="")
+APNS_KEY_ID = env("APNS_KEY_ID", default="")
+APNS_TEAM_ID = env("APNS_TEAM_ID", default="")
+APNS_PRIVATE_KEY = env("APNS_PRIVATE_KEY", default="").replace("\\n", "\n")
+APNS_TOPIC = env("APNS_TOPIC", default="kz.tynys.staff")
+APNS_USE_SANDBOX = env.bool("APNS_USE_SANDBOX", default=True)
 if not 1 <= BOOKING_HOLD_MINUTES <= 120:
     raise ValueError("BOOKING_HOLD_MINUTES must be between 1 and 120")
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])

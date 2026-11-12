@@ -1,7 +1,11 @@
 # Antigravity: Tynys implementation protocol
 
+Codex assigns tasks and reviews results for the owner. Route questions and blockers to Codex via docs/agent-tasks.md. Track background jobs through exit and verify their deliverables before reporting completion. For Android distribution, put both direct APK links first, verify anonymous downloads and hashes, and record physical-device installation separately. Report implementation as READY_FOR_REVIEW; Codex records acceptance after checking the requested outcome.
+
 Read AGENTS.md first. It remains the authoritative project safety and domain rulebook.
 Then read docs/agent-tasks.md and the referenced task specification.
+
+For implementation tasks, apply the local skill .agents/skills/focused-implementation/SKILL.md. Start with the current stage and docs/agent-navigation.md. Resume IN_PROGRESS work before selecting READY work. Keep reading proportional to the change. Record the symbols already inspected and next action in the task report so a restart can resume.
 
 The project owner discusses requirements with Codex. Codex maintains plans and acceptance criteria; Antigravity implements application code. These agents do not share conversation memory: repository files are the handoff contract.
 

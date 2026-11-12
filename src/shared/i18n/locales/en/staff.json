@@ -461,7 +461,10 @@
     "booking_created": "New booking",
     "booking_paid": "Paid",
     "booking_cancelled": "Cancelled",
-    "booking_expired": "Hold expired"
+    "booking_expired": "Hold expired",
+    "pushDeniedTitle": "System push notifications are disabled",
+    "pushDeniedBody": "Enable notifications for Tynys Team in your phone settings to receive new booking alerts on the lock screen.",
+    "openSystemSettings": "Open system settings"
   },
   "directory": {
     "clients": "Clients",

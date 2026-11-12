@@ -442,6 +442,143 @@ class BedInventoryAndNotificationsTests(TestCase):
             403,
         )
 
+    def test_staff_push_delivery_worker_retry_token_invalidation_and_scope(self):
+        import io
+        from unittest.mock import patch
+
+        from django.test import override_settings
+
+        from .push import INVALID, RETRY, SENT, send_due_pushes
+
+        other_mgr = unrelated_owner()
+        mc, mt = self._staff_client(self.manager)
+        oc, ot = self._staff_client(other_mgr)
+
+        # Register Android + iOS devices for owning manager, and Android for unrelated manager
+        r_and = mc.post(
+            "/api/staff/push-devices",
+            {"platform": "android", "pushToken": "fcm-manager-token-111111111111"},
+            format="json",
+            HTTP_X_CSRFTOKEN=mt,
+        )
+        self.assertEqual(r_and.status_code, 201)
+        r_ios = mc.post(
+            "/api/staff/push-devices",
+            {"platform": "ios", "pushToken": "apns-manager-token-222222222222"},
+            format="json",
+            HTTP_X_CSRFTOKEN=mt,
+        )
+        self.assertEqual(r_ios.status_code, 201)
+        r_other = oc.post(
+            "/api/staff/push-devices",
+            {"platform": "android", "pushToken": "fcm-other-manager-333333333333"},
+            format="json",
+            HTTP_X_CSRFTOKEN=ot,
+        )
+        self.assertEqual(r_other.status_code, 201)
+
+        gc = APIClient(enforce_csrf_checks=True)
+        authenticate_guest(gc, phone="+77017776655", name="Push Secret Guest")
+        gt = gc.get("/api/auth/csrf").json()["token"]
+
+        # Only Android FCM configured; iOS APNs unconfigured
+        with override_settings(
+            FCM_SERVICE_ACCOUNT_JSON='{"project_id":"tynys-test","client_email":"a@b.c","private_key":"k","token_uri":"https://oauth2/token"}',
+            APNS_KEY_ID="",
+            APNS_TEAM_ID="",
+            APNS_PRIVATE_KEY="",
+        ):
+            res = gc.post(
+                "/api/my-bookings",
+                {
+                    "roomId": self.room.pk,
+                    "tariffId": self.tariff.pk,
+                    "start": str(self.start),
+                    "end": str(self.end),
+                    "guests": 1,
+                    "requestId": str(uuid.uuid4()),
+                },
+                format="json",
+                HTTP_X_CSRFTOKEN=gt,
+            )
+            self.assertEqual(res.status_code, 201)
+            booking_id = res.json()["id"]
+
+            # Unrelated manager has zero notifications and zero push deliveries
+            self.assertEqual(
+                StaffPushDelivery.objects.filter(device__user=other_mgr).count(), 0
+            )
+
+            android_delivery = StaffPushDelivery.objects.get(
+                device__user=self.manager, device__platform="android"
+            )
+            ios_delivery = StaffPushDelivery.objects.get(
+                device__user=self.manager, device__platform="ios"
+            )
+            self.assertEqual(android_delivery.status, "pending")
+            self.assertEqual(ios_delivery.status, "skipped_unconfigured")
+
+            # 1) Transient error retries up to MAX_ATTEMPTS (5), staying pending for attempts 1..4
+            with patch("booking.push._send_fcm", return_value=(RETRY, "fcm 503 Unavailable")):
+                self.assertEqual(send_due_pushes(limit=1), 1)
+            android_delivery.refresh_from_db()
+            self.assertEqual(android_delivery.status, "pending")
+            self.assertEqual(android_delivery.attempts, 1)
+
+            # 2) Successful send sets status="sent" and never leaks guest PII
+            captured = {}
+
+            def fake_fcm(client, token, title, body, data):
+                captured["token"] = token
+                captured["title"] = title
+                captured["body"] = body
+                captured["data"] = data
+                return SENT, ""
+
+            with patch("booking.push._send_fcm", side_effect=fake_fcm):
+                self.assertEqual(send_due_pushes(limit=5), 1)
+            android_delivery.refresh_from_db()
+            self.assertEqual(android_delivery.status, "sent")
+            self.assertIsNotNone(android_delivery.sent_at)
+            self.assertEqual(captured["data"]["bookingId"], str(booking_id))
+            self.assertEqual(captured["data"]["resortId"], str(self.resort.pk))
+            self.assertNotIn("Push Secret Guest", captured["title"] + " " + captured["body"])
+            self.assertNotIn("77017776655", captured["title"] + " " + captured["body"])
+
+        # 3) Invalid token on APNs (410 / BadDeviceToken) marks delivery failed and deactivates device
+        ios_delivery.status = "pending"
+        ios_delivery.save(update_fields=["status"])
+        with override_settings(
+            APNS_KEY_ID="KEY1234567",
+            APNS_TEAM_ID="TEAM123456",
+            APNS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\nfake\n-----END PRIVATE KEY-----",
+        ):
+            with patch(
+                "booking.push._send_apns", return_value=(INVALID, "apns 410 BadDeviceToken")
+            ):
+                call_command("send_staff_push", limit=5, stdout=io.StringIO())
+        ios_delivery.refresh_from_db()
+        self.assertEqual(ios_delivery.status, "failed")
+        self.assertIn("BadDeviceToken", ios_delivery.last_error)
+        ios_device = StaffPushDevice.objects.get(pk=r_ios.json()["id"])
+        self.assertFalse(ios_device.is_active)
+        self.assertIsNotNone(ios_device.revoked_at)
+
+        # 4) Re-verifying recipient ownership at send time blocks push after resort transfer
+        android_delivery.status = "pending"
+        android_delivery.attempts = 0
+        android_delivery.save(update_fields=["status", "attempts"])
+        Resort.objects.filter(pk=self.resort.pk).update(account=other_mgr)
+        with override_settings(
+            FCM_SERVICE_ACCOUNT_JSON='{"project_id":"tynys-test","client_email":"a@b.c","private_key":"k","token_uri":"https://oauth2/token"}',
+        ):
+            with patch("booking.push._send_fcm") as mock_fcm:
+                self.assertEqual(send_due_pushes(limit=5), 1)
+                mock_fcm.assert_not_called()
+        android_delivery.refresh_from_db()
+        self.assertEqual(android_delivery.status, "failed")
+        self.assertEqual(android_delivery.last_error, "recipient_not_allowed")
+
 
 class ConcurrentPlaceAllocationTests(TransactionTestCase):
     def setUp(self):

@@ -22,7 +22,23 @@ const config: CapacitorConfig = {
     preferredContentMode: "mobile",
     scrollEnabled: true,
   },
-  plugins: { CapacitorHttp: { enabled: true } },
+  plugins: {
+    CapacitorHttp: { enabled: true },
+    ...(staff
+      ? {
+          PushNotifications: {
+            presentationOptions: ["badge", "sound", "alert"],
+          },
+        }
+      : {}),
+  },
+  includePlugins: staff
+    ? [
+        "@capacitor/filesystem",
+        "@capacitor/share",
+        "@capacitor/push-notifications",
+      ]
+    : ["@capacitor/filesystem", "@capacitor/share"],
   loggingBehavior: "none",
 };
 export default config;

@@ -25,6 +25,13 @@ import { BookingEditor } from "@/features/create-booking";
 import { isBankProvider } from "@/features/pay-booking";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
+import {
+  staffPushState,
+  pendingPushTarget,
+  initStaffPushListeners,
+  consumePendingPushTarget,
+  openSystemNotificationSettings,
+} from "@/shared/native";
 import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
 import { isDemo, isStaffApp } from "@/shared/config";
 const { t } = useI18n();
@@ -283,6 +290,52 @@ async function openNotificationBooking(item) {
     focusedId.value = item.bookingId;
   }
 }
+async function applyDeepLinkBooking(list = bookings.items) {
+  const queued = consumePendingPushTarget();
+  const bookingId = String(
+    queued?.bookingId || route.query.bookingId || "",
+  ).trim();
+  const resortId = String(
+    queued?.resortId || route.query.resortId || "",
+  ).trim();
+  const notificationId = String(
+    queued?.notificationId || route.query.notificationId || "",
+  ).trim();
+  if (!bookingId) return;
+
+  if (notificationId && !session.isAccountant) {
+    request("POST", `/staff/notifications/${notificationId}/read`, {}).catch(
+      () => {},
+    );
+  }
+  const match = (list || []).find((b) => String(b.id) === bookingId);
+  const targetResortId = match?.resortId || resortId;
+  if (
+    targetResortId &&
+    catalog.resorts.some((r) => r.id === targetResortId) &&
+    selected.value !== targetResortId
+  ) {
+    selected.value = targetResortId;
+  }
+  if (section.value !== "bookings") {
+    await router.replace({ path: "/staff/bookings", query: {} });
+  } else if (
+    route.query.bookingId ||
+    route.query.resortId ||
+    route.query.notificationId
+  ) {
+    const rest = { ...route.query };
+    delete rest.bookingId;
+    delete rest.resortId;
+    delete rest.notificationId;
+    await router.replace({ query: rest });
+  }
+  bookingView.value = "calendar";
+  await nextTick();
+  if (match) {
+    focusedId.value = match.id;
+  }
+}
 async function moderateReview(review, target) {
   busy.value = true;
   error.value = "";
@@ -360,7 +413,9 @@ async function load(quiet = false) {
     accounts.value = session.isAdmin ? data.accounts : [];
     audit.value = session.isAdmin ? data.audit : [];
     reviews.value = data.reviews || [];
-    unreadNotifications.value = Number(data.unreadNotifications || 0);
+    unreadNotifications.value = Number(
+      data.unreadNotificationCount ?? data.unreadNotifications ?? 0,
+    );
     if (!session.isAccountant && section.value === "notifications") {
       await loadNotifications();
     }
@@ -369,6 +424,7 @@ async function load(quiet = false) {
         catalog.resorts.find((r) => r.status !== "archived")?.id ||
         catalog.resorts[0]?.id ||
         "";
+    await applyDeepLinkBooking(data.bookings);
   } catch (e) {
     if (run === generation) error.value = e.message;
   } finally {
@@ -507,15 +563,30 @@ watch(section, (next) => {
   query.value = "";
   status.value = "all";
   editor.value = null;
-  focusedId.value = null;
+  if (!route.query.bookingId && !pendingPushTarget.value?.bookingId) {
+    focusedId.value = null;
+  }
   if (next === "notifications" && !session.isAccountant) {
     loadNotifications();
   }
 });
+watch(
+  () => [route.query.bookingId, pendingPushTarget.value?.bookingId],
+  ([qId, pId]) => {
+    if ((qId || pId) && !loading.value && bookings.items.length) {
+      applyDeepLinkBooking(bookings.items);
+    }
+  },
+);
 const storageChanged = (e) => {
   if (e.key === "tynys:workspace:v2") load();
 };
 onMounted(() => {
+  initStaffPushListeners((target) => {
+    if (target?.bookingId && !loading.value && bookings.items.length) {
+      applyDeepLinkBooking(bookings.items);
+    }
+  });
   load();
   window.addEventListener("storage", storageChanged);
 });
@@ -581,6 +652,24 @@ onBeforeUnmount(() => {
         <p v-if="notice" class="success-notice" role="status">
           ✓ {{ t(notice) }}
         </p>
+        <div
+          v-if="!session.isAccountant && staffPushState.permission === 'denied'"
+          class="error-panel"
+          role="status"
+          data-testid="push-permission-denied"
+        >
+          <div>
+            <strong>{{ t("staff.notifications.pushDeniedTitle") }}</strong>
+            <p>{{ t("staff.notifications.pushDeniedBody") }}</p>
+          </div>
+          <button
+            type="button"
+            class="secondary"
+            @click="openSystemNotificationSettings"
+          >
+            {{ t("staff.notifications.openSystemSettings") }}
+          </button>
+        </div>
         <div v-if="error" class="error-panel" role="alert">
           <p>{{ error }}</p>
           <button class="secondary" @click="load">

@@ -1,10 +1,11 @@
 <script setup>
 import { useI18n } from "vue-i18n";
 import { ref, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { useSessionStore } from "@/entities/session";
 import { request } from "@/shared/api";
 import { isDemo, publicUrl, isStaffApp } from "@/shared/config";
+import { pendingPushTarget, initStaffPushListeners } from "@/shared/native";
 import { LanguageSwitcher } from "@/shared/ui";
 const { t } = useI18n();
 const accounts = ref([]),
@@ -15,6 +16,7 @@ const accounts = ref([]),
   busy = ref(false),
   loading = ref(true);
 const session = useSessionStore(),
+  route = useRoute(),
   router = useRouter();
 async function load() {
   loading.value = true;
@@ -40,16 +42,41 @@ async function login() {
         : { email: email.value, password: password.value },
     );
     password.value = "";
-    await router.push(
-      session.isAccountant ? "/staff/accounting" : "/staff/bookings",
-    );
+    const nextUrl =
+      typeof route.query.next === "string" &&
+      route.query.next.startsWith("/staff/") &&
+      !route.query.next.startsWith("/staff/login")
+        ? route.query.next
+        : "";
+    if (!session.isAccountant && pendingPushTarget.value?.bookingId) {
+      const target = pendingPushTarget.value;
+      await router.push({
+        path: "/staff/bookings",
+        query: {
+          bookingId: target.bookingId,
+          ...(target.resortId ? { resortId: target.resortId } : {}),
+          ...(target.notificationId
+            ? { notificationId: target.notificationId }
+            : {}),
+        },
+      });
+    } else if (nextUrl && !session.isAccountant) {
+      await router.push(nextUrl);
+    } else {
+      await router.push(
+        session.isAccountant ? "/staff/accounting" : "/staff/bookings",
+      );
+    }
   } catch (e) {
     error.value = e.message;
   } finally {
     busy.value = false;
   }
 }
-onMounted(load);
+onMounted(() => {
+  initStaffPushListeners();
+  load();
+});
 </script>
 <template>
   <main class="login-page">

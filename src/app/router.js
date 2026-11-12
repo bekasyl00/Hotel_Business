@@ -73,9 +73,14 @@ router.beforeEach(async (to) => {
   try {
     await session.restore();
   } catch {
-    return "/staff/login";
+    return Object.keys(to.query || {}).length
+      ? { path: "/staff/login", query: { next: to.fullPath } }
+      : "/staff/login";
   }
-  if (!session.user) return "/staff/login";
+  if (!session.user)
+    return Object.keys(to.query || {}).length
+      ? { path: "/staff/login", query: { next: to.fullPath } }
+      : "/staff/login";
   if (
     session.isAccountant &&
     ![

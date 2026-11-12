@@ -12,6 +12,11 @@ export const nativeVault = {
   clear: () => session.clear(),
 };
 
+export async function openSystemNotificationSettings() {
+  if (!isNative() || typeof session.openSettings !== "function") return;
+  await session.openSettings().catch(() => {});
+}
+
 export async function shareNativeFile(file, title) {
   const [{ Filesystem, Directory }, { Share }] = await Promise.all([
     import("@capacitor/filesystem"),
@@ -47,3 +52,12 @@ export async function clearReceiptCache() {
 }
 
 export { nativeSessionNotice } from "./status.js";
+export {
+  staffPushState,
+  pendingPushTarget,
+  initStaffPushListeners,
+  syncStaffPushSession,
+  revokeStaffPushDevice,
+  consumePendingPushTarget,
+  __setPushPluginForTests,
+} from "./push.js";

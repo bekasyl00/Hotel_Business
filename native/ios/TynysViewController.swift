@@ -14,7 +14,8 @@ public class TynysKeychain: CAPPlugin, CAPBridgedPlugin {
     public let pluginMethods: [CAPPluginMethod] = [
         CAPPluginMethod(name: "read", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "write", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise)
     ]
     private var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
@@ -55,5 +56,14 @@ public class TynysKeychain: CAPPlugin, CAPBridgedPlugin {
             call.reject("Could not remove secure session.", "keychain_clear"); return
         }
         call.resolve()
+    }
+    @objc func openSettings(_ call: CAPPluginCall) {
+        DispatchQueue.main.async {
+            if let url = URL(string: UIApplication.openSettingsURLString) {
+                UIApplication.shared.open(url, options: [:]) { _ in call.resolve() }
+            } else {
+                call.resolve()
+            }
+        }
     }
 }

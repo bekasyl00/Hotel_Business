@@ -170,7 +170,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/lib 'Исходный код'
   }
   shared_native = module 'shared/native' {
-    description 'Компоненты и действия среза shared/native. Файлов: 2'
+    description 'Компоненты и действия среза shared/native. Файлов: 3'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/native 'Исходный код'
   }
   shared_ui = module 'shared/ui' {
@@ -254,6 +254,7 @@ model {
   entities_guest_account -> shared_api 'import'
   entities_resort -> shared_api 'import'
   entities_session -> shared_api 'import'
+  entities_session -> shared_native 'import'
   features_accounting_ledger -> shared_api 'import'
   features_accounting_ledger -> shared_config 'import'
   features_accounting_ledger -> shared_ui 'import'
@@ -350,6 +351,7 @@ model {
   pages_login -> entities_session 'import'
   pages_login -> shared_api 'import'
   pages_login -> shared_config 'import'
+  pages_login -> shared_native 'import'
   pages_login -> shared_ui 'import'
   pages_my_bookings -> widgets_public_header 'import'
   pages_my_bookings -> widgets_payment_dialog 'import'
@@ -422,6 +424,7 @@ model {
   pages_workspace -> features_pay_booking 'import'
   pages_workspace -> shared_ui 'import'
   pages_workspace -> shared_api 'import'
+  pages_workspace -> shared_native 'import'
   pages_workspace -> shared_lib 'import'
   pages_workspace -> shared_config 'import'
   shared_api -> shared_i18n 'import'
@@ -468,6 +471,7 @@ model {
   widgets_staff_shell -> features_arrival_check_in 'import'
   widgets_staff_shell -> shared_config 'import'
   widgets_staff_shell -> shared_api 'import'
+  widgets_staff_shell -> shared_native 'import'
 }
 views {
   view modules {
