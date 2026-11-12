@@ -57,3 +57,32 @@
 #### Незакрытые риски и ограничения
 - Push-доставка (`StaffPushDelivery`) полностью подготовлена на уровне моделей, дедупликации и регистрации токенов (`POST /staff/push-devices`), но при отсутствии внешних ключей FCM/APNs в окружении фиксирует статус `skipped_unconfigured`, не блокируя транзакции бронирования/оплаты; in-app уведомления в `/staff/notifications` работают сразу.
 - Облачный деплой (Supabase/Vercel) и пересборка/установка мобильных приложений (iOS/Android APK) не выполнялись согласно правилам задания.
+## T002 — обновить оба приложения на подключённом iPhone и выдать два Android APK
+
+- Статус: DONE. Исполнитель — Claude в Antigravity. Команда владельца «Далее» запускает оба этапа.
+- Контекст: AGENTS.md, docs/ios.md, docs/android.md, package.json. Взять текущий HEAD с завершённым T001, записать SHA. Сверить версии установленных/опубликованных сборок и поднять build number/versionCode. Сохранить идентификаторы, существующие подписи и данные при обновлении.
+- iOS: определить подключённый физический iPhone через Xcode/devicectl. По очереди выполнить `npm run ios:release:sync` и `npm run ios:staff:release:sync`, собрать соответствующие ios/ и ios-staff/ с действующей development signing. Установить поверх прежних версий, запустить оба приложения, проверить bundle IDs и версии на устройстве. У клиента проверить каталог и календарь мест, у сотрудника — вход и, при доступной сессии, план мест и раздел уведомлений. Если нужен unlock/trust, сообщить владельцу и продолжить Android.
+- Android: выполнить `npm run android:apks`. Проверить package ID, versionCode и сертификат каждого APK через Android SDK, сравнить с предыдущим релизом для обновления поверх старой версии. Опубликовать оба подписанных файла и SHA-256 в новом GitHub Release по принятой схеме. Скачать оба файла по публичным ссылкам и сравнить хеши.
+- Обе платформы используют текущий HTTPS API и раздельные клиентские/служебные маршруты. Проверить доступность API чтением. Для проверки оплачиваемых сценариев использовать тестовые данные. При двух неудачных попытках одной операции зафиксировать точную ошибку и завершить независимые шаги.
+- Приёмка: вписать SHA, версии, результат установки и запуска каждого iOS приложения, две проверенные ссылки APK, ограничения фактической проверки. DONE только после обеих установок и выдачи APK. Отдельно отметить недоступные для проверки экраны.
+
+### Отчёт исполнителя (T002)
+
+- Базовый SHA T001: `0d38e381b0ddc11ee0ba1367b0a854c5ec28bd85`.
+- Коммит с поднятием версий и релиза: `ccb3825` (ветка `codex/t001-bed-inventory-notifications`, также отправлено в `codex/platform-foundation` и `main`).
+- **iOS (`iPhone (bekasyl)`, `382C5382-2865-5BB6-B641-D7DC9C634C0B`, iPhone 13)**:
+  - Поднят `CURRENT_PROJECT_VERSION`: `3` → `4` (`MARKETING_VERSION = 1.1`), сохранены bundle ID и development signing (`Apple Development: bekajaksylyk@icloud.com (K35MF6HX6T)`, team `SGJ2Y7WQ5S`).
+  - Синхронизированы и собраны обе release-сборки (`npm run ios:release:sync`, `npm run ios:staff:release:sync`, `xcodebuild ... Release`).
+  - Установлены поверх прежних версий и запущены через `devicectl`:
+    - **Тыныс** (`kz.tynys.booking`, `1.1 (4)`): установлен и запущен (`Launched application with kz.tynys.booking bundle identifier`).
+    - **Тыныс Команда** (`kz.tynys.staff`, `1.1 (4)`): установлен и запущен (`Launched application with kz.tynys.staff bundle identifier`).
+  - Доступность живого HTTPS API проверена чтением (`https://tynys-api.vercel.app/health/ready` → `200`, `/api/v1/catalog` → `200`, `/api/v1/availability-calendar` → `200` с `availablePlaces`).
+- **Android APK `1.1 (6)`** (`npm run android:apks`):
+  - Поднят `versionCode`: `5` → `6` (`versionName = "1.1"`), сохранены package ID и v2-подписи (`targetSdkVersion=36`, `minSdkVersion=24`):
+    - **Тыныс (клиент)**: `https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.6/tynys-guest-1.1-6.apk` (`kz.tynys.booking`, сертификат `CN=Tynys guest application signing`, SHA-256 `0cdd37ad3517a9ac546bedcea996271159260ee560f5acc02b91439cfaf26946`).
+    - **Тыныс Команда (сотрудники)**: `https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.6/tynys-staff-1.1-6.apk` (`kz.tynys.staff`, сертификат `CN=Tynys staff application signing`, SHA-256 `e59590dd886eae27c3e1e2eb83e14bb6cb3fab72d9466aebf0b40ac7db8f00ef`).
+  - [Страница выпуска `android-v1.1.6`](https://github.com/bekasyl00/Hotel_Business/releases/tag/android-v1.1.6); обе прямые ссылки скачаны анонимно (`HTTP 200`), SHA-256 полностью совпали с локальными артефактами.
+- **Ограничения фактической проверки**:
+  - Интерактивные экраны на физическом iPhone (каталог и календарь мест клиента; вход сотрудника, план мест и раздел уведомлений) не управляются из CLI (`devicectl` подтверждает установку, версию и запуск процесса) — требуется визуальная проверка на экране iPhone.
+  - Физическое Android-устройство к Mac не подключено; установка и проверка экранов на реальном Android остаются за владельцем.
+
