@@ -563,3 +563,13 @@ The production environment explicitly retains GUEST_AUTH_ALLOW_UNVERIFIED_REGIST
 GitHub pre-release android-v1.1.10 contains guest/staff APKs and SHA-256 files. Anonymous downloads returned HTTP 200 with matching hashes.
 Local iOS development profiles expire 2026-11-16 (both audiences); a later installation may require re-signing. App Store/TestFlight publication is not claimed.
 Deployment READY and synthetic tests do not certify a real SMS delivery, payment/refund transaction or physical-device session.
+
+## 2026-11-14 — API 508 incident and recovery
+
+The preceding API publication was NOT healthy despite its READY status: CLI invocation from the repository root with only `--cwd backend` inherited the frontend `/api` self-proxy. `/health/ready` and HTML returned 200 while `/api/*` returned 508 INFINITE_LOOP_DETECTED. This repeated the previously documented deployment pitfall; the publication verification above was insufficient.
+
+Rolled back to working API `dpl_2UFmUjCepJqLvYeCKrLVaMuE8XC4`, restoring direct and website-proxied catalog responses. Then packaged the current backend in a fresh system temporary directory, invoked the CLI with actual process cwd and explicit local config, and built with `--skip-domain`. Inspected computed deployment config: Django, no frontend routes/rewrites. Promoted corrected deployment `dpl_6fCbiDkCkWS5tJDsNjpKnKm7jtxp` to https://tynys-api.vercel.app.
+
+Post-promotion read-only live checks: readiness, direct catalog, public proxy catalog, staff proxy CSRF, native auth configuration and guest session all HTTP 200; unauthenticated staff notifications HTTP 401 as intended. Auth configuration reports `registrationMode=password`, preserving the owner's temporary no-SMS registration request. Browser verified six catalog entries and the staff login form. No booking, payment or database changes were made during recovery; apps need no rebuild for this routing-only correction.
+
+Added `scripts/package-api.mjs` to enforce isolated packaging and actual CLI cwd, plus regression coverage rejecting frontend/self-proxy configuration and excluding local secrets from the artifact. `npm test`: 214 passed; FSD import checks passed. Future API publication must use the guarded script and verify real `/api` endpoints after promotion, not only deployment readiness.

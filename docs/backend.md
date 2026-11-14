@@ -34,6 +34,8 @@ Compose API alternative: `docker compose build api`, `docker compose run --rm ap
 
 Publish a separate source-only Django artifact, linked to the existing `tynys-api` project. Include `backend/vercel.json` and pinned `requirements.txt`; exclude credentials, local storage, virtual environments, tests and the lint-only `pyproject.toml` according to `.vercelignore`. Never upload the repository root as the API artifact.
 
+Use `node scripts/package-api.mjs --deploy` for CLI publication. It copies tracked backend sources into a fresh temporary directory, rejects frontend routing in the API config, validates the existing API project link, and starts Vercel with the actual process working directory and explicit config path. It uses `--skip-domain`: inspect the result before promotion. If Vercel is not on PATH, set `VERCEL_CLI` to its absolute `dist/vc.js` entrypoint. Without `--deploy` the command only prepares the artifact. Never replace this command with `vercel --cwd backend` from the repository root.
+
 Run the CLI from the **actual artifact directory**, with an explicit absolute config path. CLI 65.12.1 reads configuration before applying `--cwd`; using only that flag from the repository root can inherit the website rewrite and cause `/api` to proxy to itself (HTTP 508).
 
 ```sh
