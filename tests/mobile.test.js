@@ -134,7 +134,7 @@ test("unauthenticated app can browse but cannot create anonymous cookie-owned bo
   });
   assert.equal(x.calls.length, 1);
   await assert.rejects(x.client.request("POST", "/guest-auth/register", {}), {
-    code: "native_web_auth_required",
+    code: "invalid_code",
   });
 });
 test("anonymous Android and iOS calendars reach the public API without unlocking private data", async () => {
@@ -295,4 +295,44 @@ test("native login labels the actual platform for both audiences, ignoring a bod
       );
     }
   }
+});
+
+test('native OTP keeps challenge scope in memory, stores only session tokens, and cannot replay locally', async () => {
+  const x = setup((url, init) => {
+    if (url.endsWith('/configuration')) return response({ authenticated:false, registrationMode:'challenge', passwordResetAvailable:true });
+    if (url.endsWith('/challenges')) return response({ challengeId:'challenge-1', scopeToken:'opaque-scope', mode:'sms' });
+    if (url.endsWith('/register')) {
+      const body=JSON.parse(init.body);
+      assert.equal(body.scopeToken,'opaque-scope');
+      assert(body.deviceName);
+      assert.equal(init.credentials,'omit');
+      return response(tokens());
+    }
+    throw Error('Unexpected request');
+  });
+  assert.equal((await x.client.request('GET','/guest-auth/session')).registrationMode,'challenge');
+  const challenge=await x.client.request('POST','/guest-auth/challenges',{phone:'+77010000333',purpose:'register'});
+  assert.equal(challenge.scopeToken,undefined);
+  assert.equal(x.stored(),null);
+  const data={challengeId:'challenge-1',code:'123456',name:'Test',password:'password123'};
+  assert.equal((await x.client.request('POST','/guest-auth/register',data)).authenticated,true);
+  assert(!JSON.stringify(x.stored()).includes('opaque-scope'));
+  await assert.rejects(x.client.request('POST','/guest-auth/register',data),{code:'invalid_code'});
+});
+
+test('temporary native signup sends no OTP and stores unverified account session securely', async () => {
+  const x = setup((url, init) => {
+    assert(url.endsWith('/mobile-auth/register'));
+    const body = JSON.parse(init.body);
+    assert.equal(body.scopeToken, undefined);
+    assert.equal(body.phone, '+77010000666');
+    assert.equal(init.credentials, 'omit');
+    return response({...tokens(), account:{id:'guest', phoneVerified:false}});
+  });
+  const result = await x.client.request('POST', '/guest-auth/register', {
+    phone:'+77010000666',name:'Test',password:'password123',
+  });
+  assert.equal(result.authenticated,true);
+  assert.equal(result.account.phoneVerified,false);
+  assert.equal(x.stored().accessToken,'access-1');
 });

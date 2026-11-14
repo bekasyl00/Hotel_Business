@@ -1,5 +1,6 @@
 import Capacitor
 import Security
+import UserNotifications
 
 class TynysViewController: CAPBridgeViewController {
     override func capacitorDidLoad() {
@@ -16,8 +17,19 @@ public class TynysKeychain: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "write", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "clear", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "openSettings", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "pushAvailable", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "pushAvailable", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "localRequests", returnType: CAPPluginReturnPromise)
     ]
+    private var wakeObservers: [NSObjectProtocol] = []
+    public override func load() {
+        guard Bundle.main.bundleIdentifier == "kz.tynys.staff" else { return }
+        for name in [UIApplication.didBecomeActiveNotification, Notification.Name("TynysOpenRequests")] {
+            wakeObservers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                self?.notifyListeners("requestsWake", data: [:])
+            })
+        }
+    }
+    deinit { wakeObservers.forEach(NotificationCenter.default.removeObserver) }
     private var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
          kSecAttrService as String: (Bundle.main.bundleIdentifier ?? "kz.tynys.booking") + ".native-session",
@@ -67,7 +79,95 @@ public class TynysKeychain: CAPPlugin, CAPBridgedPlugin {
             }
         }
     }
+    @objc func localRequests(_ call: CAPPluginCall) {
+        Task { @MainActor in
+            let service = RequestNotificationService.shared
+            let result = await service.sync(
+                account: call.getString("account") ?? "",
+                items: call.getArray("items", JSObject.self) ?? [],
+                askPermission: call.getBool("askPermission") ?? false)
+            call.resolve(result)
+        }
+    }
     @objc func pushAvailable(_ call: CAPPluginCall) {
         call.resolve(["available": true])
+    }
+}
+
+// Local-only delivery. No APNs registration, device token, or background fetch.
+@MainActor
+final class RequestNotificationService: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = RequestNotificationService()
+    private let center = UNUserNotificationCenter.current()
+    private var busy = false
+    private var activeAccount = UserDefaults.standard.string(forKey: "local-request-account") ?? ""
+    private var tappedAccount: String?
+
+    func install() { center.delegate = self }
+
+    func sync(account: String, items: [JSObject], askPermission: Bool) async -> JSObject {
+        install()
+        guard !busy else { return [:] }
+        busy = true
+        defer { busy = false }
+        if activeAccount != account {
+            center.removeAllPendingNotificationRequests()
+            center.removeAllDeliveredNotifications()
+            activeAccount = account
+            UserDefaults.standard.set(account, forKey: "local-request-account")
+        }
+        var settings = await center.notificationSettings()
+        if askPermission && !account.isEmpty && settings.authorizationStatus == .notDetermined {
+            _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
+            settings = await center.notificationSettings()
+        }
+        let granted = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+        let permission = settings.authorizationStatus == .denied ? "denied" : (granted ? "granted" : "prompt")
+        let shouldOpen = !account.isEmpty && tappedAccount == account
+        tappedAccount = nil
+        guard !account.isEmpty else { return ["permission": permission] }
+        let key = "local-request-ids." + account
+        var seen = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
+        for item in items {
+            guard let id = item["id"] as? String, !id.isEmpty else { continue }
+            let identifier = "request." + account + "." + id
+            if item["readAt"] is String || item["read"] as? Bool == true {
+                seen.insert(id)
+                center.removeDeliveredNotifications(withIdentifiers: [identifier])
+                center.removePendingNotificationRequests(withIdentifiers: [identifier])
+                continue
+            }
+            guard granted, !seen.contains(id) else { continue }
+            let content = UNMutableNotificationContent()
+            content.title = "Новый запрос"
+            content.body = String((item["body"] as? String ?? item["title"] as? String ?? "Откройте раздел запросов").prefix(180))
+            content.sound = .default
+            content.userInfo = ["account": account, "section": "notifications"]
+            do {
+                try await center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+                seen.insert(id)
+                // Persist after each accepted notification; relaunches must not repeat it.
+                UserDefaults.standard.set(Array(seen), forKey: key)
+            } catch { /* Keep unseen: a future foreground check can retry. */ }
+        }
+        UserDefaults.standard.set(Array(seen), forKey: key)
+        return ["permission": permission, "openRequests": shouldOpen]
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .list, .sound])
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void) {
+        let account = response.notification.request.content.userInfo["account"] as? String
+        Task { @MainActor in
+            self.tappedAccount = account
+            NotificationCenter.default.post(name: Notification.Name("TynysOpenRequests"), object: nil)
+            completionHandler()
+        }
     }
 }

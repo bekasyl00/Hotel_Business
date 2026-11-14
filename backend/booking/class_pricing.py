@@ -11,12 +11,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .access import require_staff
 from .authentication import bearer_or_csrf_protect
 from .errors import Problem
 from .guest_auth import enforce_limit
 from .models import Audit, Resort, Room, RoomPricePeriod
 from .serializers import PricePeriodInput
-from .services import require_staff
 
 MAX_ROOMS = 2000
 CATEGORIES = ("standard", "comfort", "suite")

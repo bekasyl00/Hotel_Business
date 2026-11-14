@@ -153,13 +153,66 @@ def revoke_session(context, device_id, action):
         audit(account, action)
 
 
+def native_challenge_action(request, action):
+    from django.core import signing
+    from . import guest_auth
+
+    data = request.data
+    if not isinstance(data, dict):
+        raise guest_auth.invalid_code()
+    simple_signup = action == "register" and "phone" in data
+    if action == "challenges" or simple_signup:
+        scope = {"scope": secrets.token_hex(32), "owner": secrets.token_hex(32)}
+    else:
+        token = data.get("scopeToken", "")
+        if not isinstance(token, str) or len(token) > 2048:
+            raise guest_auth.invalid_code()
+        try:
+            scope = signing.loads(token, salt="native-guest-challenge", max_age=600)
+        except signing.BadSignature:
+            raise guest_auth.invalid_code() from None
+    if action != "challenges":
+        cleaned = dict(data)
+        cleaned.pop("scopeToken", None)
+        if action == "register":
+            name = cleaned.pop("deviceName", "")
+            if not isinstance(name, str) or not 1 <= len(name.strip()) <= 80:
+                raise Problem("Неверное имя устройства.", 422, "invalid_request")
+        request._full_data = cleaned
+    request._native_challenge = True
+    request._challenge_scope = scope["scope"]
+    request._challenge_owner = scope["owner"]
+    if action == "challenges":
+        result = guest_auth.issue_challenge(request)
+        return {**result, "scopeToken": signing.dumps(scope, salt="native-guest-challenge")}
+    if action == "reset":
+        return guest_auth.reset(request)
+    account = guest_auth.register(request)
+    with transaction.atomic():
+        account = GuestAccount.objects.select_for_update().get(pk=account.pk)
+        now = timezone.now()
+        device = GuestDevice(account=account, name=name.strip(), auth_version=account.auth_version,
+                             expires_at=now + FAMILY_TTL)
+        return tokens(device, now)
+
+
 @method_decorator(never_cache, name="dispatch")
 class MobileAuthView(APIView):
     authentication_classes = [GuestBearerAuthentication]
     permission_classes = [AllowAny]
     parser_classes = [JSONParser]
 
+    def get(self, request, action):
+        if action != "configuration":
+            raise Problem("Не найдено.", 404, "not_found")
+        from .guest_auth import session_data
+        request._native_challenge = True
+        data = session_data(request)
+        return Response(data)
+
     def post(self, request, action):
+        if action in ("challenges", "register", "reset"):
+            return Response(native_challenge_action(request, action), status=201 if action == "register" else 200)
         if action == "login":
             return Response(login(request))
         if action == "refresh":

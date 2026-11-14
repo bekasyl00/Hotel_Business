@@ -24,7 +24,7 @@ const config: CapacitorConfig = {
   },
   plugins: {
     CapacitorHttp: { enabled: true },
-    ...(staff
+    ...(staff && process.argv.includes("android")
       ? {
           PushNotifications: {
             presentationOptions: ["badge", "sound", "alert"],
@@ -36,7 +36,7 @@ const config: CapacitorConfig = {
     ? [
         "@capacitor/filesystem",
         "@capacitor/share",
-        "@capacitor/push-notifications",
+        ...(process.argv.includes("android") ? ["@capacitor/local-notifications"] : []),
       ]
     : ["@capacitor/filesystem", "@capacitor/share"],
   loggingBehavior: "none",

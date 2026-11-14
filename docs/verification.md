@@ -498,3 +498,57 @@ Source commit c5f46eb6e0f46d8db0386def3d8ce5ced9cd41d8 опубликован в
     - `tynys-guest-1.1-7.apk`: SHA-256 `bafb920b8c3fc9c91fc797d996be85ba897c2a535b9aa08220757fead7b60612`.
     - `tynys-staff-1.1-7.apk`: SHA-256 `61efc542c934611038e5f4e937ce75ea199380aa4268e35e6f8a4b86a6d569a8`.
     - **Блокер Firebase**: отсутствуют `android-staff/app/google-services.json` и серверный `FCM_SERVICE_ACCOUNT_JSON`, а физическое Android-устройство к Mac не подключено.
+
+## 14.11.2026 — workspace и границы сервисов
+
+- WorkspacePage разделён на семь локальных компонентов и три composables (819 строк вместо 1608). Общая загрузка доступности двух публичных профилей защищена от устаревших ответов. Счётчик уведомлений использует серверный итог и не уменьшается повторно при конкурентном чтении одной записи.
+- `npm test`: 206 тестов успешно; FSD: 167 файлов, 441 импорт. `npm run build`, `npm run build:surfaces`, `npm run arch:check` успешны.
+- Локальный demo UI проверен Chrome/Playwright при 1440 и 390 px: семь разделов, редакторы номера/санатория, подтверждение удаления номера. Ошибок JS/Vue и горизонтального переполнения документа нет. Заполненные брони и сохранение отзывов не проверялись в браузере; действия брони покрыты composable-тестами.
+- Проверка проведена локально. Пропускная способность на десятках тысяч пользователей и работа физических устройств этим этапом не измерены.
+- Backend: 386 тестов `booking commerce` успешно на изолированном PostgreSQL 17. Проверены запрет расчётного заселения, подтверждённая оплата, идемпотентный выезд, откат при ошибке аудита и отбор просроченных выездов до лимита пачки. Migration drift: no changes detected. Первый прогон выявил пересечение мест в новой тестовой fixture; после разделения тестовых номеров полный повторный прогон успешен.
+
+## 2026-11-14 — staff iOS local request notifications
+
+208 JS tests passed (including local iOS no-remote registration, permission denial, tap route and accountant exclusion); npm build/build:surfaces/arch:check passed. iOS device and simulator builds succeeded. Staff 1.1 (7) installed and launched on the connected iPhone using Personal Team. Signed entitlements omit aps-environment; iOS package excludes CapacitorPushNotifications. UserNotifications requests alert/sound/badge and foreground presentation banner/list/sound. Physical banner/sound/tap verification is pending user feedback; no background delivery is claimed.
+
+## 2026-11-14 — browser and Android local requests
+
+210 JS tests passed; release surfaces and LikeC4 validated. Staff website deployed READY to tynys-staff.vercel.app (dpl_6zYnoH4YDbmkmSqGmjRHSiyfVh62). Chrome layout checks at 390/1280 with intercepted synthetic staff API verified the enable button and no horizontal overflow; these are UI fixtures, not a live account/delivery test. Browser polls while a tab remains open (background throttling applies), requires an explicit permission click, and uses a browser lock plus persisted IDs to deduplicate tabs. Android staff 1.1 (9) release APK signature matches 1.1 (8); anonymous GitHub download SHA-256 matched local artifact. Published android-staff-v1.1.9 prerelease. Physical Android delivery remains unverified; no remote/background service is claimed. Build source remains in the working tree, release tag references base commit as stated in release notes.
+
+
+## 2026-11-14 — offline launch blockers and short booking references
+
+Prepared locally; no production deployment, subscription purchase, external SMS/payment/refund, APK/iOS binary rebuild or installation in this pass.
+
+- Full PostgreSQL suite: **395 passed**, `manage.py test booking commerce --noinput` on a separate synthetic PostgreSQL 17 cluster (port 54339). Includes native OTP register/reset, tampered scope/replay/brute-force denial, reset revocation, SMSC timeout/rejection, persisted cooldown/global quota, production rejection of former demo challenges, verified-phone provenance; financial and document tests also passed. Migration drift: none.
+- JavaScript: **211 passed**, including native challenge scope held only in memory and credentials stored only through the existing secure vault. FSD: 168 files / 442 imports.
+- `npm run build`, `build:surfaces`, `build:apps`, `arch:check`: passed. These are web assets, not native device builds. npm audit (all dependencies and production-only): **0 known advisories** at this check, not a complete security certification.
+- Production-preflight unit tests: **3 passed**; CI now runs them. SMSC credentials/provider/daily quota are mandatory in the offline production configuration gate.
+- Guest registration DOM/layout checked at 390×844 and 1280×900: form/heading present, no horizontal overflow. This was browser demo-mode rendering, not real SMS acceptance or device integration.
+- Applied migrations through booking.0022 to synthetic source; pg_dump/pg_restore to a new local database: **46 tables / 270 rows**, canonical row SHA-256 content hashes match. Backup/result folder is private; source unchanged. Proof does not cover S3 objects, encryption-key recovery, runtime grants, cloud PITR/RPO/RTO.
+- Short `TYNYS-` + 10-character unique booking reference is returned in voucher JSON/PDF and booking JSON. Staff resolution tests cover short/lowercase/legacy UUID forms and deny other tenants. Signed QR and provider/internal IDs are unchanged.
+- Docker context now excludes `.env*`, private-media, dumps and private key files. Docker daemon was unavailable, so image build/runtime acceptance is still pending; no image readiness claim.
+
+Activation steps and external acceptance gates: [deployment/production/activation.md](../deployment/production/activation.md).
+Remaining production privacy/MFA/real-provider/infrastructure gates stay open in R01–R34; these results do not mean only payment for services remains.
+
+## 2026-11-14 — publication with temporary signup retained
+
+Owner explicitly requests GitHub/Vercel publication and updated mobile artifacts, with no installation on the connected phone.
+Temporary `GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION=true` works for both web and native without DEBUG;
+it creates an unverified phone account and never bypasses password-reset verification. Native register persists only the
+normal Keychain/Keystore token family. Disabling the flag restores the prepared OTP flow.
+
+Before release: 396 PostgreSQL tests, 212 JavaScript tests, migration drift/build/surface/architecture checks passed.
+Android guest and staff 1.1 (10) assembled with existing signing identities; iOS guest and staff targeted 1.1 (8).
+Live deployment and native artifact evidence is appended after completion below; no phone installation is part of this release.
+
+Native artifacts completed: both iOS Release arm64 builds 1.1 (8) succeeded with the existing development team;
+codesign --verify --deep --strict passed. Local .app ZIPs are in output/ios-release-1.1-8 (not public App Store packages).
+Both Android APK 1.1 (10) passed apksigner verification and package/version metadata checks;
+signer SHA-256 matches guest 1.1 (8) and staff 1.1 (9), allowing in-place upgrades.
+No app was installed or launched on the user's phone.
+
+Supabase tynys_stage: private schema backup saved outside Git, then additive booking migrations 0021 and 0022 applied.
+All historical bookings get unique short codes. Database defaults preserve inserts by old API versions during rollout.
+Phone-verification default remains false; existing account verification and payment/document snapshots were not rewritten.

@@ -27,3 +27,5 @@ export {
 
 export { default as PaymentCountdown } from "./ui/PaymentCountdown.vue";
 export { holdSeconds, holdLabel } from "./model/hold.js";
+
+export { useAvailability } from "./model/use-availability.js";

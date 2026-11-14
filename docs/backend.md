@@ -97,10 +97,10 @@ All paths below have `/api` prefix and use the existing CSRF handshake. Every re
 | Method/path | Request | Response |
 | --- | --- | --- |
 | GET `/guest-auth/session` | — | `{authenticated,account:{id,phone}\|null,profile:{id,name,phone,avatarUrl,version,createdAt,updatedAt}\|null,mode}` |
-| POST `/guest-auth/challenges` | `{phone,purpose:"register"\|"reset"}` | `{challengeId,expiresAt,retryAfterSeconds:60,mode:"demo",demoCode,message}` |
+| POST `/guest-auth/challenges` | `{phone,purpose:"register"\|"reset"}` | `{challengeId,expiresAt,retryAfterSeconds:60,mode:"demo"|"sms",demoCode?:string,message}` |
 | POST `/guest-auth/register` | `{challengeId,code,name,password}` | Same authenticated session object, HTTP 201 |
 | POST `/guest-auth/login` | `{phone,password}` | Same authenticated session object, HTTP 200 |
-| POST `/guest-auth/reset` | `{challengeId,code,password}` | `{ok:true,mode:"demo"}`; no automatic sign-in |
+| POST `/guest-auth/reset` | `{challengeId,code,password}` | `{ok:true,mode:"demo"|"sms"}`; no automatic sign-in |
 | POST `/guest-auth/logout` | `{}` | Anonymous session object, HTTP 200 |
 
 Phone input accepts Kazakhstan mobile **format** `+77` followed by nine digits. Spaces, parentheses and hyphens are removed; an eleven-digit number starting `8` is normalized to `+7`. This is format checking, not carrier/ownership verification. Registration requires a name of 1–80 characters and a guest password of 8–128 characters with no composition requirement (registration and reset; staff policy unchanged). Unknown fields such as client-supplied roles/owners are rejected. Password and OTP are stored using Django password hashing; neither is written to audit. Guest auth errors return `code` plus Russian `message`/`fields`; frontend translations may map `phone_invalid`, `weak_password`, `name_invalid`, `invalid_request`, `invalid_credentials`, `invalid_code`, `code_expired`, `resend_cooldown`, `rate_limited`, `sms_unavailable`, `already_authenticated`, `phone_change_requires_verification`, `method_not_allowed`, and `not_found`.
@@ -117,7 +117,7 @@ Initial registration adopts only the current anonymous profile and its associate
 
 Native clients use `Authorization: Bearer ...` with the same `/api/v1` guest profiles, bookings, media, reviews, payments and receipt handlers. Guest identity never becomes a staff `User`; even a simultaneous staff cookie cannot elevate a guest Bearer request. Invalid Authorization fails closed instead of selecting a cookie or anonymous owner. Web writes retain CSRF; the exemption for ordinary API mutations is conditional on a valid explicit Bearer credential. Native credential endpoints do not authenticate through cookies. Login limits are shared across web/native; refresh is rate-limited in PostgreSQL. Run `cleanup_mobile_sessions` on a schedule to remove expired families; consumed hashes must survive until family expiry for replay detection.
 
-Separate Capacitor iOS apps and Keychain storage are implemented; see [ios.md](ios.md). Guest login currently requires an existing account; registration/recovery still use the browser-bound OTP flow. Real SMS, native challenge transport, account deletion, push, device attestation and physical-device/store release testing remain outstanding. Staff-native credentials use separate models/endpoints and expire after a 12-hour absolute family lifetime; see [mobile-api.md](mobile-api.md). `deviceName` is a display label rather than cryptographic binding. `Accept-Language` is accepted as a request header, but stable error codes drive frontend localization; backend messages currently remain Russian. No OAuth/OpenID provider is configured.
+Separate Capacitor iOS apps and Keychain storage are implemented; see [ios.md](ios.md). Native challenge/register/reset now share server OTP validation with web; signed scope is kept in memory and issued device tokens use the existing secure vault. SMSC delivery adapter is implemented; actual delivery, account deletion, remote push, device attestation and physical-device/store acceptance remain outstanding. Staff-native credentials use separate models/endpoints and expire after a 12-hour absolute family lifetime; see [mobile-api.md](mobile-api.md). `deviceName` is a display label rather than cryptographic binding. `Accept-Language` is accepted as a request header, but stable error codes drive frontend localization; backend messages currently remain Russian. No OAuth/OpenID provider is configured.
 
 ### PostgreSQL and Supabase configuration
 
@@ -201,7 +201,7 @@ Guest directory is booking/directory.py, platform-admin-only. Guest status chang
 
 ## Temporary phone/password registration — 08.11.2026
 
-The owner requested usable signup while SMS is pending. `GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION` defaults to false; explicitly setting it true exposes direct phone/name/password signup at the existing `/guest-auth/register`. DEBUG and `GUEST_AUTH_DEMO_OTP` remain false in a public deployment. SMS challenge code is preserved, not commented out or removed. Turning this switch off restores the previous challenge-only registration and does not prevent password login for existing accounts.
+The owner requested usable signup while SMS is pending. `GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION` defaults to false and can temporarily be enabled explicitly without DEBUG by the owner; it never verifies a phone. Current release keeps the existing temporary password signup. Disable the flag only when real SMS delivery is configured and accepted. SMS challenge code is preserved, not commented out or removed. Turning this switch off restores the previous challenge-only registration and does not prevent password login for existing accounts.
 
 `booking.0012_guest_phone_verification` adds nullable `phone_verified_at`; existing accounts and all demo/no-SMS registrations remain unverified. Web/native account responses expose only `phoneVerified`, not the timestamp. Registration UI discovers `registrationMode` and displays the direct form plus a temporary-mode explanation. Profile UI no longer claims every number is verified.
 
@@ -276,3 +276,11 @@ Run `backend/.venv/bin/python backend/manage.py verify_bed_inventory` (dry-run J
 - Separate per-platform configuration: `FCM_SERVICE_ACCOUNT_JSON` (raw or base64 JSON service account for FCM HTTP v1 on Android, channel `bookings`) and `APNS_KEY_ID`, `APNS_TEAM_ID`, `APNS_PRIVATE_KEY`, `APNS_TOPIC` (`kz.tynys.staff`), `APNS_USE_SANDBOX` (ES256 token-authenticated HTTP/2 APNs on iOS).
 - Before sending each delivery, `_recipient_still_allowed` re-verifies that the device is active, the recipient user is active and has role `admin` or `manager` (never `accountant`), and for managers that `notification.resort.account_id == user.id`.
 - Transient provider/network errors remain `pending` up to `MAX_ATTEMPTS = 5` before transitioning to `failed`; invalid token responses (`404`/`UNREGISTERED` on FCM, `410`/`BadDeviceToken`/`Unregistered` on APNs) mark the delivery `failed` and immediately deactivate `StaffPushDevice` (`is_active=False`, `revoked_at` set). Push alert text contains only resort name, room/place labels, stay dates, and places count — never guest name, phone, IIN, or payment secrets.
+
+## Service boundaries — 14 November 2026
+
+Shared staff authorization, resort ownership and optimistic version checks live in `booking/access.py`; redacted audit snapshots live in `booking/audit.py`. Commerce and accounting import those modules directly. Resort transaction locks remain part of scoped mutation checks.
+
+Scheduled checkout applies only to confirmed bookings with an existing recorded check-in. It must never manufacture a check-in from scheduled dates. Document preparation/release retains its payment, ownership and configuration prerequisites.
+
+`booking/stays.complete_checkout` owns the shared checkout mutation, audit and document preparation under the caller's resort lock. The scheduler filters due departures by the property's timezone and operational time before applying its batch limit, then rechecks eligibility under lock.

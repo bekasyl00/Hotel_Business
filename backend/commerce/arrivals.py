@@ -1,5 +1,6 @@
 """A signed ticket locates a booking; staff authorization still controls arrival."""
 
+import re
 from types import SimpleNamespace
 from uuid import UUID
 from zoneinfo import ZoneInfo
@@ -15,12 +16,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from booking.access import require_staff, version_check
 from booking.authentication import bearer_or_csrf_protect
 from booking.errors import Problem
 from booking.guest_auth import enforce_limit
 from booking.models import Booking, Resort
 from booking.serializers import booking_data
-from booking.services import change_stay, require_staff, version_check
+from booking.services import change_stay
 
 from .services import has_paid_booking
 from .settlement import payment_terms
@@ -41,7 +43,12 @@ def booking_id_from_code(value):
         if value.startswith(PREFIX):
             value = signing.Signer(salt=SALT).unsign(value[len(PREFIX) :])
         elif value.upper().startswith("TYNYS-"):
-            value = value[6:]
+            value = value[6:].upper()
+            if re.fullmatch(r"[2-9A-HJ-NP-Z]{10}", value):
+                pk = Booking.objects.filter(public_code=value).values_list("pk", flat=True).first()
+                if not pk:
+                    raise ValueError("unknown_code")
+                return pk
         return str(UUID(value))
     except (signing.BadSignature, ValueError, TypeError):
         raise Problem(

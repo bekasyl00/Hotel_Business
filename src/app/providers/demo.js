@@ -1,3 +1,7 @@
+import {
+  demoNotifications,
+  requireNotificationScope,
+} from "./demo-notifications.js";
 import { whatsAppUrl, twoGisUrl } from "../../shared/lib/index.js";
 import {
   resolveGuest,
@@ -203,17 +207,6 @@ function busyRoomPlaceIds(bookings, roomId, activePlaces, range) {
   return busy;
 }
 
-function requireNotificationScope(db, user, resortId = "") {
-  if (!user) fail("Войдите в кабинет сотрудника.", 401);
-  if (!["admin", "manager"].includes(user.role))
-    fail("Уведомления о бронированиях недоступны для этой роли.", 403);
-  const accessibleResortIds = new Set(
-    user.role === "admin" ? db.resorts.map((r) => r.id) : user.resortIds || [],
-  );
-  if (resortId && !accessibleResortIds.has(resortId))
-    fail("У вас нет доступа к этому санаторию.", 403);
-  return accessibleResortIds;
-}
 
 export function createDemoTransport({
   storage = localStorage,
@@ -581,69 +574,16 @@ export function createDemoTransport({
         ),
       });
     }
-    if (pathname === "/staff/notifications" && method === "GET") {
-      const resortId = params.get("resortId");
-      const accessibleResortIds = requireNotificationScope(db, user, resortId);
-      const unreadOnly = ["1", "true", "yes"].includes(
-        (params.get("unread") || "").toLowerCase(),
-      );
-      const scopedNotifications = (db.notifications || []).filter(
-        (n) =>
-          n.recipientId === user.id &&
-          accessibleResortIds.has(n.resortId) &&
-          (!resortId || n.resortId === resortId),
-      );
-      const unreadCount = scopedNotifications.filter((n) => !n.readAt).length;
-      const items = (
-        unreadOnly
-          ? scopedNotifications.filter((n) => !n.readAt)
-          : scopedNotifications
-      ).slice(0, 100);
-      return clone({ items, unreadCount });
-    }
-    if (pathname === "/staff/notifications/read-all" && method === "POST") {
-      const resortId = payload?.resortId || params.get("resortId");
-      const accessibleResortIds = requireNotificationScope(db, user, resortId);
-      let updated = 0;
-      const nowIso = new Date().toISOString();
-      for (const n of db.notifications || []) {
-        if (
-          n.recipientId === user.id &&
-          accessibleResortIds.has(n.resortId) &&
-          (!resortId || n.resortId === resortId) &&
-          !n.readAt
-        ) {
-          n.readAt = nowIso;
-          updated++;
-        }
-      }
-      storage.setItem(DATABASE_KEY, serializeDemo(db));
-      const unreadCount = (db.notifications || []).filter(
-        (n) =>
-          n.recipientId === user.id &&
-          accessibleResortIds.has(n.resortId) &&
-          !n.readAt,
-      ).length;
-      return clone({ updated, unreadCount });
-    }
-    const notifReadMatch = pathname.match(
-      /^\/staff\/notifications\/([^/]+)\/read$/,
-    );
-    if (notifReadMatch && method === "POST") {
-      const accessibleResortIds = requireNotificationScope(db, user);
-      const notif = (db.notifications || []).find(
-        (n) =>
-          n.id === notifReadMatch[1] &&
-          n.recipientId === user.id &&
-          accessibleResortIds.has(n.resortId),
-      );
-      if (!notif) fail("Уведомление не найдено.", 404);
-      if (!notif.readAt) {
-        notif.readAt = new Date().toISOString();
-        storage.setItem(DATABASE_KEY, serializeDemo(db));
-      }
-      return clone(notif);
-    }
+    const notificationResult = demoNotifications({
+      db,
+      user,
+      method,
+      pathname,
+      params,
+      payload,
+      persist: () => storage.setItem(DATABASE_KEY, serializeDemo(db)),
+    });
+    if (notificationResult.handled) return clone(notificationResult.value);
     if (pathname === "/staff/push-devices" && method === "POST") {
       requireNotificationScope(db, user);
       const platform = choice(payload.platform, ["ios", "android"]);

@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from . import services as svc
+from .access import admin, guest_owner, require_staff, scoped_resorts
 from .authentication import bearer_or_csrf_protect
 from .availability import availability_calendar, availability_summary, planner_window
 from .errors import Problem
@@ -127,7 +128,7 @@ class Endpoint(APIView):
                 ]
             )
         if resource == "auth/csrf":
-            svc.guest_owner(request)
+            guest_owner(request)
             return Response({"token": get_token(request)})
         if resource == "auth/session":
             return (
@@ -161,7 +162,7 @@ class Endpoint(APIView):
                     booking_data(b)
                     for b in bookings_with_relations(
                         Booking.objects.filter(
-                            owner=svc.guest_owner(request), source="website"
+                            owner=guest_owner(request), source="website"
                         )
                     )
                 ]
@@ -169,8 +170,8 @@ class Endpoint(APIView):
         if resource == "planner":
             return Response(planner_window(request.user, request.query_params))
         if resource == "workspace":
-            svc.require_staff(request.user, roles=("admin", "manager", "accountant"))
-            resorts = svc.scoped_resorts(request.user)
+            require_staff(request.user, roles=("admin", "manager", "accountant"))
+            resorts = scoped_resorts(request.user)
             return Response(
                 {
                     "resorts": StaffResortSerializer(resorts_with_reviews(resorts), many=True).data,
@@ -194,10 +195,10 @@ class Endpoint(APIView):
                         .prefetch_related("managed_resorts")
                         .order_by("name", "id")
                     ]
-                    if svc.admin(request.user)
+                    if admin(request.user)
                     else [],
                     "audit": [audit_data(a) for a in Audit.objects.order_by("-at")[:500]]
-                    if svc.admin(request.user)
+                    if admin(request.user)
                     else [],
                     "reviews": []
                     if request.user.role == "accountant"

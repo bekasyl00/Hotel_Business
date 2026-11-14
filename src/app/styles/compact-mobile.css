@@ -789,3 +789,78 @@
     backdrop-filter: none;
   }
 }
+
+/* Shared date picker: one surface, calendar before manual controls. */
+.stay-date-panel {
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+}
+.stay-date-panel .availability-calendar {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+.stay-date-panel .stay-date-form {
+  margin: 16px 0 0;
+  padding: 16px 0 0;
+  border-top: 1px solid var(--line);
+}
+.stay-date-panel input { min-width: 0; max-width: 100%; }
+.public-header-top .public-primary-navigation {
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f4f5f0;
+}
+.public-header-top .public-primary-navigation a {
+  justify-content: center;
+  min-height: 40px;
+  padding: 9px 13px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.3;
+  text-decoration: none;
+  background: #fff;
+  border: 1px solid #e2e7de;
+  box-shadow: none;
+}
+.public-header-top .public-primary-navigation a[aria-current="page"] {
+  background: var(--green, #285947);
+  color: #fff;
+  box-shadow: none;
+}
+.public-header-top .public-primary-navigation a:hover:not([aria-current="page"]) { background: #e7ece1; }
+.public-header-top .public-primary-navigation a:focus-visible { outline: 2px solid var(--green, #285947); outline-offset: 2px; }
+@media (max-width: 600px) {
+  html .stay-date-panel { padding: 14px; border-radius: 16px; gap: 12px; }
+  html .stay-date-panel .availability-calendar { padding: 0; margin: 0; border: 0; }
+  html .stay-date-panel .stay-date-form { margin-top: 14px; padding-top: 14px; }
+  html .public-header-top .public-primary-navigation { gap: 4px; padding: 4px; }
+  html .public-header-top .public-primary-navigation a { padding: 9px 10px; font-size: 12px; min-height: 40px; }
+}
+@media (max-width: 600px) {
+  html #rooms > .section-title-row { align-items: stretch; flex-direction: column; gap: 12px; }
+  html #rooms > .section-title-row > label { display: block; width: 100%; min-width: 0; }
+  html #rooms > .section-title-row select {
+    display: block; width: 100%; min-height: 48px; padding: 11px 38px 11px 14px;
+    border: 1px solid var(--line); border-radius: 12px; background-color: #fff;
+    font-size: 16px; font-weight: 500; line-height: 1.4; color: var(--ink, #283c30);
+  }
+}
+html .stay-date-panel .stay-date-form {
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}

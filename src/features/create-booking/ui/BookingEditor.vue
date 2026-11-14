@@ -23,7 +23,7 @@ import {
 import { ref } from "vue";
 import { useGuestAccountStore } from "@/entities/guest-account";
 const guestAccount = useGuestAccountStore();
-import { money, dateLabel } from "@/shared/lib";
+import { money, dateLabel, whatsAppUrl } from "@/shared/lib";
 const props = defineProps({
   resort: Object,
   rooms: Array,
@@ -46,6 +46,10 @@ const form = reactive({
   ...props.preset,
 });
 const room = computed(() => props.rooms.find((r) => r.id === form.roomId));
+const contactUrl = computed(() => whatsAppUrl(props.resort.staffWhatsApp));
+const sharedRoom = computed(
+  () => room.value && Number(form.guests) < Number(room.value.capacity),
+);
 const tariff = computed(() =>
   props.tariffs.find((t) => t.id === form.tariffId),
 );
@@ -312,16 +316,28 @@ async function save() {
       <p v-if="selectedRoomNotice" class="field-help" role="status">
         {{ selectedRoomNotice }}
       </p>
-      <p v-if="room" class="field-help" role="status">
-        {{
-          t("public.calendar.bookedPlaces", {
-            guests: form.guests,
-            capacity: room.capacity,
-          })
-        }}<template v-if="room.capacity > 1 && form.guests < room.capacity">
-          · {{ t("public.calendar.sharedRoomNotice") }}</template
-        >
-      </p>
+      <section
+        v-if="room && !staff && !partyError && !capacityError"
+        class="booking-placement"
+        aria-live="polite"
+      >
+        <strong>{{
+          t(
+            sharedRoom
+              ? "public.bookingClarity.sharedTitle"
+              : "public.bookingClarity.allPlacesTitle",
+          )
+        }}</strong>
+        <p>
+          {{
+            t("public.calendar.bookedPlaces", {
+              guests: form.guests,
+              capacity: room.capacity,
+            })
+          }}
+        </p>
+        <p v-if="sharedRoom">{{ t("public.bookingClarity.sharedHint") }}</p>
+      </section>
       <div v-if="capacityError" class="form-error" role="alert">
         <p>{{ capacityError }}</p>
         <RouterLink
@@ -459,6 +475,25 @@ async function save() {
           </option>
         </select></label
       >
+      <section v-if="!staff && tariff" class="booking-inclusions">
+        <h4>{{ t("public.bookingClarity.included") }}</h4>
+        <p v-if="tariff.description">{{ tariff.description }}</p>
+        <ul v-if="tariff.features?.length">
+          <li v-for="feature in tariff.features" :key="feature">
+            {{ feature }}
+          </li>
+        </ul>
+        <p v-if="!tariff.description && !tariff.features?.length">
+          {{ t("public.bookingClarity.noDescription") }}
+        </p>
+        <a
+          v-if="contactUrl"
+          :href="contactUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          >{{ t("public.bookingClarity.askResort") }} ↗</a
+        >
+      </section>
       <div class="quote">
         <div>
           <span
@@ -487,6 +522,9 @@ async function save() {
       <p v-else-if="price" class="form-error" role="status">
         {{ t("common.settlement.notConfigured") }}
       </p>
+      <p v-if="settlement && !staff" class="field-help">
+        {{ t("public.bookingClarity.paymentSplit") }}
+      </p>
       <details v-if="displayPrice" class="price-breakdown">
         <summary>{{ t("common.pricing.breakdown") }}</summary>
         <dl>
@@ -503,10 +541,14 @@ async function save() {
         <summary>{{ t("common.children.stayConditions") }}</summary>
         <p class="field-help">
           {{ t("public.checkinFrom") }} {{ resort.checkInTime || "14:00" }} ·
-          {{ resort.timeZone || "Asia/Almaty"
-          }}{{ t("public.refunds100At48HoursOrMore70At2448HoursNone") }}
+          {{ t("public.checkout") }} {{ resort.checkOutTime || "12:00" }}
         </p>
+        <p class="field-help">{{ t("public.bookingClarity.refund") }}</p>
+        <p class="field-help">{{ t("public.refundOnlineAmountOnly") }}</p>
       </details>
+      <p v-if="!staff" class="field-help">
+        {{ t("public.bookingClarity.nextStep") }}
+      </p>
       <label class="consent"
         ><input v-model="consent" type="checkbox" required />
         {{
@@ -538,7 +580,11 @@ async function save() {
               ? t("public.saving")
               : isDemo
                 ? t("public.createDemoRequest")
-                : t("public.sendRequest")
+                : !staff && settlement
+                  ? t("public.bookingClarity.continuePayment", {
+                      amount: money(settlement.onlineAmount),
+                    })
+                  : t("public.sendRequest")
           }}
         </button>
       </div>
@@ -546,6 +592,39 @@ async function save() {
   >
 </template>
 <style scoped>
+.booking-placement,
+.booking-inclusions {
+  padding: 12px 14px;
+  border: 1px solid var(--line, #dce3dc);
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.booking-placement {
+  background: #f2f6f0;
+}
+.booking-placement strong,
+.booking-inclusions h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+.booking-placement p,
+.booking-inclusions p {
+  margin: 4px 0 0;
+  white-space: pre-line;
+}
+.booking-inclusions ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+.booking-inclusions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
 .booking-editor {
   gap: 16px;
   min-width: 0;

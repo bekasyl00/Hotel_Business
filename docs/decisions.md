@@ -371,3 +371,44 @@ CDN хранит immutable только хешированные Vite assets. HT
 План размещения сотрудников (`OccupancyBoard`) отображает заголовок физического номера и отдельные строки каждого места (`102a`, `102b`), использует окно 60 дней по умолчанию, пресеты 30/60/90/120 дней, произвольный период до 120 суток (через `GET /planner`) и фильтр по санаторию. Календарь доступности показывает число свободных мест (`freePlaces`).
 
 Добавлен центр уведомлений для `admin` и `manager` (`/staff/notifications`, бейдж непрочитанных в `StaffShell`, переход к брони в плане размещения) по 5 событиям жизненного цикла (`booking_created`, `booking_paid`, `booking_cancelled`, `stay_checked_in`, `stay_checked_out`), строго изолированный по текущему `Resort.account`. Регистрация push-устройств (`StaffPushDevice`) и журнал доставки (`StaffPushDelivery`) не передают телефон, ИИН или финансовые реквизиты во внешний push-канал и безопасно фиксируют `skipped_unconfigured`, пока не подключены ключи FCM/APNs.
+
+## 2026-11-14 — границы workspace и подтверждённое заселение
+
+WorkspacePage координирует маршрут, выбранный санаторий и загрузку workspace. Представления размещения, уведомлений, каталога, отзывов, аккаунтов и истории вынесены в локальные компоненты страницы; фильтрация, действия с бронью и уведомления имеют собственные composables. Общий useAvailability в entities/booking управляет запросом доступности двух публичных профилей и отбрасывает ответы после изменения дат, маршрута или размонтирования.
+
+Серверные проверки области доступа и версий принадлежат booking/access.py, запись очищенного аудита — booking/audit.py. Платёжные и документные сценарии используют эти модули напрямую. Demo-уведомления выделены в самостоятельный обработчик с явно переданным сохранением.
+
+По решению пользователя автоматический выезд разрешён только после подтверждённого заселения. Планировщик больше не должен создавать расчётную отметку заселения для не прибывшего гостя. Это уточняет решение от 12 ноября; автоматическая подготовка/выдача документов сохраняет остальные prerequisites.
+
+## 2026-11-14 — локальные уведомления сотрудников на бесплатной Personal Team
+
+iOS staff использует локальный RequestNotificationService на UserNotifications без регистрации APNs и capability. Разрешение запрашивается при открытии раздела запросов. Авторизованный foreground polling вызывает локальную доставку с account-scoped ID дедупликацией; нажатие открывает /staff/notifications. В фоне новые данные не загружаются, доставка продолжается при возврате. Vue/Capacitor навигация сохраняется; SwiftUI не добавляется поверх существующего интерфейса. Android remote transport этой задачей не меняется.
+
+## 2026-11-14 — desktop and Android local request alerts
+
+shared/native/local-request-delivery provides browser Notification and Capacitor Local Notifications delivery. Browser permission is a user button action; native Android uses system permission/channel. New request checks reuse the authorized staff notification endpoint. No new backend transport, Firebase or Web Push subscription is introduced. Closed-site/app delivery is outside this local mechanism. Staff APK versionCode advances to 9; guest stays at 8.
+
+## 2026-11-14 — подготовка production OTP и короткие номера
+
+SMSC выбран первым реализованным OTP-адаптером: фиксированный HTTPS endpoint, JSON POST, shared PostgreSQL quotas,
+запрет автоматического повтора неоднозначной отправки. Факт возможности подтверждать телефон замораживается
+в GuestChallenge.verifies_phone; старый демо-код нельзя применить после отключения demo. Неподтверждённая регистрация
+допускается только DEBUG. Native challenge/register/reset делят серверную проверку с web, используют подписанный
+scope в памяти и существующие защищённые device credentials. Никаких cookie handoff или localStorage credentials.
+
+По просьбе владельца на билете используется TYNYS- плюс 10 символов public_code с уникальностью в PostgreSQL.
+UUID, provider references, QR-подпись и платёжные snapshots неизменны; старые номера продолжают разрешаться
+только авторизованным сотрудником в своей области доступа. Миграция historical codes не является новым платежом.
+
+Local restore rehearsal создаёт отдельную БД из pg_dump и сверяет количество строк; это не production DR/PITR.
+Ключи/приватные файлы исключены из Docker build context. Облачное переключение и реальная доставка не выполнены;
+порядок подключения и приёмки: deployment/production/activation.md.
+
+
+## 2026-11-14 — временная публикация без SMS по решению владельца
+
+Владелец явно просит опубликовать подготовленные изменения, сохранив регистрацию без SMS.
+GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION остаётся отдельным явным флагом, без включения DEBUG.
+Native принимает такой же phone/name/password через mobile-auth/register и выдаёт только свою token-family;
+phone_verified_at остаётся пустым, восстановление не обходит challenge. Реальный OTP и строгий launch-preflight сохранены.
+Android обе аудитории 1.1 (10), iOS обе 1.1 (8); сборка без установки на телефон.

@@ -15,6 +15,7 @@ export function createMobileClient({
   const platformName =
     platform === "android" ? "Android" : platform === "ios" ? "iOS" : null;
   const deviceName = platformName ? `${appName} · ${platformName}` : appName;
+  const challengeScopes = new Map();
   const auth = audience === "staff" ? "/auth" : "/guest-auth";
   const nativeAuth =
     audience === "staff" ? "/staff-mobile-auth" : "/mobile-auth";
@@ -60,6 +61,7 @@ export function createMobileClient({
   }
   async function clear() {
     generation++;
+    challengeScopes.clear();
     credentials = null;
     loaded = true;
     await vault.clear();
@@ -181,6 +183,30 @@ export function createMobileClient({
   return {
     origin: origin.origin,
     async request(method, path, body) {
+      if (audience === "guest" && method === "POST" &&
+          ["/guest-auth/challenges", "/guest-auth/register", "/guest-auth/reset"].includes(path)) {
+        const action = path.split("/").pop();
+        if (action === "challenges") {
+          const result = await json(await raw("POST", `${nativeAuth}/challenges`, body));
+          challengeScopes.clear();
+          challengeScopes.set(result.challengeId, result.scopeToken);
+          const { scopeToken, ...publicChallenge } = result;
+          return publicChallenge;
+        }
+        const simpleSignup = action === "register" && typeof body?.phone === "string";
+        const scopeToken = challengeScopes.get(body?.challengeId);
+        if (!simpleSignup && !scopeToken) throw problem(422, "invalid_code");
+        return exclusive(async () => {
+          const result = await json(await raw("POST", `${nativeAuth}/${action}`, {
+            ...body, ...(simpleSignup ? {} : {scopeToken}), ...(action === "register" ? {deviceName} : {}),
+          }));
+          challengeScopes.clear();
+          if (action === "reset") { await clear(); return result; }
+          await persist(result);
+          return { authenticated: true, account: result.account, profile: result.profile };
+        });
+      }
+
       if (path === `${auth}/login` && method === "POST")
         return exclusive(async () => {
           await clear();
@@ -221,7 +247,13 @@ export function createMobileClient({
           return signedOut;
         });
       if (path === `${auth}/session`) {
-        if (!(await access())) return signedOut;
+        if (!(await access())) {
+          if (audience === "guest") {
+            try { return await json(await raw("GET", `${nativeAuth}/configuration`)); }
+            catch { return { ...signedOut, registrationMode: "disabled", passwordResetAvailable: false }; }
+          }
+          return signedOut;
+        }
       } else if (
         path.startsWith(`${auth}/`) ||
         (audience === "staff" && path.startsWith("/guest-auth/"))

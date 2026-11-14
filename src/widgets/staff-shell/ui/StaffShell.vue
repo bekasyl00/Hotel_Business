@@ -9,6 +9,7 @@ import { ArrivalCheckIn } from "@/features/arrival-check-in";
 import { publicUrl, isStaffApp, isDemo } from "@/shared/config";
 import { request } from "@/shared/api";
 import {
+  syncLocalRequests,
   pendingPushTarget,
   initStaffPushListeners,
   syncStaffPushSession,
@@ -39,10 +40,13 @@ const nav = computed(() =>
 let pollTimer = null;
 async function pollNotifications() {
   if (!canReceiveNotifications.value) return;
-  if (typeof document !== "undefined" && document.visibilityState === "hidden")
+  if (isStaffApp && typeof document !== "undefined" && document.visibilityState === "hidden")
     return;
   try {
-    const res = await request("GET", "/staff/notifications?unread=1");
+    const accountId = session.user.id;
+    const res = await request("GET", "/staff/notifications");
+    if (session.user?.id !== accountId) return;
+    await syncLocalRequests(session.user, res.items || [], props.section === "notifications");
     localUnread.value = Number(res?.unreadCount || 0);
     emit("unread", localUnread.value);
   } catch {
@@ -61,6 +65,11 @@ function onVisibilityChange() {
   }
 }
 function routeToPushTarget(target) {
+  if (target?.section === "notifications" && !session.isAccountant) {
+    pendingPushTarget.value = null;
+    router.push("/staff/notifications").catch(() => {});
+    return;
+  }
   if (!target?.bookingId || session.isAccountant) return;
   if (route.path !== "/staff/bookings") {
     router
@@ -80,8 +89,9 @@ function routeToPushTarget(target) {
 watch(
   () => pendingPushTarget.value,
   (target) => {
-    if (target?.bookingId) routeToPushTarget(target);
+    if (target) routeToPushTarget(target);
   },
+  { immediate: true },
 );
 watch(
   () => props.unreadCount,
@@ -89,6 +99,7 @@ watch(
     if (val != null) localUnread.value = val;
   },
 );
+watch(() => props.section, () => pollNotifications());
 onMounted(() => {
   initStaffPushListeners(routeToPushTarget);
   pollNotifications();

@@ -1,13 +1,12 @@
 import hashlib
 import json
-import secrets
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.password_validation import validate_password
-from django.db import connection, transaction
+from django.db import transaction
 from django.db.models import Avg, F
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -17,10 +16,19 @@ from commerce.commission import freeze_commission
 from commerce.services import apply_cancellation, freeze_cancellation_terms
 from commerce.settlement import freeze_payment_terms
 
+from .access import (
+    admin,
+    guest_owner,
+    lock_account_assignments,
+    require_admin,
+    require_staff,
+    scoped_resorts,
+    version_check,
+)
+from .audit import log_change
 from .errors import Problem
 from .holds import expire_locked_holds
 from .models import (
-    Audit,
     Booking,
     BookingAllocation,
     GuestAccount,
@@ -51,6 +59,7 @@ from .serializers import (
     guest_profile_data,
     review_data,
 )
+from .stays import complete_checkout
 
 ACTIVE = ["pending", "confirmed"]
 SERIALIZERS = {
@@ -65,80 +74,6 @@ MODELS = {
     "accounts": User,
     "bookings": Booking,
 }
-
-
-def admin(user):
-    return user.is_authenticated and (user.is_superuser or user.role == "admin")
-
-
-def lock_account_assignments():
-    # Serialize ownership/role changes across platform admins. No personal data in lock key.
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT pg_advisory_xact_lock(74696879)")
-
-
-def scoped_resorts(user):
-    return (
-        Resort.objects.all()
-        if admin(user) or user.role == "accountant"
-        else Resort.objects.filter(account=user)
-    )
-
-
-def require_staff(user, resort_id=None, *, roles=("admin", "manager")):
-    if not user.is_authenticated:
-        raise Problem("Войдите в кабинет сотрудника.", 401)
-    if not user.is_active or (not user.is_superuser and user.role not in roles):
-        raise Problem("Эта операция недоступна вашей роли.", 403)
-    if resort_id and connection.in_atomic_block:
-        list(Resort.objects.select_for_update().filter(pk=resort_id).values_list("pk", flat=True))
-    if (
-        not admin(user)
-        and user.role != "accountant"
-        and resort_id
-        and not Resort.objects.filter(pk=resort_id, account=user).exists()
-    ):
-        raise Problem("У вас нет доступа к этому санаторию.", 403)
-
-
-def require_admin(user):
-    require_staff(user)
-    if not admin(user):
-        raise Problem("Доступно только администратору.", 403)
-
-
-def guest_owner(request):
-    from .guest_auth import current_account
-
-    account = current_account(request)
-    if account:
-        return account.profile.owner
-    if "guest_owner" not in request.session:
-        request.session["guest_owner"] = secrets.token_hex(32)
-    return request.session["guest_owner"]
-
-
-def version_check(item, data):
-    if type(data.get("version")) is not int or data["version"] != item.version:
-        raise Problem("Запись уже изменена. Обновите данные и повторите.", 409)
-
-
-def log_change(user, entity, item, action, before, after, resort_id=None, website=False):
-    def redact(data):
-        if data is None:
-            return None
-        return {k: v for k, v in data.items() if k not in ["guestPhone", "password", "staffNotes"]}
-
-    Audit.objects.create(
-        actor="Гость сайта" if website else (user.name or user.username),
-        resort_id=resort_id,
-        entity=entity,
-        entity_id=str(item.pk),
-        action=action,
-        label=(after or before or {}).get("name", (after or before or {}).get("roomName", entity)),
-        before=redact(before),
-        after=redact(after),
-    )
 
 
 def authenticate_staff_credentials(request):
@@ -841,21 +776,13 @@ def change_stay(request, pk, action):
         if payment_terms(item)["onsiteAmount"] > 0 and not hasattr(item, "onsite_settlement"):
             raise Problem("Сначала подтвердите получение оплаты в санатории.", 409)
     elif action == "check-out":
-        if not item.checked_in_at or item.checked_out_at:
-            raise Problem("Для выезда гость должен быть заселён и ещё не выехать.", 409)
+        return complete_checkout(item, request.user, now)
     else:
         raise Problem("Действие не найдено.", 404)
     before = booking_data(item)
-    if action == "check-in":
-        item.checked_in_at = now
-    else:
-        item.checked_out_at = now
+    item.checked_in_at = now
     item.version += 1
     item.save(update_fields=["checked_in_at", "checked_out_at", "version"])
     after = booking_data(item)
     log_change(request.user, "bookings", item, action, before, after, item.resort_id)
-    if action == "check-out":
-        from commerce.accounting.services import prepare_after_stay
-
-        prepare_after_stay(item, request.user)
     return item

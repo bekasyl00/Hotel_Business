@@ -9,9 +9,9 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
 
+from booking.access import guest_owner, require_staff
 from booking.errors import Problem
 from booking.models import Audit, Booking, Resort
-from booking.services import guest_owner, require_staff
 
 from .models import InvoicePool, PaymentAttempt, PaymentEvent
 from .provider_registry import configuration, environment_for

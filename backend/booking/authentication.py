@@ -143,7 +143,7 @@ def staff_context(request):
     )
     if not device or device.credential_version != staff_credential_version(device.user):
         raise invalid_token()
-    from .services import require_staff
+    from .access import require_staff
 
     require_staff(device.user, roles=("admin", "manager", "accountant"))
     context = StaffTokenContext(device)

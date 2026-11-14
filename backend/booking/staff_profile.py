@@ -13,12 +13,12 @@ from rest_framework.views import APIView
 
 from commerce.accounting.services import StrictInput, company_data, save_company
 
+from .access import require_staff, scoped_resorts
 from .authentication import bearer_or_csrf_protect
 from .errors import Problem
 from .guest_auth import enforce_limit
 from .models import Audit, Resort, User
 from .serializers import account_data
-from .services import require_staff, scoped_resorts
 
 
 class ProfileInput(StrictInput):

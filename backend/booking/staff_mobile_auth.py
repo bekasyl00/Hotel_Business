@@ -15,6 +15,7 @@ from rest_framework.views import APIView
 
 from identity.models import StaffDevice, StaffRefreshToken
 
+from .access import require_staff
 from .authentication import (
     StaffBearerAuthentication,
     invalid_token,
@@ -26,7 +27,7 @@ from .errors import Problem
 from .guest_auth import enforce_limit, payload
 from .models import Audit, User
 from .serializers import account_data
-from .services import authenticate_staff_credentials, require_staff
+from .services import authenticate_staff_credentials
 
 ACCESS_TTL = timedelta(minutes=15)
 FAMILY_TTL = timedelta(hours=12)

@@ -17,11 +17,12 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from booking.access import guest_owner, require_staff, version_check
+from booking.audit import log_change
 from booking.authentication import bearer_or_csrf_protect
 from booking.errors import Problem
 from booking.models import Booking, Resort
 from booking.serializers import booking_data
-from booking.services import guest_owner, log_change, require_staff, version_check
 
 from .models import OnsiteSettlement
 from .services import booking_payment_data, cancellation_terms, has_paid_booking
@@ -50,7 +51,7 @@ def voucher_data(booking):
     place_ids = serialized.get("placeIds", [])
     place_labels = serialized.get("placeLabels", [])
     return {
-        "number": "TYNYS-" + booking.pk.upper(),
+        "number": "TYNYS-" + booking.public_code,
         "bookingId": booking.pk,
         "scanCode": ticket_code(booking),
         "guestName": booking.guest_label,

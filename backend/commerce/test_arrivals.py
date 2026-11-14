@@ -56,12 +56,18 @@ class ArrivalTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["state"], "outside_dates")
         self.assertEqual(self.resolve("TYNYS-" + self.booking.pk.upper()).status_code, 200)
+        from .vouchers import voucher_data
+        number = voucher_data(self.booking)["number"]
+        self.assertRegex(number, r"^TYNYS-[2-9A-HJ-NP-Z]{10}$")
+        self.assertEqual(self.resolve(number).status_code, 200)
+        self.assertEqual(self.resolve(number.lower()).status_code, 200)
         self.assertEqual(self.resolve(code + "x").status_code, 422)
         other = User.objects.create_user(
             username="other-arrival", email="other-arrival@test.invalid", role="manager"
         )
         self.login(other)
         self.assertEqual(self.resolve(code).status_code, 403)
+        self.assertEqual(self.resolve(number).status_code, 403)
         accountant = User.objects.create_user(
             username="accountant-arrival",
             email="accountant-arrival@test.invalid",

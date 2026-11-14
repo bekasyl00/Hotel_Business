@@ -1,5 +1,6 @@
 import { reactive, ref } from "vue";
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
+import { deliverLocalRequests, requestDeliveryPermission } from "./local-request-delivery.js";
 import { isNativePushAvailable } from "./keychain.js";
 
 export const staffPushState = reactive({
@@ -12,6 +13,33 @@ export const staffPushState = reactive({
 
 export const pendingPushTarget = ref(null);
 
+let localWakeBound = false;
+const localRequests = registerPlugin("TynysKeychain");
+const localIOS = () => !pushPluginOverride && Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
+export async function syncLocalRequests(user, items = [], askPermission = false) {
+  if (!localIOS()) {
+    if (pushPluginOverride) return;
+    try {
+      const account = user && ["admin", "manager"].includes(user.role) ? String(user.id) : "";
+      staffPushState.permission = await deliverLocalRequests(account, items, () => {
+        pendingPushTarget.value = { section: "notifications" };
+      });
+    } catch { /* Local delivery must not interrupt work. */ }
+    return;
+  }
+  try {
+    if (!localWakeBound) {
+      localWakeBound = true;
+      await localRequests.addListener("requestsWake", () => window.dispatchEvent(new Event("focus")));
+    }
+    const result = await localRequests.localRequests({
+      account: user && ["admin", "manager"].includes(user.role) ? String(user.id) : "",
+      items, askPermission,
+    });
+    if (result.permission) staffPushState.permission = result.permission;
+    if (result.openRequests) pendingPushTarget.value = { section: "notifications" };
+  } catch { /* Notification permission never blocks the staff workspace. */ }
+}
 let pushPluginOverride = null;
 let listenersBound = false;
 let currentUser = null;
@@ -51,6 +79,7 @@ function activePlatform() {
 
 async function getPushPlugin() {
   if (pushPluginOverride) return pushPluginOverride;
+  if (!pushPluginOverride) return null;
   if (!Capacitor.isNativePlatform()) return null;
   const mod = await import("@capacitor/push-notifications");
   return mod.PushNotifications;
@@ -125,6 +154,7 @@ export async function initStaffPushListeners(onOpenTarget) {
 }
 
 export async function revokeStaffPushDevice(requestFn = currentRequest) {
+  if (!pushPluginOverride) { await syncLocalRequests(null); return; }
   const req = requestFn || currentRequest;
   const idOrToken = staffPushState.registeredDeviceId || staffPushState.token;
   staffPushState.registeredDeviceId = null;
@@ -139,6 +169,7 @@ export async function revokeStaffPushDevice(requestFn = currentRequest) {
 }
 
 export async function syncStaffPushSession(user, requestFn, onOpenTarget) {
+  if (!pushPluginOverride) { await syncLocalRequests(user); return; }
   if (syncInFlight) return syncInFlight;
   syncInFlight = runSyncStaffPushSession(user, requestFn, onOpenTarget).finally(
     () => {
@@ -241,4 +272,10 @@ export function consumePendingPushTarget() {
   const target = pendingPushTarget.value;
   pendingPushTarget.value = null;
   return target;
+}
+
+export async function enableRequestNotifications() {
+  try { staffPushState.permission = await requestDeliveryPermission(); }
+  catch { /* Dismissed/unsupported permission is not a workspace error. */ }
+  window.dispatchEvent(new Event("focus"));
 }

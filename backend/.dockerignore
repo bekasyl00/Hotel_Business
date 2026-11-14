@@ -1,6 +1,20 @@
+# Never include local credentials or customer files in an image/build context.
 .venv
-.env
-__pycache__
+.env*
+!.env.example
+**/__pycache__
 staticfiles
 mediafiles
+private-media
 .coverage
+.pytest_cache
+*.log
+*.dump
+*.sql
+*.sqlite3
+*.pem
+*.key
+*.p8
+*.p12
+*.pfx
+.DS_Store

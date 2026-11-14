@@ -1,7 +1,7 @@
 <script setup>
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
-import { computed, nextTick, reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { MediaGallery } from "@/widgets/media-gallery";
@@ -9,7 +9,7 @@ import { AvailabilityCalendar } from "@/widgets/availability-calendar";
 import { BookingEditor } from "@/features/create-booking";
 import {
   dateAfter,
-  validateSearch,
+  useAvailability,
   nightsBetween,
   quoteStay,
   paymentTerms,
@@ -27,9 +27,6 @@ const router = useRouter();
 const data = ref(null),
   loading = ref(true),
   error = ref(""),
-  searching = ref(false),
-  searchError = ref(""),
-  available = ref(null),
   checkout = ref(false),
   success = ref(null),
   tariffId = ref("");
@@ -38,6 +35,17 @@ const dates = reactive({
   end: String(route.query.end || dateAfter(10)),
   guests: Number(route.query.guests) || 2,
 });
+const {
+  roomIds,
+  searching,
+  searchError,
+  checkDates,
+  selectCalendarDates,
+  invalidate: invalidateAvailability,
+} = useAvailability(dates);
+const available = computed(() =>
+  roomIds.value === null ? null : roomIds.value.includes(room.value?.id),
+);
 const room = computed(() => data.value?.room),
   resort = computed(() => data.value?.resort),
   tariffs = computed(() =>
@@ -69,15 +77,13 @@ const arrivalPrice = computed(() =>
 const nights = computed(
   () => Math.max(0, nightsBetween(dates.start, dates.end)) || 0,
 );
-let generation = 0,
-  searchGeneration = 0;
+let generation = 0;
 async function load() {
   const run = ++generation;
-  searchGeneration++;
+  invalidateAvailability();
   loading.value = true;
   error.value = "";
   data.value = null;
-  available.value = null;
   success.value = null;
   try {
     const result = await request(
@@ -110,29 +116,6 @@ async function load() {
     await openCheckout();
   }
 }
-async function selectCalendarDates(range) {
-  Object.assign(dates, range);
-  await nextTick();
-  await checkDates();
-}
-async function checkDates() {
-  searchError.value = validateSearch(dates);
-  if (searchError.value) return;
-  const run = ++searchGeneration;
-  searching.value = true;
-  try {
-    const result = await request(
-      "GET",
-      "/availability?" + new URLSearchParams(dates),
-    );
-    if (run === searchGeneration)
-      available.value = result.roomIds.includes(room.value.id);
-  } catch (e) {
-    if (run === searchGeneration) searchError.value = e.message;
-  } finally {
-    if (run === searchGeneration) searching.value = false;
-  }
-}
 async function openCheckout() {
   searchError.value = "";
   try {
@@ -153,15 +136,9 @@ async function openCheckout() {
 async function saved(booking) {
   checkout.value = false;
   success.value = booking;
-  available.value = false;
+  roomIds.value = [];
   await router.push({ path: "/bookings", query: { pay: booking.id } });
 }
-watch(dates, () => {
-  searchGeneration++;
-  available.value = null;
-  searching.value = false;
-  searchError.value = "";
-});
 watch(() => route.params.id, load, { immediate: true });
 </script>
 <template>
@@ -280,16 +257,7 @@ watch(() => route.params.id, load, { immediate: true });
                 </div>
               </dl>
             </section>
-            <AvailabilityCalendar
-              :resort-id="resort.id"
-              :category="room.category"
-              :room-id="room.id"
-              :guests="dates.guests"
-              :time-zone="resort.timeZone"
-              :start="dates.start"
-              :end="dates.end"
-              @select="selectCalendarDates"
-            />
+
             <section class="profile-section">
               <h2>{{ t("public.chooseARate") }}</h2>
               <p class="field-help">
@@ -373,12 +341,22 @@ watch(() => route.params.id, load, { immediate: true });
             </section>
           </div>
           <aside class="profile-aside">
-            <form class="stay-summary" @submit.prevent="checkDates">
+            <form class="stay-summary stay-date-panel" @submit.prevent="checkDates">
               <span class="eyebrow">{{ t("public.yourStay") }}</span>
               <CustomerNightPrice :price="arrivalPrice" prominent />
               <p class="field-help">
                 {{ t("common.pricing.childrenAtCheckout") }}
               </p>
+            <AvailabilityCalendar
+              :resort-id="resort.id"
+              :category="room.category"
+              :room-id="room.id"
+              :guests="dates.guests"
+              :time-zone="resort.timeZone"
+              :start="dates.start"
+              :end="dates.end"
+              @select="selectCalendarDates"
+            />
               <div class="stay-date-form compact">
                 <label
                   >{{ t("public.checkin")

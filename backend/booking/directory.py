@@ -5,10 +5,11 @@ from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from rest_framework import serializers
 
+from .access import require_admin, version_check
+from .audit import log_change
 from .errors import Problem
 from .models import GuestAccount, GuestProfile
 from .serializers import guest_profile_data
-from .services import log_change, require_admin, version_check
 
 
 def account_summary(account):

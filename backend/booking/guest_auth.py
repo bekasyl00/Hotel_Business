@@ -19,7 +19,8 @@ from rest_framework.views import APIView
 
 from .errors import Problem
 from .models import Audit, Booking, GuestAccount, GuestChallenge, GuestProfile, LoginAttempt
-from .rate_limits import enforce_limit
+from .rate_limits import enforce_limit, consume_limits, quota_key
+from .otp_delivery import SMSCCodeDelivery, sms_configured
 from .serializers import guest_profile_data
 
 AUTH_KEY = "guest_account"
@@ -38,7 +39,7 @@ def demo_enabled():
 
 
 class DemoCodeDelivery:
-    """Delivery seam: a future verified SMS provider must replace this implementation."""
+    """Explicit local-only simulator; never establishes verified phone ownership."""
 
     verifies_phone = False
 
@@ -47,6 +48,8 @@ class DemoCodeDelivery:
 
 
 def code_delivery():
+    if sms_configured():
+        return SMSCCodeDelivery()
     if not demo_enabled():
         raise Problem(
             "Подтверждение номера по SMS пока недоступно.",
@@ -91,6 +94,8 @@ def clear_guest(request, *, rotate_session=True):
 def current_account(request):
     from .authentication import bearer_context
 
+    if getattr(request, "_native_challenge", False):
+        return None
     native = bearer_context(request)
     if native:
         return native.account
@@ -122,19 +127,21 @@ def session_data(request, account=None):
         if account
         else None,
         "profile": guest_profile_data(account.profile) if account else None,
-        "mode": "demo" if demo_enabled() else "disabled",
+        "mode": "sms" if sms_configured() else "demo" if demo_enabled() else "disabled",
         "registrationMode": (
             "password"
             if settings.GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION
             else "challenge"
-            if demo_enabled()
+            if demo_enabled() or sms_configured()
             else "disabled"
         ),
-        "passwordResetAvailable": demo_enabled(),
+        "passwordResetAvailable": demo_enabled() or sms_configured(),
     }
 
 
 def establish_session(request, account):
+    if getattr(request, "_native_challenge", False):
+        return account
     clear_guest(request)
     request.session[AUTH_KEY] = {"id": account.pk, "version": account.auth_version}
     request.session.set_expiry(settings.SESSION_COOKIE_AGE)
@@ -164,7 +171,7 @@ def lock_identity_scope(phone, now):
 
 
 def issue_challenge(request):
-    from .services import guest_owner
+    from .access import guest_owner
 
     data = payload(request, ["phone", "purpose"])
     phone = normalize_phone(data["phone"])
@@ -172,11 +179,13 @@ def issue_challenge(request):
         raise Problem("Неверный тип подтверждения.", 422, "invalid_request")
     provider = code_delivery()
     enforce_limit(request, "guest-otp", phone, phone_limit=5, minutes=60)
-    owner = guest_owner(request)
-    scope = request.session.get(SCOPE_KEY)
+    owner = getattr(request, "_challenge_owner", None) or guest_owner(request)
+    scope = getattr(request, "_challenge_scope", None) or request.session.get(SCOPE_KEY)
     if not scope:
         scope = secrets.token_hex(32)
         request.session[SCOPE_KEY] = scope
+    if provider.verifies_phone:
+        consume_limits([(quota_key("otp-global-daily"), max(0, settings.GUEST_OTP_DAILY_LIMIT))], minutes=1440)
     now = timezone.now()
     code = f"{secrets.randbelow(1000000):06d}"
     # This per-phone row serializes sends, resend invalidation and verification across workers.
@@ -195,12 +204,15 @@ def issue_challenge(request):
         challenge = GuestChallenge.objects.create(
             phone=phone,
             purpose=data["purpose"],
+            verifies_phone=provider.verifies_phone,
             scope_hash=digest(scope),
             owner=owner,
             code_hash=make_password(code),
             expires_at=now + CHALLENGE_TTL,
         )
-        delivery = provider.send_code(phone, code)
+    # Commit challenge/cooldown BEFORE external I/O. Ambiguous send failures must
+    # not roll back the budget or allow immediate retry of an external POST.
+    delivery = provider.send_code(phone, code)
     return {
         "challengeId": challenge.pk,
         "expiresAt": challenge.expires_at.isoformat(),
@@ -223,10 +235,12 @@ def locked_challenge(request, data, purpose):
         return None, invalid_code()
     lock_identity_scope(phone, timezone.now())
     challenge = GuestChallenge.objects.select_for_update().get(pk=challenge_id)
-    scope = request.session.get(SCOPE_KEY, "")
+    scope = getattr(request, "_challenge_scope", None) or request.session.get(SCOPE_KEY, "")
     if challenge.purpose != purpose or not secrets.compare_digest(
         challenge.scope_hash, digest(scope)
     ):
+        return None, invalid_code()
+    if not challenge.verifies_phone and not demo_enabled():
         return None, invalid_code()
     if challenge.consumed_at or challenge.attempts >= MAX_CODE_ATTEMPTS:
         return None, invalid_code()
@@ -268,7 +282,7 @@ def create_registered_profile(owner, phone, name, password, *, phone_verified=Fa
 
 def register_without_sms(request):
     """Temporary opt-in path: phone is an unverified login identifier, never reset proof."""
-    from .services import guest_owner
+    from .access import guest_owner
 
     data = payload(request, ["phone", "name", "password"])
     phone, password = normalize_phone(data["phone"]), password_value(data["password"])
@@ -280,7 +294,7 @@ def register_without_sms(request):
             "Сначала выйдите из текущего гостевого аккаунта.", 409, "already_authenticated"
         )
     enforce_limit(request, "guest-register", phone, phone_limit=5, ip_limit=20, minutes=60)
-    owner = guest_owner(request)
+    owner = getattr(request, "_challenge_owner", None) or guest_owner(request)
     with transaction.atomic():
         lock_identity_scope(phone, timezone.now())
         if GuestAccount.objects.filter(phone=phone).exists():
@@ -296,7 +310,7 @@ def register_without_sms(request):
 
 
 def register(request):
-    from .services import guest_owner
+    from .access import guest_owner
 
     if settings.GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION and isinstance(request.data, dict):
         if "phone" in request.data:
@@ -312,7 +326,7 @@ def register(request):
             "Сначала выйдите из текущего гостевого аккаунта.", 409, "already_authenticated"
         )
     enforce_limit(request, "guest-verify", ip_limit=60)
-    owner = guest_owner(request)
+    owner = getattr(request, "_challenge_owner", None) or guest_owner(request)
     with transaction.atomic():
         challenge, error = locked_challenge(request, data, "register")
         if not error:
@@ -329,7 +343,7 @@ def register(request):
                     challenge.phone,
                     name,
                     password,
-                    phone_verified=delivery.verifies_phone,
+                    phone_verified=challenge.verifies_phone,
                 )
                 if not account:
                     error = invalid_code()
@@ -378,12 +392,14 @@ def reset(request):
             if account:
                 account.password = encoded_password
                 account.auth_version += 1
-                account.save(update_fields=["password", "auth_version"])
+                if challenge.verifies_phone:
+                    account.phone_verified_at = timezone.now()
+                account.save(update_fields=["password", "auth_version", "phone_verified_at"])
                 audit(account, "reset_password")
     if error:
         raise error
     current_account(request)
-    return {"ok": True, "mode": "demo" if demo_enabled() else "disabled"}
+    return {"ok": True, "mode": "sms" if sms_configured() else "demo" if demo_enabled() else "disabled"}
 
 
 @method_decorator(never_cache, name="dispatch")

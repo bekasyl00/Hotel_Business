@@ -577,6 +577,7 @@ def booking_data(b, staff=False):
     )
     return {
         "id": b.id,
+        "reference": "TYNYS-" + b.public_code,
         "version": b.version,
         "resortId": b.resort_id,
         "roomId": b.room_id,

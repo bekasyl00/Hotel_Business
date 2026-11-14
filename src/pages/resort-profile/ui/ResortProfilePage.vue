@@ -1,14 +1,14 @@
 <script setup>
 import { useI18n } from "vue-i18n";
 const { t } = useI18n();
-import { computed, nextTick, reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { PublicHeader } from "@/widgets/public-header";
 import { MediaGallery } from "@/widgets/media-gallery";
 import { AvailabilityCalendar } from "@/widgets/availability-calendar";
 import {
   dateAfter,
-  validateSearch,
+  useAvailability,
   nightsBetween,
   customerNightPrice,
   CustomerNightPrice,
@@ -29,15 +29,21 @@ const route = useRoute();
 const data = ref(null),
   loading = ref(true),
   error = ref(""),
-  searching = ref(false),
-  searchError = ref(""),
-  available = ref(null),
   roomClass = ref("all");
 const dates = reactive({
   start: String(route.query.start || dateAfter(7)),
   end: String(route.query.end || dateAfter(10)),
   guests: Number(route.query.guests) || 2,
 });
+const {
+  roomIds,
+  searching,
+  searchError,
+  checkDates,
+  selectCalendarDates,
+  invalidate: invalidateAvailability,
+} = useAvailability(dates);
+const available = roomIds;
 const resort = computed(() => data.value?.resort);
 const rooms = computed(() =>
   (data.value?.rooms || [])
@@ -65,15 +71,13 @@ const rating = computed(() =>
 const point = computed(() =>
   resort.value ? [{ ...resort.value, label: resort.value.name }] : [],
 );
-let generation = 0,
-  searchGeneration = 0;
+let generation = 0;
 async function load() {
   const run = ++generation;
-  searchGeneration++;
+  invalidateAvailability();
   loading.value = true;
   error.value = "";
   data.value = null;
-  available.value = null;
   try {
     const result = await request(
       "GET",
@@ -90,37 +94,9 @@ async function load() {
     if (run === generation) loading.value = false;
   }
 }
-async function selectCalendarDates(range) {
-  Object.assign(dates, range);
-  await nextTick();
-  await checkDates();
-}
-async function checkDates() {
-  searchError.value = validateSearch(dates);
-  if (searchError.value) return;
-  const run = ++searchGeneration;
-  searching.value = true;
-  try {
-    const result = await request(
-      "GET",
-      "/availability?" + new URLSearchParams(dates),
-    );
-    if (run === searchGeneration) available.value = result.roomIds;
-  } catch (e) {
-    if (run === searchGeneration) searchError.value = e.message;
-  } finally {
-    if (run === searchGeneration) searching.value = false;
-  }
-}
 const roomLink = (room) => ({
   path: `/rooms/${room.id}`,
   query: available.value === null ? {} : { ...dates },
-});
-watch(dates, () => {
-  searchGeneration++;
-  available.value = null;
-  searching.value = false;
-  searchError.value = "";
 });
 watch(() => route.params.id, load, { immediate: true });
 </script>
@@ -257,6 +233,7 @@ watch(() => route.params.id, load, { immediate: true });
                   </select></label
                 >
               </div>
+              <div :class="{ 'stay-date-panel': roomClass !== 'all' }">
               <AvailabilityCalendar
                 :resort-id="resort.id"
                 :category="roomClass"
@@ -293,6 +270,7 @@ watch(() => route.params.id, load, { immediate: true });
                   {{ searching ? t("public.checking") : t("public.findRooms") }}
                 </button>
               </form>
+              </div>
               <p v-if="searchError" class="form-error" role="alert">
                 {{ searchError }}
               </p>

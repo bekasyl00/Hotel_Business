@@ -352,5 +352,17 @@
     "bookedPlaces": "Places booked: {guests} of {capacity}",
     "sharedRoomNotice": "This room has multiple places: remaining available places may be booked by other guests."
   },
-  "refundOnlineAmountOnly": "Refunds are calculated from the amount paid online. Accommodation paid at the resort is recorded separately."
+  "refundOnlineAmountOnly": "Refunds are calculated from the amount paid online. Accommodation paid at the resort is recorded separately.",
+  "bookingClarity": {
+    "sharedTitle": "Places in a shared room",
+    "allPlacesTitle": "All places in the selected room",
+    "sharedHint": "Other guests may book the remaining places. For a room just for your group, choose one with the same number of places as guests.",
+    "included": "What your selected option includes",
+    "noDescription": "Services have not been listed yet. Ask the resort about meals, treatments and any extras before paying.",
+    "askResort": "Ask the resort on WhatsApp",
+    "paymentSplit": "Both amounts are included in the total. Pay only the online portion now and the rest at the resort.",
+    "refund": "Cancellation before arrival: 48 hours or more — 100%; 24–48 hours — 70%; less than 24 hours — no refund.",
+    "continuePayment": "Continue to pay {amount}",
+    "nextStep": "Next: payment and booking confirmation. Places are held for up to 15 minutes; the timer shows the exact deadline."
+  }
 }

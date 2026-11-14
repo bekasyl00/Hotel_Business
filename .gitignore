@@ -33,3 +33,4 @@ ios-staff/**/build/
 *.jks
 *.keystore
 native/android/signing/
+.vercel

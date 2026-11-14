@@ -56,6 +56,8 @@ export async function clearReceiptCache() {
 
 export { nativeSessionNotice } from "./status.js";
 export {
+  enableRequestNotifications,
+  syncLocalRequests,
   staffPushState,
   pendingPushTarget,
   initStaffPushListeners,

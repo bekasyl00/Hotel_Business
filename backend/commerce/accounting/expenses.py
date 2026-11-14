@@ -3,9 +3,9 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
 
+from booking.access import version_check
 from booking.errors import Problem
 from booking.models import Audit, Resort
-from booking.services import version_check
 from commerce.models import AccountingExpense
 
 from .services import StrictInput, require_accountant

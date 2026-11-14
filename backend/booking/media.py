@@ -22,12 +22,13 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .access import require_staff
 from .authentication import bearer_or_csrf_protect
 from .errors import Problem
 from .media_access import can_read_asset, enforce_upload_quota
 from .models import Audit, GuestProfile, MediaAsset, Resort
 from .serializers import guest_profile_data
-from .services import require_staff, review_booking
+from .services import review_booking
 
 IMAGE_LIMIT = 8 * 1024 * 1024
 VIDEO_LIMIT = 40 * 1024 * 1024

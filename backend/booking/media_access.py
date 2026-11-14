@@ -48,7 +48,7 @@ def asset_is_referenced(asset):
 
 
 def can_read_asset(request, asset):
-    from .services import admin, guest_owner
+    from .access import admin, guest_owner
 
     staff = request.user.is_authenticated and (
         admin(request.user) or request.user.role == "manager"

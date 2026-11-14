@@ -212,7 +212,7 @@ class CommerceTests(TestCase):
         request = SimpleNamespace(
             user=AnonymousUser(), session={"guest_owner": "owner-a"}, data=self.payload
         )
-        with patch("booking.services.log_change", side_effect=RuntimeError("audit unavailable")):
+        with patch("booking.audit.log_change", side_effect=RuntimeError("audit unavailable")):
             with self.assertRaises(RuntimeError):
                 create_demo_payment(request)
         self.assertEqual(DemoPayment.objects.count(), 0)
@@ -297,7 +297,7 @@ class CommerceTests(TestCase):
         )
 
     def test_booking_api_audit_failure_rolls_back_status_and_refund(self):
-        from booking.services import log_change
+        from booking.audit import log_change
 
         self.pay()
 

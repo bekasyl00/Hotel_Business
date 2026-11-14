@@ -59,7 +59,7 @@ def freeze_receipt(payment, *, legacy=False):
 
 @transaction.atomic
 def receipt_for_request(request, pk):
-    from booking.services import admin, guest_owner
+    from booking.access import admin, guest_owner
 
     from .services import payment_data
 

@@ -7,9 +7,9 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import serializers
 
+from booking.access import require_staff, scoped_resorts, version_check
 from booking.errors import Problem
 from booking.models import Audit, Resort
-from booking.services import require_staff, scoped_resorts, version_check
 from commerce.models import AccountingCompany, AccountingDocument, AccountingSequence
 from commerce.services import booking_payment_data
 

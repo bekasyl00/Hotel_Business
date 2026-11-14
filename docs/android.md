@@ -2,9 +2,12 @@
 
 ## Скачать APK
 
-[Тыныс — клиент](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.7/tynys-guest-1.1-7.apk) · [Тыныс Команда — сотрудники](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.7/tynys-staff-1.1-7.apk)
+[Тыныс — клиент](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.10/tynys-guest-1.1-10.apk) · [Тыныс Команда — сотрудники](https://github.com/bekasyl00/Hotel_Business/releases/download/android-v1.1.10/tynys-staff-1.1-10.apk)
 
-Предварительный выпуск 1.1 (7), бесплатные файлы без входа в GitHub. Открыть ссылку на Android, скачать APK и установить; при запросе Android разрешить установку из выбранного браузера. На [странице выпуска](https://github.com/bekasyl00/Hotel_Business/releases/tag/android-v1.1.7) также опубликованы SHA-256. Код выпуска: T001–T003 (инвентарь спальных мест `RoomPlace`/`BookingAllocation`, план размещения 30–120 суток, центр уведомлений и системные push-уведомления сотрудников с deep-link переходом к карточке брони; подписи сохранены от 1.1 (5)–(6) для обновления поверх установленных версий). Проверки и оставшиеся ограничения — в verification.md.
+Предварительный выпуск **1.1 (10)**: общий API, временная регистрация без SMS, короткие номера билетов,
+обновлённый выбор дат, документы и локальные уведомления сотрудников. Новые запросы в закрытое приложение
+локальный механизм не доставляет. Подписи сохранены для обновления поверх старых APK; установка на устройство
+в этот выпуск не входит. SHA-256 приложены к GitHub Release; актуальные свидетельства — verification.md.
 
 ## Объём текущего этапа
 
@@ -49,3 +52,7 @@ npm run android:open         # при установленном Android Studio
 Нужны JDK 21 (Capacitor Filesystem toolchain), Android SDK platform 36 и build-tools 35.0.0/36.0.0 и доступный adb. Локальный путь SDK — в игнорируемом local.properties, либо ANDROID_HOME. Частные ключи и пароли — native/android/signing, права 0700/0600. Сделать закрытую резервную копию этого каталога; потеря ключа не исправляется генерацией нового для обычного обновления APK. Не отправлять файлы в чат или GitHub. Приложение не содержит ключ подписи, DB/S3/API secrets.
 
 Проверенный release APK и SHA256 помещаются в output/android. После загрузки в GitHub Release проверяются публичные ссылки и совпадение SHA256. Официальный Google Play URL не выдаётся вместо ссылки APK. Для будущего AAB после соответствующего release sync: node scripts/build-android.mjs guest bundle (или staff bundle).
+
+## Staff 1.1 (9): local requests
+
+Staff Android uses Capacitor Local Notifications, without FCM. Enable permission in the requests section. Authenticated foreground checks on launch/resume/30-second poll deliver unread IDs once; tapping routes to requests. Account-scoped delivered IDs are persisted by shared/native/local-request-delivery; logout clears device notifications. The high-importance requests channel uses system sound/vibration settings. There is no remote/background fetching. Physical Android banner/tap verification remains pending.

@@ -1,0 +1,174 @@
+{
+  "business": "Тыныс — ИЛЛЮСТРАТИВНЫЙ сценарий paid",
+  "unit": "оплаченная бронь",
+  "price": 28000.0,
+  "variable_per_unit": 12240.0,
+  "contribution": 15760.0,
+  "contribution_pct": 0.5628571428571428,
+  "fixed_monthly": 300000.0,
+  "startup": 300000.0,
+  "plan_per_day": 1.0,
+  "margin_at_plan": 0.2057142857142857,
+  "breakeven_per_day": 0.6345177664974619,
+  "capacity_per_day": null,
+  "year1_revenue": 6720000.0,
+  "year1_profit": 182400.0,
+  "year1_after_startup": -117600.0,
+  "payback_month": null,
+  "cash_needed": 1090800.0,
+  "months": [
+    {
+      "month": 1,
+      "per_day": 0.1,
+      "units": 3.0,
+      "revenue": 84000.0,
+      "variable": 36720.0,
+      "fixed": 300000.0,
+      "profit": -252720.0,
+      "cumulative": -552720.0
+    },
+    {
+      "month": 2,
+      "per_day": 0.2,
+      "units": 6.0,
+      "revenue": 168000.0,
+      "variable": 73440.0,
+      "fixed": 300000.0,
+      "profit": -205440.0,
+      "cumulative": -758160.0
+    },
+    {
+      "month": 3,
+      "per_day": 0.3,
+      "units": 9.0,
+      "revenue": 252000.0,
+      "variable": 110160.0,
+      "fixed": 300000.0,
+      "profit": -158160.0,
+      "cumulative": -916320.0
+    },
+    {
+      "month": 4,
+      "per_day": 0.4,
+      "units": 12.0,
+      "revenue": 336000.0,
+      "variable": 146880.0,
+      "fixed": 300000.0,
+      "profit": -110880.0,
+      "cumulative": -1027200.0
+    },
+    {
+      "month": 5,
+      "per_day": 0.5,
+      "units": 15.0,
+      "revenue": 420000.0,
+      "variable": 183600.0,
+      "fixed": 300000.0,
+      "profit": -63600.0,
+      "cumulative": -1090800.0
+    },
+    {
+      "month": 6,
+      "per_day": 0.7,
+      "units": 21.0,
+      "revenue": 588000.0,
+      "variable": 257040.0,
+      "fixed": 300000.0,
+      "profit": 30960.0,
+      "cumulative": -1059840.0
+    },
+    {
+      "month": 7,
+      "per_day": 0.8,
+      "units": 24.0,
+      "revenue": 672000.0,
+      "variable": 293760.0,
+      "fixed": 300000.0,
+      "profit": 78240.0,
+      "cumulative": -981600.0
+    },
+    {
+      "month": 8,
+      "per_day": 1.0,
+      "units": 30.0,
+      "revenue": 840000.0,
+      "variable": 367200.0,
+      "fixed": 300000.0,
+      "profit": 172800.0,
+      "cumulative": -808800.0
+    },
+    {
+      "month": 9,
+      "per_day": 1.0,
+      "units": 30.0,
+      "revenue": 840000.0,
+      "variable": 367200.0,
+      "fixed": 300000.0,
+      "profit": 172800.0,
+      "cumulative": -636000.0
+    },
+    {
+      "month": 10,
+      "per_day": 1.0,
+      "units": 30.0,
+      "revenue": 840000.0,
+      "variable": 367200.0,
+      "fixed": 300000.0,
+      "profit": 172800.0,
+      "cumulative": -463200.0
+    },
+    {
+      "month": 11,
+      "per_day": 1.0,
+      "units": 30.0,
+      "revenue": 840000.0,
+      "variable": 367200.0,
+      "fixed": 300000.0,
+      "profit": 172800.0,
+      "cumulative": -290400.0
+    },
+    {
+      "month": 12,
+      "per_day": 1.0,
+      "units": 30.0,
+      "revenue": 840000.0,
+      "variable": 367200.0,
+      "fixed": 300000.0,
+      "profit": 172800.0,
+      "cumulative": -117600.0
+    }
+  ],
+  "flags": [
+    "The startup spend is not earned back within year 1."
+  ],
+  "variable_items": [
+    {
+      "label": "Платёжные расходы, условно 3% онлайн-суммы",
+      "cost": 840
+    },
+    {
+      "label": "Поддержка, условно 30 минут × 4000 KZT/час",
+      "cost": 2000
+    },
+    {
+      "label": "Резерв возвратов/потерь, условно 5% комиссии",
+      "cost": 1400
+    },
+    {
+      "label": "Привлечение, допущение",
+      "cost": 8000
+    }
+  ],
+  "fixed_items": [
+    {
+      "label": "Условные фиксированные расходы, не бюджет владельца",
+      "cost": 300000
+    }
+  ],
+  "startup_items": [
+    {
+      "label": "Условная стоимость запуска",
+      "cost": 300000
+    }
+  ]
+}

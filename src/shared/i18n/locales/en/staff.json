@@ -462,9 +462,11 @@
     "booking_paid": "Paid",
     "booking_cancelled": "Cancelled",
     "booking_expired": "Hold expired",
-    "pushDeniedTitle": "System push notifications are disabled",
-    "pushDeniedBody": "Enable notifications for Tynys Team in your phone settings to receive new booking alerts on the lock screen.",
-    "openSystemSettings": "Open system settings"
+    "pushDeniedTitle": "Notifications are disabled",
+    "pushDeniedBody": "Allow notifications for Tynys Team in your phone settings. New requests are checked when you open or return to the app.",
+    "openSystemSettings": "Open system settings",
+    "enableLocal": "Enable notifications",
+    "browserSettings": "Allow notifications in site settings using the icon to the left of the browser address."
   },
   "directory": {
     "clients": "Clients",

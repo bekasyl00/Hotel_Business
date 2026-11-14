@@ -108,7 +108,7 @@ def booking_payment_data(booking):
 
 
 def _require_owner(request, booking):
-    from booking.services import guest_owner
+    from booking.access import guest_owner
 
     if booking.source != "website" or booking.owner != guest_owner(request):
         raise Problem("Бронирование не найдено.", 404)
@@ -122,8 +122,9 @@ class PaymentInput(serializers.Serializer):
 
 @transaction.atomic
 def _create_demo_payment(request, staff=False):
+    from booking.access import require_staff
+    from booking.audit import log_change
     from booking.serializers import booking_data
-    from booking.services import log_change, require_staff
 
     if not settings.PAYMENTS_ALLOW_SIMULATOR:
         raise Problem("Симулятор оплаты отключён.", 403)
@@ -203,8 +204,8 @@ def _create_demo_payment(request, staff=False):
 
 
 def create_demo_payment(request, staff=False):
+    from booking.access import require_staff
     from booking.holds import expire_resort_holds
-    from booking.services import require_staff
 
     if not settings.PAYMENTS_ALLOW_SIMULATOR:
         raise Problem("Симулятор оплаты отключён.", 403)
@@ -258,7 +259,7 @@ def cancellation_preview(booking, *, staff=False, now=None):
 
 
 def preview_for_request(request, pk):
-    from booking.services import guest_owner, require_staff
+    from booking.access import guest_owner, require_staff
 
     booking = get_object_or_404(Booking, pk=pk)
     owns = booking.source == "website" and booking.owner == guest_owner(request)
@@ -279,7 +280,7 @@ def preview_for_request(request, pk):
 @transaction.atomic
 def apply_cancellation(booking, user, *, staff=False):
     """Called in booking transition's transaction; same resort lock orders all mutations."""
-    from booking.services import log_change
+    from booking.audit import log_change
 
     Resort.objects.select_for_update().get(pk=booking.resort_id)
     from .jobs import retire_booking

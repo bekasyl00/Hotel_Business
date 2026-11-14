@@ -9,11 +9,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from booking.access import require_staff
 from booking.authentication import bearer_or_csrf_protect
 from booking.errors import Problem
 from booking.guest_auth import enforce_limit
 from booking.models import Audit, Booking, GuestAccount, Resort
-from booking.services import require_staff
 from commerce.models import DocumentGuestRoster
 
 from .private_data import seal, unseal

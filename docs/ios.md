@@ -61,7 +61,7 @@ VITE_DATA_MODE=api VITE_API_BASE=https://api.your-domain.kz/api/v1 npm run ios:s
 
 Это пример адреса для локальной разработки. Для текущей установки использовать release-команды выше. Валидатор не разрешает HTTP, credentials в URL, query/hash или другую API-версию. Supabase остаётся БД/хранилищем **за Django**; S3/DB/service keys никогда не попадают в мобильный bundle. `CapacitorHttp` обслуживает сетевые JSON/multipart запросы через native networking; браузерная API-сборка приложения намеренно не работает без native bridge.
 
-Гостевой вход требует уже существующий аккаунт. Нативный transport регистрации/сброса с SMS пока не сделан: API-приложение явно объясняет это на соответствующих экранах; demo-регистрация/сброс остаются доступны с demo-кодами. Аккаунты сотрудников создаёт администратор, самостоятельной регистрации сотрудников нет.
+Native регистрация и сброс используют общий mobile-auth API. В текущем временном режиме регистрация по имени/телефону/паролю без SMS разрешена явным server flag, номер не подтверждается. Реальный OTP подключается после настройки провайдера; reset не обходит подтверждение. Аккаунты сотрудников создаёт администратор, самостоятельной регистрации сотрудников нет.
 
 ## Сессии и файлы
 
@@ -79,3 +79,15 @@ VITE_DATA_MODE=api VITE_API_BASE=https://api.your-domain.kz/api/v1 npm run ios:s
 Для каждого проекта выбрать Apple Development Team в Signing & Capabilities и уникальный bundle ID при необходимости, подключить iPhone к Mac, доверить компьютер, включить Developer Mode и выбрать телефон в Xcode. Затем Run. Пароль Apple ID, код телефона и доверие профилю пользователь вводит на своих устройствах. Установка на симулятор не доказывает установку/подпись/доступ к сети на настоящем iPhone — это отдельная проверка.
 
 Оба приложения можно установить рядом. Публикация в App Store/TestFlight в эту работу не входит. До неё нужны размещённый API, реальные SMS/Kaspi, native registration/recovery, удаление гостевого аккаунта, политика приватности/актуальные App Privacy сведения, поддержка, подпись Apple Developer и проверки на физических устройствах. Push и universal/deep links пока не реализованы. Требования Capacitor: https://capacitorjs.com/docs/ios ; конфигурация: https://capacitorjs.com/docs/config .
+
+## Local request notifications (2026-11-14)
+
+Staff iOS uses RequestNotificationService (UserNotifications, async/await) in the shared native bridge. No APNs registration or entitlement is used. Permission is requested only when entering /staff/notifications. StaffShell polls authenticated requests on mount, every 30 seconds while visible, section changes, and native foreground/tap events. Delivered/read IDs persist in UserDefaults per staff account, without request bodies. Logout clears delivered notifications; IDs remain for deduplication. Taps open the requests section after authenticated loading. Denial is silent and existing settings link remains available. This is a Capacitor/Vue interface, not a SwiftUI app; no duplicate native navigation was introduced.
+
+Foreground delegate returns banner/list/sound, authorization requests alert/sound/badge, content uses default sound. Sound/haptics depend on system settings and Focus. No delivery of newly created requests while terminated or suspended; the next foreground fetch delivers them. Physical banner, tap and denied-permission checks remain necessary.
+
+
+## Подготовленный выпуск 2026-11-14
+
+Обе аудитории 1.1 (8), device Release builds; установка на iPhone не запрашивалась и не выполняется.
+Артефакты сохраняются локально в output/ios-release-1.1-8; development-подпись не является App Store/TestFlight выпуском.

@@ -57,25 +57,90 @@ class CheckoutTests(TestCase):
             },
         )
 
-    def test_scheduler_completes_due_paid_stay_idempotently(self):
-        from unittest.mock import patch
-
+    def due_stay(self, *, admitted=True, paid=True):
         booking = self.create()
+        if paid:
+            self.assertEqual(self.payment(booking).status_code, 200)
+            booking.refresh_from_db()
         booking.status = "confirmed"
         booking.stay = Range(
             timezone.localdate() - timedelta(days=2), timezone.localdate() - timedelta(days=1), "[)"
         )
-        booking.save(update_fields=["status", "stay"])
+        booking.checked_in_at = timezone.now() - timedelta(days=2) if admitted else None
+        booking.save(update_fields=["status", "stay", "checked_in_at"])
+        return booking
+
+    def test_scheduler_completes_due_paid_admitted_stay_idempotently(self):
         from .departures import complete_due_departures
 
+        booking = self.due_stay()
+        arrival, version = booking.checked_in_at, booking.version
         now = timezone.now()
         with patch("commerce.accounting.services.prepare_after_stay") as prepare:
             self.assertEqual(complete_due_departures(now), 1)
             self.assertEqual(complete_due_departures(now), 0)
         booking.refresh_from_db()
-        self.assertIsNotNone(booking.checked_out_at)
-        self.assertIsNotNone(booking.checked_in_at)
+        self.assertEqual(booking.checked_out_at, now)
+        self.assertEqual(booking.checked_in_at, arrival)
+        self.assertEqual(booking.version, version + 1)
+        self.assertEqual(Audit.objects.filter(entity_id=booking.pk, action="check-out").count(), 1)
         prepare.assert_called_once()
+
+    def test_scheduler_never_infers_admission_for_paid_booking(self):
+        from .departures import complete_due_departures
+
+        booking = self.due_stay(admitted=False)
+        version = booking.version
+        with patch("commerce.accounting.services.prepare_after_stay") as prepare:
+            self.assertEqual(complete_due_departures(), 0)
+        booking.refresh_from_db()
+        self.assertIsNone(booking.checked_in_at)
+        self.assertIsNone(booking.checked_out_at)
+        self.assertEqual(booking.version, version)
+        prepare.assert_not_called()
+        self.assertFalse(Audit.objects.filter(entity_id=booking.pk, action="check-out").exists())
+
+    def test_scheduler_requires_verified_payment(self):
+        from .departures import complete_due_departures
+
+        booking = self.due_stay(paid=False)
+        with patch("commerce.accounting.services.prepare_after_stay") as prepare:
+            self.assertEqual(complete_due_departures(), 0)
+        booking.refresh_from_db()
+        self.assertIsNone(booking.checked_out_at)
+        prepare.assert_not_called()
+
+    def test_scheduler_filters_future_departures_before_batch_limit(self):
+        from .departures import complete_due_departures
+
+        future = self.due_stay()
+        future.stay = Range(
+            timezone.localdate() - timedelta(days=10), timezone.localdate() + timedelta(days=10), "[)"
+        )
+        future.save(update_fields=["stay"])
+        self.room.pk = str(uuid.uuid4())
+        self.room.number = "202"
+        self.room.save(force_insert=True)
+        self.payload.update(roomId=self.room.pk, requestId=str(uuid.uuid4()))
+        due = self.due_stay()
+        with patch("commerce.accounting.services.prepare_after_stay"):
+            self.assertEqual(complete_due_departures(limit=1), 1)
+        future.refresh_from_db()
+        due.refresh_from_db()
+        self.assertIsNone(future.checked_out_at)
+        self.assertIsNotNone(due.checked_out_at)
+
+    def test_scheduler_audit_failure_rolls_back_checkout(self):
+        from .departures import complete_due_departures
+
+        booking = self.due_stay()
+        version = booking.version
+        with patch("booking.stays.log_change", side_effect=RuntimeError("audit unavailable")):
+            with self.assertRaises(RuntimeError):
+                complete_due_departures()
+        booking.refresh_from_db()
+        self.assertIsNone(booking.checked_out_at)
+        self.assertEqual(booking.version, version)
 
     def test_failed_then_success_payment_confirms_once_without_manager(self):
         booking = self.create()
@@ -126,7 +191,7 @@ class CheckoutTests(TestCase):
 
     def test_payment_and_confirmation_rollback_together_on_audit_failure(self):
         booking = self.create()
-        with patch("booking.services.log_change", side_effect=RuntimeError("audit unavailable")):
+        with patch("booking.audit.log_change", side_effect=RuntimeError("audit unavailable")):
             with self.assertRaises(RuntimeError):
                 self.payment(booking)
         booking.refresh_from_db()

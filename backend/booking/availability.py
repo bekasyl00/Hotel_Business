@@ -207,8 +207,8 @@ def availability_summary(params):
 
 
 def planner_window(user, params):
+    from .access import require_staff, scoped_resorts
     from .serializers import RoomSerializer, booking_data, bookings_with_relations
-    from .services import require_staff, scoped_resorts
 
     require_staff(user, roles=("admin", "manager", "accountant"))
     resorts = scoped_resorts(user)

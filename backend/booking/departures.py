@@ -4,9 +4,13 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from django.db import transaction
+from django.db.models import DateField, DateTimeField, ExpressionWrapper, F, Func
 from django.utils import timezone
 
+from commerce.services import has_paid_booking
+
 from .models import Booking, Resort
+from .stays import complete_checkout
 
 
 def complete_due_departures(now=None, *, limit=100):
@@ -20,16 +24,34 @@ def complete_due_departures(now=None, *, limit=100):
     """
     now = now or timezone.now()
     candidates = list(
-        Booking.objects.filter(status="confirmed", checked_out_at__isnull=True)
+        Booking.objects.filter(
+            status="confirmed", checked_in_at__isnull=False, checked_out_at__isnull=True
+        )
+        .annotate(
+            departure_date=Func(F("stay"), function="upper", output_field=DateField()),
+            departure_local=ExpressionWrapper(
+                F("departure_date") + F("resort__check_in_time"), output_field=DateTimeField()
+            ),
+            departure_at=Func(
+                F("resort__time_zone"), F("departure_local"),
+                function="timezone", output_field=DateTimeField(),
+            ),
+        )
+        .filter(departure_at__lte=now)
         .select_related("resort__account")
-        .order_by("stay", "id")[:limit]
+        .order_by("departure_at", "id")[:limit]
     )
     completed = 0
     for candidate in candidates:
         with transaction.atomic():
             resort = Resort.objects.select_for_update().get(pk=candidate.resort_id)
             booking = Booking.objects.select_for_update().get(pk=candidate.pk)
-            if booking.status != "confirmed" or booking.checked_out_at:
+            if (
+                booking.status != "confirmed"
+                or not booking.checked_in_at
+                or booking.checked_out_at
+                or not has_paid_booking(booking)
+            ):
                 continue
             zone = ZoneInfo(resort.time_zone)
             checkout_at = datetime.combine(
@@ -37,18 +59,6 @@ def complete_due_departures(now=None, *, limit=100):
             ).astimezone(timezone.get_current_timezone())
             if now < checkout_at:
                 continue
-            # A paid booking may have been admitted without a separate manual
-            # check-in record in the early rollout.  Preserve the database
-            # invariant by recording the scheduled arrival before departure.
-            if not booking.checked_in_at:
-                booking.checked_in_at = datetime.combine(
-                    booking.stay.lower, resort.check_in_time, tzinfo=zone
-                ).astimezone(timezone.get_current_timezone())
-            booking.checked_out_at = now
-            booking.version += 1
-            booking.save(update_fields=["checked_in_at", "checked_out_at", "version"])
-            from commerce.accounting.services import prepare_after_stay
-
-            prepare_after_stay(booking, resort.account)
+            complete_checkout(booking, resort.account, now)
             completed += 1
     return completed

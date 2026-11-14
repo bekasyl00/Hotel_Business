@@ -68,11 +68,11 @@ onMounted(load);
           >тыныс<span class="brand-dot">.</span></span
         ></component
       ><span class="public-brand-note">{{ t("public.timeForYourself") }}</span>
-      <nav v-if="!isMobile" :aria-label="t('public.mainNavigation')">
+      <nav v-if="!isMobile" class="public-primary-navigation" :aria-label="t('public.mainNavigation')">
         <component
           :is="publicLink"
           v-bind="destination('/')"
-          :aria-current="route.path === '/' ? 'page' : undefined"
+          :aria-current="(route.path === '/' || route.path.startsWith('/resorts/') || route.path.startsWith('/rooms/')) ? 'page' : undefined"
           >{{ t("public.catalogue") }}</component
         ><component
           :is="publicLink"
@@ -82,7 +82,7 @@ onMounted(load);
         ><component
           :is="publicLink"
           v-bind="destination('/profile')"
-          :aria-current="route.path === '/profile' ? 'page' : undefined"
+          :aria-current="['/profile', '/documents'].includes(route.path) ? 'page' : undefined"
           >{{ t("public.myProfile") }}</component
         ><a :href="staffUrl || '/staff'" class="public-staff-link">{{
           t("public.staff")

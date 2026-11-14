@@ -326,3 +326,14 @@ Paid active booking voucher JSON includes `scanCode` (`TYNYS1.` + signed opaque 
 - `GET /staff/notifications?unreadOnly=0|1&resortId=&limit=50`: authenticated `admin` or `manager` (accountant/guest `403`). Returns `{items, unreadCount}` where each item has `{id, resortId, bookingId, eventType, payload, title, body, isRead, readAt, createdAt}`. Events: `booking_created`, `booking_paid`, `booking_cancelled`, `stay_checked_in`, `stay_checked_out`.
 - `POST /staff/notifications/:id/read` and `POST /staff/notifications/read-all`: mark one or all scoped notifications read (idempotent; requires CSRF for cookie sessions; returns `403` if resort ownership moved away from the manager).
 - `POST /staff/push-devices` (`{platform: ios|android|web, token, deviceId?}`) and `DELETE /staff/push-devices/:id`: register/deactivate push tokens for the current `admin`/`manager`. Push payloads omit guest phone/IIN/financial details; without external FCM/APNs credentials, `StaffPushDelivery` records `status="skipped_unconfigured"` without failing booking/payment transactions.
+
+## 2026-11-14: native OTP и короткий номер билета
+
+`GET /api/v1/mobile-auth/configuration`, `POST .../challenges`, `.../register`, `.../reset`:
+контракт и границы в [mobile-api.md](mobile-api.md). Cookie не создаётся; scopeToken возвращается только при выдаче
+challenge и обязателен при погашении. TTL кода 5 минут, scope 10 минут, максимум 5 попыток.
+Демо-челленджи после выключения DEBUG/demo не принимаются. Server SMS transport не возвращает demoCode.
+
+Booking JSON добавляет read-only `reference: TYNYS-XXXXXXXXXX`; voucher.number содержит тот же короткий номер.
+`POST /staff/arrivals/resolve` принимает короткий номер, старый TYNYS-UUID и подписанный QR.
+Все существующие staff role/tenant/rate-limit/status gates остаются; короткий номер не даёт доступа гостю.

@@ -2,11 +2,11 @@
 specification { element module }
 model {
   app = module 'app' {
-    description 'Инициализация Vue, Router, Pinia; выбор HTTP или локального демо-адаптера.. Файлов: 19'
+    description 'Инициализация Vue, Router, Pinia; выбор HTTP или локального демо-адаптера.. Файлов: 20'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/app 'Исходный код'
   }
   entities_booking = module 'entities/booking' {
-    description 'Pinia: брони и чистые правила дат.. Файлов: 9'
+    description 'Pinia: брони и чистые правила дат.. Файлов: 10'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/entities/booking 'Исходный код'
   }
   entities_guest_account = module 'entities/guest-account' {
@@ -150,7 +150,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/staff-profile 'Исходный код'
   }
   pages_workspace = module 'pages/workspace' {
-    description 'Кабинет: реестры, фильтры, действия и история изменений.. Файлов: 2'
+    description 'Кабинет: реестры, фильтры, действия и история изменений.. Файлов: 12'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/workspace 'Исходный код'
   }
   shared_api = module 'shared/api' {
@@ -170,7 +170,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/lib 'Исходный код'
   }
   shared_native = module 'shared/native' {
-    description 'Компоненты и действия среза shared/native. Файлов: 4'
+    description 'Компоненты и действия среза shared/native. Файлов: 5'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/native 'Исходный код'
   }
   shared_ui = module 'shared/ui' {
@@ -408,9 +408,13 @@ model {
   pages_staff_profile -> entities_session 'import'
   pages_staff_profile -> shared_api 'import'
   pages_staff_profile -> shared_config 'import'
+  pages_workspace -> entities_booking 'import'
+  pages_workspace -> shared_lib 'import'
+  pages_workspace -> shared_api 'import'
+  pages_workspace -> features_pay_booking 'import'
+  pages_workspace -> shared_config 'import'
   pages_workspace -> entities_session 'import'
   pages_workspace -> entities_resort 'import'
-  pages_workspace -> entities_booking 'import'
   pages_workspace -> widgets_staff_shell 'import'
   pages_workspace -> widgets_overview 'import'
   pages_workspace -> features_edit_resort 'import'
@@ -421,12 +425,8 @@ model {
   pages_workspace -> features_edit_account 'import'
   pages_workspace -> widgets_payment_dialog 'import'
   pages_workspace -> features_create_booking 'import'
-  pages_workspace -> features_pay_booking 'import'
   pages_workspace -> shared_ui 'import'
-  pages_workspace -> shared_api 'import'
   pages_workspace -> shared_native 'import'
-  pages_workspace -> shared_lib 'import'
-  pages_workspace -> shared_config 'import'
   shared_api -> shared_i18n 'import'
   shared_lib -> shared_i18n 'import'
   shared_ui -> shared_api 'import'

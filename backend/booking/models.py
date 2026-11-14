@@ -1,4 +1,5 @@
 import uuid
+import secrets
 from datetime import time
 
 from django.contrib.auth.models import AbstractUser
@@ -7,6 +8,11 @@ from django.contrib.postgres.fields import DateRangeField, RangeOperators
 from django.db import models
 from django.db.models import Q
 from django.utils.crypto import salted_hmac
+
+
+def new_booking_code():
+    # Human-readable reference, never an authorization credential.
+    return "".join(secrets.choice("23456789ABCDEFGHJKLMNPQRSTUVWXYZ") for _ in range(10))
 
 
 def new_id():
@@ -260,6 +266,7 @@ class GuestAccount(Record):
 
 
 class GuestChallenge(models.Model):
+    verifies_phone = models.BooleanField(default=False)
     id = models.CharField(primary_key=True, max_length=64, default=new_id, editable=False)
     phone = models.CharField(max_length=16)
     purpose = models.CharField(
@@ -278,6 +285,7 @@ class GuestChallenge(models.Model):
 
 
 class Booking(Record):
+    public_code = models.CharField(max_length=10, unique=True, default=new_booking_code, editable=False)
     resort = models.ForeignKey(Resort, on_delete=models.PROTECT)
     room = models.ForeignKey(Room, on_delete=models.PROTECT)
     tariff = models.ForeignKey(Tariff, on_delete=models.PROTECT, null=True, blank=True)

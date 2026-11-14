@@ -13,11 +13,11 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from booking.access import guest_owner
 from booking.authentication import bearer_or_csrf_protect
 from booking.errors import Problem
 from booking.guest_auth import current_account, enforce_limit
 from booking.models import Booking
-from booking.services import guest_owner
 from commerce.models import AccountingDocument, DemoPayment, DemoRefund, PaymentEvent, RefundRequest
 from commerce.services import booking_payment_data
 

@@ -9,9 +9,9 @@ from rest_framework import serializers
 
 from commerce.models import DemoPayment, DemoRefund, PaymentEvent, RefundRequest
 
+from .access import admin, require_staff
 from .errors import Problem
 from .models import Booking, Resort, Review, Room
-from .services import admin, require_staff
 
 ZONE = ZoneInfo("Asia/Almaty")
 STATUSES = ("pending", "confirmed", "rejected", "cancelled")
