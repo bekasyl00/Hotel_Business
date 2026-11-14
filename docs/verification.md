@@ -552,3 +552,14 @@ No app was installed or launched on the user's phone.
 Supabase tynys_stage: private schema backup saved outside Git, then additive booking migrations 0021 and 0022 applied.
 All historical bookings get unique short codes. Database defaults preserve inserts by old API versions during rollout.
 Phone-verification default remains false; existing account verification and payment/document snapshots were not rewritten.
+
+Published source: 516f41be982c6f5f7feb19bf68d9391d3ec3a2e1 in origin/main and origin/codex/t001-bed-inventory-notifications.
+Vercel CLI inspection confirms READY, releaseCommit=516f41b:
+- API dpl_FLmSvdkW8FtAuGyMLC5LPBU84o3e → https://tynys-api.vercel.app
+- Public dpl_41jQdC8X63EYxjBV5ztuGMPBuKec → https://vercel-site-puce-two.vercel.app
+- Staff dpl_5uepguh57ycJP1bDg1XzFLvLyaAz → https://tynys-staff.vercel.app
+
+The production environment explicitly retains GUEST_AUTH_ALLOW_UNVERIFIED_REGISTRATION=true; DEBUG was not enabled by this release.
+GitHub pre-release android-v1.1.10 contains guest/staff APKs and SHA-256 files. Anonymous downloads returned HTTP 200 with matching hashes.
+Local iOS development profiles expire 2026-11-16 (both audiences); a later installation may require re-signing. App Store/TestFlight publication is not claimed.
+Deployment READY and synthetic tests do not certify a real SMS delivery, payment/refund transaction or physical-device session.
