@@ -97,6 +97,7 @@ class OwnedDocumentDeliveryTests(TestCase):
         doc = self.prepare()
         for client in (web, native):
             self.assertEqual(client.get("/api/v1/my-documents").json(), [])
+            self.assertFalse(client.get("/api/v1/my-bookings").json()[0]["hasDocuments"])
         self.release(doc)
         for prefix, client in (("/api", web), ("/api/v1", native)):
             response = client.get(f"{prefix}/my-documents", {"bookingId": self.booking.pk})
@@ -104,6 +105,9 @@ class OwnedDocumentDeliveryTests(TestCase):
             self.assertIn("no-store", response["Cache-Control"])
             self.assertEqual([d["id"] for d in response.json()], [doc["id"]])
             item = response.json()[0]
+            booking = client.get(f"{prefix}/my-bookings").json()[0]
+            self.assertTrue(booking["hasDocuments"])
+            self.assertEqual(item["bookingId"], booking["id"])
             self.assertEqual(
                 (item["resortName"], item["start"], item["end"]),
                 (

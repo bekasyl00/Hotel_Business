@@ -37,9 +37,9 @@ test("nightly seasonal and child quote matches server contract across month boun
   assert.equal(result.total, 54368);
   room.pricePeriods[0].price = 20001;
 });
-test("free child tariff is opt-in and ends at age two; room always payable", () => {
+test("a child under two is free on every tariff; the second birthday ends the exemption", () => {
+  assert.equal(quoteStay(room, { ...tariff, childrenUnderTwoFree: false }, search).total, 54368);
   for (const [t, s] of [
-    [{ ...tariff, childrenUnderTwoFree: false }, search],
     [tariff, { ...search, childrenAges: [2] }],
     [tariff, { ...search, childrenAges: [] }],
   ]) {
@@ -73,7 +73,7 @@ test("only ages zero and one get the configured exemption; older children remain
     );
     assert.equal(result.total, total);
     assert.equal(result.freeChildren, freeChildren);
-    assert.equal(result.pricingVersion, 4);
+    assert.equal(result.pricingVersion, 5);
     assert.equal(result.childrenUnderTwoFree, true);
     assert.equal(result.childrenUnderThreeFree, undefined);
   }

@@ -7,7 +7,7 @@ import { GuestBookingHistory } from "@/widgets/guest-booking-history";
 import { useGuestAccountStore } from "@/entities/guest-account";
 import { useBookingStore } from "@/entities/booking";
 import { request, ApiError, uploadErrorCode } from "@/shared/api";
-import { isDemo, isMobile } from "@/shared/config";
+import { isDemo } from "@/shared/config";
 const router = useRouter();
 const { t } = useI18n(),
   account = useGuestAccountStore(),
@@ -117,9 +117,7 @@ onMounted(load);
     <main id="public-main" class="profile-main guest-profile-main">
       <header class="profile-heading">
         <div>
-          <span class="eyebrow">ТЫНЫС</span>
           <h1>{{ t("auth.profile") }}</h1>
-          <p>{{ t("auth.profileSubtitle") }}</p>
         </div>
         <nav
           class="profile-shortcuts"
@@ -149,58 +147,7 @@ onMounted(load);
         <p>{{ error }}</p>
         <button class="secondary" @click="load">{{ t("auth.retry") }}</button>
       </div>
-      <template v-else-if="data"
-        ><section class="profile-account-banner">
-          <div>
-            <strong>{{
-              t(account.authenticated ? "auth.account" : "auth.noAccount")
-            }}</strong>
-            <p>
-              {{
-                account.authenticated
-                  ? isDemo
-                    ? t("auth.demoLocal")
-                    : t("auth.crossDevice")
-                  : t(
-                      isMobile
-                        ? "common.mobile.localHistory"
-                        : "auth.guestNotice",
-                    )
-              }}
-            </p>
-            <p v-if="account.authenticated">
-              {{ account.session.account.phone }} ·
-              {{
-                t(
-                  account.session.account.phoneVerified
-                    ? "auth.verified"
-                    : "auth.unverified",
-                )
-              }}
-            </p>
-          </div>
-          <div class="profile-account-actions">
-            <template v-if="!account.authenticated"
-              ><RouterLink class="primary button-link" to="/account/register">{{
-                t("auth.signUp")
-              }}</RouterLink
-              ><RouterLink class="secondary button-link" to="/account/login">{{
-                t("auth.signIn")
-              }}</RouterLink></template
-            ><template v-else
-              ><RouterLink to="/account/reset-password">{{
-                t("auth.titleReset")
-              }}</RouterLink
-              ><button
-                class="secondary"
-                :disabled="busy || avatarBusy"
-                @click="logout"
-              >
-                {{ t("auth.logout") }}
-              </button></template
-            >
-          </div>
-        </section>
+      <template v-else-if="data">
         <div class="guest-profile-columns">
           <section class="guest-contact-panel">
             <h2>{{ t("auth.contact") }}</h2>
@@ -300,9 +247,6 @@ onMounted(load);
                   :readonly="account.authenticated"
                   :autocomplete="isDemo ? 'off' : 'tel'"
               /></label>
-              <p v-if="account.authenticated" class="field-help">
-                {{ t("auth.phoneLocked") }}
-              </p>
               <p v-if="formError" class="form-error" role="alert">
                 {{ formError }}
               </p>
@@ -313,12 +257,17 @@ onMounted(load);
                 {{ t(busy ? "auth.busy" : "auth.save") }}
               </button>
             </form>
+            <div class="profile-account-actions">
+              <RouterLink v-if="account.session?.passwordResetAvailable" to="/account/reset-password">
+                {{ t("auth.titleReset") }}
+              </RouterLink>
+              <button class="secondary" :disabled="busy || avatarBusy" @click="logout">
+                {{ t("auth.logout") }}
+              </button>
+            </div>
           </section>
           <section class="guest-history-panel">
             <h2>{{ t("auth.history") }}</h2>
-            <p class="field-help">
-              {{ t("auth.historyCount", { count: data.bookings.length }) }}
-            </p>
             <GuestBookingHistory :bookings="data.bookings" />
           </section></div
       ></template>
@@ -346,8 +295,8 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 18px;
-  margin: 20px 0;
+  gap: 10px;
+  margin: 12px 0;
 }
 .guest-avatar {
   width: 88px;
@@ -382,24 +331,8 @@ onMounted(load);
 .guest-avatar-controls button {
   margin-top: 8px;
 }
-.profile-account-banner {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 24px;
-  padding: 22px;
-  margin: 22px 0;
-  background: #eef4e9;
-  border: 1px solid #d6e2d2;
-  border-radius: 18px;
-}
-.profile-account-banner p {
-  margin-top: 8px;
-  max-width: 680px;
-  line-height: 1.6;
-  font-size: 14px;
-}
 .profile-account-actions {
+  margin-top: 12px;
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
@@ -408,17 +341,5 @@ onMounted(load);
 .profile-account-actions a,
 .profile-account-actions button {
   white-space: nowrap;
-}
-@media (max-width: 700px) {
-  .guest-avatar-panel {
-    flex-direction: column;
-  }
-  .profile-account-banner {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .profile-account-actions {
-    width: 100%;
-  }
 }
 </style>

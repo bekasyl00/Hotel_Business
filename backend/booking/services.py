@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.password_validation import validate_password
 from django.db import transaction
-from django.db.models import Avg, F
+from django.db.models import Avg, Exists, F, OuterRef, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from psycopg.types.range import Range
@@ -301,7 +301,7 @@ def create_booking(request, staff=False):
 
 
 @transaction.atomic
-def transition_booking(request, pk, staff=False):
+def transition_booking(request, pk, staff=False, *, remove_unpaid=False):
     item = get_object_or_404(Booking, pk=pk)
     Resort.objects.select_for_update().get(pk=item.resort_id)
     item.refresh_from_db()
@@ -310,7 +310,7 @@ def transition_booking(request, pk, staff=False):
     elif item.source != "website" or item.owner != guest_owner(request):
         raise Problem("Бронирование не найдено.", 404)
     version_check(item, request.data)
-    target = request.data.get("status")
+    target = "cancelled" if remove_unpaid else request.data.get("status")
     allowed = {"pending": ["cancelled"], "confirmed": ["cancelled"]}
     if target not in allowed.get(item.status, []) or (not staff and target != "cancelled"):
         raise Problem("Этот переход статуса недоступен.", 409)
@@ -318,7 +318,7 @@ def transition_booking(request, pk, staff=False):
         raise Problem("Гость уже заселён. Используйте выезд вместо отмены бронирования.", 409)
     if hasattr(item, "onsite_settlement"):
         raise Problem("Оплата уже получена в санатории. Отмена требует сверки с сотрудником.", 409)
-    if item.stay.upper <= timezone.localdate():
+    if item.stay.upper <= timezone.localdate() and not remove_unpaid:
         raise Problem("Завершённое проживание нельзя изменить.", 409)
     before = booking_data(item)
     if target == "cancelled":
@@ -344,6 +344,29 @@ def transition_booking(request, pk, staff=False):
         not staff,
     )
     return item
+
+
+@transaction.atomic
+def remove_guest_booking(request, pk):
+    item = get_object_or_404(
+        Booking, pk=pk, owner=guest_owner(request), source="website"
+    )
+    Resort.objects.select_for_update().get(pk=item.resort_id)
+    item.refresh_from_db()
+    if item.owner != guest_owner(request) or item.source != "website":
+        raise Problem("Бронирование не найдено.", 404)
+    if item.guest_hidden_at:
+        return
+    version_check(item, request.data)
+    if not item.can_remove_from_guest_list():
+        raise Problem("Эту бронь нельзя удалить. Проверьте состояние оплаты.", 409)
+    if item.status == "pending":
+        item = transition_booking(request, pk, remove_unpaid=True)
+    else:
+        item.version += 1
+    item.guest_hidden_at = timezone.now()
+    item.save(update_fields=["guest_hidden_at", "version"])
+    log_change(request.user, "bookings", item, "guest_hide", None, None, item.resort_id, website=True)
 
 
 @transaction.atomic
@@ -668,12 +691,33 @@ def profile_bookings(queryset):
     return [booking_data(b) for b in bookings_with_relations(queryset)]
 
 
+def guest_booking_list(owner):
+    from commerce.models import AccountingDocument
+
+    released = AccountingDocument.objects.filter(booking_id=OuterRef("pk"), state="released")
+    return (
+        Booking.objects.filter(owner=owner, source="website")
+        .filter(
+            Q(guest_hidden_at__isnull=True)
+            | Q(bank_payment__applied_at__isnull=False)
+            | Q(bank_payment__status="reconciliation_required")
+        )
+        .annotate(
+            has_guest_documents=Exists(
+                released.filter(
+                    booking__checked_out_at__isnull=False, booking__status="confirmed"
+                )
+            )
+        )
+    )
+
+
 def current_guest_profile(request):
     owner = guest_owner(request)
     profile, _ = GuestProfile.objects.get_or_create(owner=owner, defaults={"name": "", "phone": ""})
     return {
         "profile": guest_profile_data(profile),
-        "bookings": profile_bookings(Booking.objects.filter(owner=owner, source="website")),
+        "bookings": profile_bookings(guest_booking_list(owner)),
     }
 
 

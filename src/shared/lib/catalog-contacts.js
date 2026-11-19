@@ -21,3 +21,8 @@ export function twoGisUrl(value) {
     return "";
   }
 }
+
+export function twoGisSearchUrl(resort) {
+  const query = [resort.name, resort.city].filter(Boolean).join(" ");
+  return query ? `https://2gis.kz/shymkent/search/${encodeURIComponent(query)}` : "";
+}

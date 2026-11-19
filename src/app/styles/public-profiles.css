@@ -837,9 +837,13 @@
 }
 .guest-booking {
   border: 1px solid #dce2d7;
-  padding: 26px;
-  margin: 22px 0;
+  padding: 18px;
+  margin: 12px 0;
   border-radius: 12px;
+}
+.guest-booking .status-pill.guest-unpaid {
+  color: #8f2828;
+  background: #fae8e7;
 }
 .guest-booking-heading {
   display: flex;
@@ -849,7 +853,7 @@
 }
 .guest-booking-heading h2 {
   font-size: 22px;
-  margin: 12px 0 8px;
+  margin: 7px 0 4px;
 }
 .guest-booking-heading a {
   text-decoration: none;
@@ -862,8 +866,8 @@
 .guest-booking-facts {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px 25px;
-  margin: 22px 0;
+  gap: 10px 18px;
+  margin: 14px 0;
 }
 .guest-booking-facts dd {
   margin: 0;
@@ -889,6 +893,11 @@
   gap: 10px 18px;
   align-items: center;
   margin-top: 18px;
+}
+.map-selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
 }
 .payment-state {
   display: flex;
@@ -1498,15 +1507,15 @@
 .guest-profile-columns {
   display: grid;
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
-  gap: 32px;
+  gap: 20px;
   align-items: start;
-  margin-top: 30px;
+  margin-top: 14px;
 }
 .guest-contact-panel {
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 24px;
+  padding: 18px;
 }
 .guest-contact-panel h2,
 .guest-history-panel > h2 {
@@ -1515,8 +1524,8 @@
 }
 .guest-contact-panel .editor-form {
   display: grid;
-  gap: 18px;
-  margin-top: 24px;
+  gap: 12px;
+  margin-top: 12px;
 }
 .guest-contact-panel .editor-form label {
   display: grid;

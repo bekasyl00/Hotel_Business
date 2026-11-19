@@ -74,6 +74,7 @@ function mountDocuments({
     vue: Vue,
     "vue-router": {
       useRouter: () => ({ replace: async (target) => redirects.push(target) }),
+      useRoute: () => ({ fullPath: "/documents", query: {} }),
     },
     "vue-i18n": { useI18n: () => ({ t: i18n.global.t }) },
     "@/entities/guest-account": { useGuestAccountStore: () => account },

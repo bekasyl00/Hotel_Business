@@ -77,8 +77,16 @@ function reset() {
   if (map && points.length)
     map.fitBounds(
       points.map((p) => [p.lat, p.lng]),
-      { padding: [65, 65], maxZoom: 16, animate: false },
+      { padding: [50, 50], maxZoom: 18, animate: false },
     );
+}
+function focusSelected() {
+  if (!map || props.editable) return;
+  const point = props.points.find((p) => p.id === props.selected);
+  if (!point || !Number.isFinite(point.lat) || !Number.isFinite(point.lng)) return;
+  map.setView([point.lat, point.lng], Math.max(18, map.getZoom()), {
+    animate: false,
+  });
 }
 onMounted(() => {
   // Leaflet 1.9 leaves its CSS zoom timeout alive after remove().
@@ -107,7 +115,10 @@ onMounted(() => {
   tiles.addTo(map);
   markers = L.layerGroup().addTo(map);
   redraw();
-  if (!props.editable) reset();
+  if (!props.editable) {
+    reset();
+    focusSelected();
+  }
   if (props.editable)
     map.on("click", (e) =>
       emit("location", {
@@ -137,16 +148,7 @@ watch(locale, () => {
 watch(() => [props.points, props.selected, props.lat, props.lng], redraw, {
   deep: true,
 });
-watch(
-  () => props.selected,
-  (id) => {
-    const p = props.points.find((p) => p.id === id);
-    if (p && map)
-      map.panTo([p.lat, p.lng], {
-        animate: !matchMedia("(prefers-reduced-motion: reduce)").matches,
-      });
-  },
-);
+watch(() => props.selected, focusSelected);
 onBeforeUnmount(() => {
   observer?.disconnect();
   const currentMap = map;

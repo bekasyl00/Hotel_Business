@@ -573,3 +573,11 @@ Rolled back to working API `dpl_2UFmUjCepJqLvYeCKrLVaMuE8XC4`, restoring direct 
 Post-promotion read-only live checks: readiness, direct catalog, public proxy catalog, staff proxy CSRF, native auth configuration and guest session all HTTP 200; unauthenticated staff notifications HTTP 401 as intended. Auth configuration reports `registrationMode=password`, preserving the owner's temporary no-SMS registration request. Browser verified six catalog entries and the staff login form. No booking, payment or database changes were made during recovery; apps need no rebuild for this routing-only correction.
 
 Added `scripts/package-api.mjs` to enforce isolated packaging and actual CLI cwd, plus regression coverage rejecting frontend/self-proxy configuration and excluding local secrets from the artifact. `npm test`: 214 passed; FSD import checks passed. Future API publication must use the guarded script and verify real `/api` endpoints after promotion, not only deployment readiness.
+
+## 2026-11-20 — каталог и история гостя
+
+Локальный Chrome на ширине 390 px выбрал заезд 29 ноября и выезд 4 декабря в одной сетке, обе даты перенеслись в форму. На 1280 px каталог показал шесть разных обложек, выбранный санаторий открылся на масштабе 18 со ссылкой поиска в 2ГИС.
+
+В локальном Django/PostgreSQL с вымышленными данными проверены красный статус неоплаты, удаление неоплаченной брони с подтверждением, ссылка завершённой брони на санаторий и переходы бронь → выданный документ → бронь. Оплаченная запись осталась в списке. Тесты проверяют отказ удаления возвращённой брони, доступ только владельца и освобождение мест.
+
+Успешно прошли 400 Django-тестов на PostgreSQL, 214 тестов JavaScript, проверка расхождения миграций, сборки интерфейсов и проверка архитектуры. Миграция 0023 добавляет дату скрытия в истории гостя. Проверка выполнена локально.

@@ -139,13 +139,12 @@ test("add/remove child changes total, preserves older guests and remaining child
   }
 });
 
-test("birth prefix gives month preview before completion; arrival changes recompute child eligibility", () => {
+test("incomplete child input cannot produce a quote; arrival changes recompute eligibility", () => {
   const { state, close } = mountEditor();
   try {
     state.addChild();
     state.children.value[0].iin = "251212";
     assert.equal(state.childPreviews.value[0].birth, "2025-12-12");
-    assert.match(state.ageDescription(state.childPreviews.value[0]), /11 мес/);
     assert.equal(state.price.value, null);
     state.children.value[0].iin = "121118000000";
     assert.deepEqual(state.form.childrenAges, [13]);

@@ -73,12 +73,16 @@ def availability_calendar(params):
     except ValueError as exc:
         raise Problem("Некорректный месяц.", 422) from exc
     horizon = today + timedelta(days=365)
-    if not today.replace(day=1) <= first <= horizon.replace(day=1):
-        raise Problem("Выберите месяц в пределах ближайшего года.", 422)
-    last = (first + timedelta(days=32)).replace(day=1)
     arrival = data.get("arrival")
     if arrival and not today <= arrival <= horizon:
         raise Problem("Некорректная дата заезда.", 422)
+    month_limit = max(horizon, arrival + timedelta(days=30)) if arrival else horizon
+    if not today.replace(day=1) <= first <= month_limit.replace(day=1):
+        raise Problem("Выберите месяц в пределах ближайшего года.", 422)
+    last = (first + timedelta(days=32)).replace(day=1)
+    # Fill the rest of the final calendar week with selectable checkout dates.
+    following = (7 - last.weekday()) % 7 if arrival and arrival < last else 0
+    display_end = last + timedelta(days=following)
     rooms = Room.objects.filter(resort=resort, category=data["category"], status="active")
     if data.get("roomId"):
         room = get_object_or_404(rooms, pk=data["roomId"])
@@ -89,7 +93,7 @@ def availability_calendar(params):
         .prefetch_related(
             Prefetch(
                 "price_periods",
-                queryset=RoomPricePeriod.objects.filter(stay__overlap=Range(first, last, "[)")),
+                queryset=RoomPricePeriod.objects.filter(stay__overlap=Range(first, display_end, "[)")),
             )
         )
     )
@@ -103,7 +107,7 @@ def availability_calendar(params):
             active_allocation_inventory(now),
             room_id__in=room_ids,
             place__status="active",
-            stay__overlap=Range(lower, last, "[)"),
+            stay__overlap=Range(lower, display_end, "[)"),
         ).values_list("room_id", "place_id", "stay")
     )
     can_arrive_today = local_now < datetime.combine(
@@ -111,7 +115,7 @@ def availability_calendar(params):
     )
     guests_needed = data["guests"]
     days = []
-    for offset in range((last - first).days):
+    for offset in range((display_end - first).days):
         day = first + timedelta(days=offset)
         bookable = today <= day <= horizon and (day != today or can_arrive_today)
         available_ids = set()
@@ -162,7 +166,8 @@ def availability_calendar(params):
         "timeZone": resort.time_zone,
         "totalRooms": len(room_ids),
         "totalPlaces": sum(rm.capacity for rm in eligible_rooms),
-        "days": days,
+        "days": days[: (last - first).days],
+        "followingDays": days[(last - first).days :],
     }
 
 

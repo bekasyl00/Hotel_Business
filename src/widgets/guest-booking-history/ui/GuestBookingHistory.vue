@@ -46,8 +46,8 @@ function stayLabel(booking) {
     >
       <div class="guest-booking-heading">
         <div>
-          <span :class="['status-pill', booking.status]">{{
-            statusNames[booking.status]
+          <span :class="['status-pill', booking.status, { 'guest-unpaid': !staff && (booking.status === 'pending' || booking.status === 'expired') }]">{{
+            !staff && booking.status === "pending" ? t("common.accounting.unpaid") : statusNames[booking.status]
           }}</span>
           <h2>{{ booking.resortName }}</h2>
           <p>{{ booking.roomName }} · № {{ booking.unit }}</p>
@@ -87,10 +87,15 @@ function stayLabel(booking) {
         </div>
         <div>
           <dt>{{ t("public.bookingReference") }}</dt>
-          <dd class="booking-reference">{{ booking.id }}</dd>
+          <dd class="booking-reference">{{ booking.reference || booking.id }}</dd>
         </div>
       </dl>
       <div class="guest-booking-actions">
+        <RouterLink
+          v-if="!staff && booking.hasDocuments"
+          class="secondary button-link"
+          :to="{ path: '/documents', query: { booking: booking.id } }"
+        >{{ t("documents.title") }}</RouterLink>
         <BookingVoucher
           v-if="!isDemo && canOpenVoucher(booking)"
           :booking="booking"
@@ -101,9 +106,9 @@ function stayLabel(booking) {
           :to="booking.payment.receiptUrl"
           >{{ t("public.demoReceipt") }}</RouterLink
         ><RouterLink
-          v-if="!staff && ['pending', 'confirmed'].includes(booking.status)"
+          v-if="!staff && (booking.canRemove || ['pending', 'confirmed'].includes(booking.status))"
           class="text-button"
-          to="/bookings"
+          :to="{ path: '/bookings', query: { booking: booking.id } }"
           >{{ t("public.manageBooking") }}</RouterLink
         ><span v-if="booking.payment?.refundedAmount" class="small muted"
           >{{ t("public.refunded") }}

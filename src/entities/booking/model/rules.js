@@ -95,11 +95,7 @@ export function quoteStay(room, tariff, search) {
   )
     return null;
   const childrenAges = search.childrenAges || [];
-  const childrenFree =
-    tariff.childrenUnderTwoFree ?? tariff.childrenUnderThreeFree ?? false;
-  const freeChildren = childrenFree
-    ? childrenAges.filter((age) => age < 2).length
-    : 0;
+  const freeChildren = childrenAges.filter((age) => age < 2).length;
   const chargeableGuests = search.guests - freeChildren;
   const discountPercent =
     tariff.priceKind === "discount" ? tariff.discountPercent : 0;
@@ -129,9 +125,9 @@ export function quoteStay(room, tariff, search) {
       ? nightlyBreakdown[0][key]
       : null;
   return {
-    pricingVersion: 4,
+    pricingVersion: 5,
     childrenAges: [...childrenAges],
-    childrenUnderTwoFree: !!childrenFree,
+    childrenUnderTwoFree: true,
     freeChildren,
     chargeableGuests,
     priceKind: tariff.priceKind || "regular",

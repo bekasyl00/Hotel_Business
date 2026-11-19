@@ -21,7 +21,7 @@ import { request } from "@/shared/api";
 import { isDemo } from "@/shared/config";
 import { useGuestAccountStore } from "@/entities/guest-account";
 const guestAccount = useGuestAccountStore();
-import { money, categoryNames, whatsAppUrl, twoGisUrl } from "@/shared/lib";
+import { catalogMedia, money, categoryNames, whatsAppUrl, twoGisUrl } from "@/shared/lib";
 const route = useRoute();
 const router = useRouter();
 const data = ref(null),
@@ -52,6 +52,9 @@ const room = computed(() => data.value?.room),
     (data.value?.tariffs || []).filter((t) => t.status === "active"),
   ),
   tariff = computed(() => tariffs.value.find((t) => t.id === tariffId.value));
+const roomMedia = computed(() =>
+  room.value ? catalogMedia(room.value, "room", t("public.illustrativeRoomImage")) : [],
+);
 const price = computed(() =>
   room.value && tariff.value
     ? quoteStay(room.value, tariff.value, dates)
@@ -189,7 +192,7 @@ watch(() => route.params.id, load, { immediate: true });
           </p>
         </section>
         <MediaGallery
-          :media="room.media || []"
+          :media="roomMedia"
           :title="room.title"
           fallback="/assets/room.jpg"
         />

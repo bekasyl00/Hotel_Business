@@ -286,6 +286,7 @@ class GuestChallenge(models.Model):
 
 class Booking(Record):
     public_code = models.CharField(max_length=10, unique=True, default=new_booking_code, editable=False)
+    guest_hidden_at = models.DateTimeField(null=True, blank=True)
     resort = models.ForeignKey(Resort, on_delete=models.PROTECT)
     room = models.ForeignKey(Room, on_delete=models.PROTECT)
     tariff = models.ForeignKey(Tariff, on_delete=models.PROTECT, null=True, blank=True)
@@ -328,6 +329,18 @@ class Booking(Record):
                 name="booking_pending_hold_idx",
             ),
         ]
+
+    def can_remove_from_guest_list(self):
+        if self.source != "website" or self.checked_in_at or self.status not in {
+            "pending", "cancelled", "expired", "rejected",
+        }:
+            return False
+        bank = getattr(self, "bank_payment", None)
+        if bank and (bank.applied_at or bank.status not in {"failed", "expired"}):
+            return False
+        if getattr(self, "onsite_settlement", None):
+            return False
+        return not any(payment.outcome == "success" for payment in self.demo_payments.all())
 
     def _sync_default_allocations(self):
         places = list(self.room.ensure_places())

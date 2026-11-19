@@ -14,6 +14,7 @@ import {
   useBookingStore,
   dateAfter,
   PaymentCountdown,
+  propertyToday,
 } from "@/entities/booking";
 import { Modal } from "@/shared/ui";
 import { request } from "@/shared/api";
@@ -48,7 +49,17 @@ const loading = ref(true),
   previewLoading = ref(false),
   cancelError = ref(""),
   busy = ref(false),
+  removeTarget = ref(null),
+  removeError = ref(""),
   reviewed = ref(new Set());
+const selectedBookingId = computed(() =>
+  typeof route.query.booking === "string" ? route.query.booking : "",
+);
+const visibleBookings = computed(() =>
+  selectedBookingId.value
+    ? store.items.filter((booking) => booking.id === selectedBookingId.value)
+    : store.items,
+);
 const paymentNames = computed(() => ({
   paid: t("public.paidDemo"),
   failed: t("public.paymentFailedDemo"),
@@ -64,6 +75,10 @@ const canReview = (booking) =>
   booking.end <= dateAfter() &&
   !booking.reviewId &&
   !reviewed.value.has(booking.id);
+const isPast = (booking) =>
+  Boolean(booking.checkedOutAt) ||
+  booking.end <= propertyToday(booking.cancellationPolicy?.timeZone) ||
+  ["cancelled", "expired", "rejected"].includes(booking.status);
 const canPay = (booking) =>
   ["pending", "confirmed"].includes(booking.status) &&
   (booking.status !== "pending" ||
@@ -161,6 +176,23 @@ async function cancel() {
     busy.value = false;
   }
 }
+async function removeBooking() {
+  if (!removeTarget.value || busy.value) return;
+  busy.value = true;
+  removeError.value = "";
+  try {
+    const { id, version } = removeTarget.value;
+    await request("DELETE", `/my-bookings/${id}`, { version });
+    if (paymentTarget.value?.id === id) paymentTarget.value = null;
+    removeTarget.value = null;
+    if (selectedBookingId.value) await router.replace("/bookings");
+    await load();
+  } catch (error) {
+    removeError.value = error.message;
+  } finally {
+    busy.value = false;
+  }
+}
 async function paymentSaved(result) {
   if (!result.failed) {
     paymentTarget.value = null;
@@ -188,22 +220,17 @@ onMounted(load);
   <div class="public-site">
     <PublicHeader />
     <main id="public-main" class="profile-main bookings-main">
-      <RouterLink class="profile-back" to="/">{{
-        t("public.chooseAResort")
+      <RouterLink class="profile-back" :to="selectedBookingId ? '/bookings' : '/'">{{
+        t(selectedBookingId ? "public.myBookings" : "public.chooseAResort")
       }}</RouterLink>
       <header class="profile-heading">
         <div>
-          <span class="eyebrow">{{ t("public.yourBreak") }}</span>
           <h1>{{ t("public.myBookings") }}</h1>
-          <p>{{ t("public.requestStatusPaymentAndMemoriesOfYourStay") }}</p>
         </div>
         <button class="secondary" :disabled="loading" @click="load">
           {{ t("public.refresh") }}
         </button>
       </header>
-      <p class="public-session-note">
-        {{ t("common.checkout.accountHistory") }}
-      </p>
       <p v-if="notice" class="success-notice" role="status">{{ notice }}</p>
       <div v-if="error" class="profile-feedback" role="alert">
         <p>{{ error }}</p>
@@ -212,7 +239,10 @@ onMounted(load);
       <div v-else-if="loading" class="profile-feedback" role="status">
         {{ t("public.loadingBookings") }}
       </div>
-      <div v-else-if="!store.items.length" class="profile-feedback">
+      <div v-else-if="selectedBookingId && !visibleBookings.length" class="profile-feedback">
+        {{ t("documents.bookingUnavailable") }}
+      </div>
+      <div v-else-if="!visibleBookings.length" class="profile-feedback">
         <h2>{{ t("public.yourFirstTripIsAhead") }}</h2>
         <p>{{ t("public.chooseAResortAndRequestTheRoomYouLike") }}</p>
         <RouterLink class="primary button-link" to="/">{{
@@ -220,14 +250,15 @@ onMounted(load);
         }}</RouterLink>
       </div>
       <article
-        v-for="booking in store.items"
+        v-for="booking in visibleBookings"
         :key="booking.id"
+        v-show="!loading && !error"
         class="guest-booking"
       >
         <div class="guest-booking-heading">
           <div>
-            <span :class="['status-pill', booking.status]">{{
-              statusNames[booking.status]
+            <span :class="['status-pill', booking.status, { 'guest-unpaid': booking.canRemove || booking.status === 'pending' || booking.status === 'expired' }]">{{
+              booking.status === "pending" ? t("common.accounting.unpaid") : statusNames[booking.status]
             }}</span
             ><RouterLink :to="`/resorts/${booking.resortId}`"
               ><h2>{{ booking.resortName }}</h2></RouterLink
@@ -270,17 +301,10 @@ onMounted(load);
           </div>
           <div>
             <dt>{{ t("public.bookingReference") }}</dt>
-            <dd class="booking-reference">{{ booking.id }}</dd>
+            <dd class="booking-reference">{{ booking.reference || booking.id }}</dd>
           </div>
         </dl>
-        <p v-if="booking.status === 'pending'" class="booking-status-note">
-          {{
-            t(
-              "public.waitingForManagerConfirmationYourRoomIsHeldWhileTheRequestIs",
-            )
-          }}
-        </p>
-        <PaymentCountdown :booking="booking" @expired="load" />
+        <PaymentCountdown :booking="booking" compact @expired="load" />
         <p
           v-if="booking.status === 'confirmed' && !booking.payment"
           class="booking-status-note"
@@ -320,6 +344,16 @@ onMounted(load);
           </span>
         </div>
         <div class="guest-booking-actions">
+          <RouterLink
+            v-if="isPast(booking)"
+            class="secondary button-link"
+            :to="`/resorts/${booking.resortId}`"
+          >{{ t("public.viewResort") }}</RouterLink>
+          <RouterLink
+            v-if="booking.hasDocuments"
+            class="secondary button-link"
+            :to="{ path: '/documents', query: { booking: booking.id } }"
+          >{{ t("documents.title") }}</RouterLink>
           <BookingVoucher
             v-if="!isDemo && canOpenVoucher(booking)"
             :booking="booking"
@@ -355,7 +389,12 @@ onMounted(load);
             class="small muted"
             >{{ t("public.reviewAlreadySubmitted") }}</span
           ><button
-            v-if="canCancel(booking)"
+            v-if="booking.canRemove"
+            class="text-button danger"
+            @click="removeError = ''; removeTarget = booking"
+          >{{ t("public.removeUnpaidBooking") }}</button>
+          <button
+            v-else-if="canCancel(booking)"
             class="text-button danger"
             @click="openCancel(booking)"
           >
@@ -363,6 +402,19 @@ onMounted(load);
           </button>
         </div>
       </article>
+      <Modal
+        v-if="removeTarget"
+        :title="t('public.removeUnpaidBooking')"
+        :busy="busy"
+        @close="removeTarget = null"
+      >
+        <p class="confirm-text">{{ t("public.removeUnpaidBookingHint") }}</p>
+        <p v-if="removeError" class="form-error" role="alert">{{ removeError }}</p>
+        <div class="dialog-actions">
+          <button class="secondary" :disabled="busy" @click="removeTarget = null">{{ t("public.keepBooking") }}</button>
+          <button class="primary" :disabled="busy" @click="removeBooking">{{ t("public.removeUnpaidBooking") }}</button>
+        </div>
+      </Modal>
       <PaymentDialog
         v-if="paymentTarget"
         :booking="paymentTarget"

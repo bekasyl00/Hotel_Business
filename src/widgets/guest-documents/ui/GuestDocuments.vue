@@ -1,6 +1,6 @@
 <script setup>
-import { onMounted, onBeforeUnmount, ref } from "vue";
-import { useRouter } from "vue-router";
+import { onMounted, onBeforeUnmount, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { useGuestAccountStore } from "@/entities/guest-account";
 import { DocumentFiles } from "@/shared/ui";
@@ -10,40 +10,47 @@ import { isDemo } from "@/shared/config";
 
 const { t } = useI18n();
 const account = useGuestAccountStore(),
-  router = useRouter();
+  router = useRouter(),
+  route = useRoute();
 const documents = ref([]),
   loading = ref(true),
   error = ref("");
-let active = true,
-  pending = false;
+let active = true;
+let generation = 0;
+let pendingQuery = null;
 
 function signIn() {
   return router.replace({
     path: "/account/login",
-    query: { next: "/documents" },
+    query: { next: route.fullPath },
   });
 }
 async function load() {
-  if (pending || !active) return;
-  pending = true;
+  if (!active) return;
+  const query = typeof route.query.booking === "string"
+    ? `?${new URLSearchParams({ bookingId: route.query.booking })}`
+    : "";
+  if (pendingQuery === query) return;
+  pendingQuery = query;
+  const run = ++generation;
   loading.value = true;
   error.value = "";
   documents.value = [];
   try {
     await account.restore();
-    if (!active) return;
+    if (run !== generation) return;
     if (!account.authenticated) {
       await signIn();
       return;
     }
     if (isDemo) return;
     const revision = account.revision;
-    const result = await request("GET", "/my-documents");
-    if (!active || revision !== account.revision) return;
+    const result = await request("GET", `/my-documents${query}`);
+    if (run !== generation || revision !== account.revision) return;
     if (!Array.isArray(result)) throw new Error(t("documents.loadError"));
     documents.value = result;
   } catch (cause) {
-    if (!active) return;
+    if (run !== generation) return;
     if (cause.status === 401) {
       account.clear();
       await signIn();
@@ -51,20 +58,24 @@ async function load() {
     }
     error.value = t("documents.loadError");
   } finally {
-    pending = false;
-    if (active) loading.value = false;
+    if (run === generation) {
+      pendingQuery = null;
+      loading.value = false;
+    }
   }
 }
 function refreshOnReturn() {
-  if (document.visibilityState === "visible") void load();
+  if (document.visibilityState === "visible" && !loading.value) void load();
 }
 onMounted(() => {
   void load();
   window.addEventListener("focus", refreshOnReturn);
   document.addEventListener("visibilitychange", refreshOnReturn);
 });
+watch(() => route.query.booking, load);
 onBeforeUnmount(() => {
   active = false;
+  generation++;
   documents.value = [];
   window.removeEventListener("focus", refreshOnReturn);
   document.removeEventListener("visibilitychange", refreshOnReturn);
@@ -78,7 +89,7 @@ onBeforeUnmount(() => {
     :aria-busy="loading"
   >
     <div class="documents-toolbar">
-      <span>{{ t("documents.fromProperty") }}</span>
+      <RouterLink v-if="route.query.booking" to="/documents">{{ t("documents.title") }}</RouterLink>
       <button
         type="button"
         class="secondary documents-refresh"
@@ -139,10 +150,13 @@ onBeforeUnmount(() => {
           {{ dateLabel(doc.start) }} — {{ dateLabel(doc.end) }}
         </p>
         <p class="document-number">{{ doc.number }}</p>
+        <RouterLink
+          class="document-booking-link"
+          :to="{ path: '/bookings', query: { booking: doc.bookingId } }"
+        >{{ t("documents.openBooking") }}</RouterLink>
         <DocumentFiles :path="`/my-documents/${doc.id}`" :number="doc.number" />
       </li>
     </ul>
-    <p class="documents-owner-note">{{ t("documents.ownerHint") }}</p>
   </section>
 </template>
 
@@ -155,9 +169,17 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 .documents-toolbar {
+  justify-content: flex-end;
   margin-bottom: 12px;
   color: var(--muted);
   font-size: 13px;
+}
+.documents-toolbar a {
+  margin-right: auto;
+}
+.document-booking-link {
+  justify-self: start;
+  font-size: 14px;
 }
 .documents-refresh {
   display: inline-flex;
@@ -249,12 +271,6 @@ onBeforeUnmount(() => {
 }
 .document-card :deep(.file-buttons) {
   gap: 6px;
-}
-.documents-owner-note {
-  margin: 16px 0 0;
-  color: var(--muted);
-  font-size: 12px;
-  line-height: 1.5;
 }
 .documents-spinner {
   width: 18px;

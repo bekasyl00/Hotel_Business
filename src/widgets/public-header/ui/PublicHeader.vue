@@ -10,7 +10,6 @@ import {
   isMobile,
   isDemo,
   publicUrl,
-  staffUrl,
 } from "@/shared/config";
 const route = useRoute();
 const publicLink = isStaffSurface ? "a" : RouterLink;
@@ -84,9 +83,7 @@ onMounted(load);
           v-bind="destination('/profile')"
           :aria-current="['/profile', '/documents'].includes(route.path) ? 'page' : undefined"
           >{{ t("public.myProfile") }}</component
-        ><a :href="staffUrl || '/staff'" class="public-staff-link">{{
-          t("public.staff")
-        }}</a>
+        >
       </nav>
       <LanguageSwitcher /><span v-if="isDemo" class="demo-badge">{{
         t("public.demo")

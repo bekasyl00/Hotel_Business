@@ -23,7 +23,7 @@ import {
 import { ref } from "vue";
 import { useGuestAccountStore } from "@/entities/guest-account";
 const guestAccount = useGuestAccountStore();
-import { money, dateLabel, whatsAppUrl } from "@/shared/lib";
+import { catalogMedia, money, whatsAppUrl } from "@/shared/lib";
 const props = defineProps({
   resort: Object,
   rooms: Array,
@@ -52,6 +52,10 @@ const sharedRoom = computed(
 );
 const tariff = computed(() =>
   props.tariffs.find((t) => t.id === form.tariffId),
+);
+const roomCover = computed(() =>
+  room.value && catalogMedia(room.value, "room", t("public.illustrativeRoomImage"))
+    .find((entry) => entry.kind === "image"),
 );
 const price = computed(() =>
   room.value &&
@@ -145,12 +149,6 @@ function addChild() {
 function removeChild(id) {
   children.value = children.value.filter((child) => child.id !== id);
 }
-function ageDescription(child) {
-  if (child.months === 0) return t("common.children.ageUnderMonth");
-  return child.age < 1
-    ? t("common.children.ageMonths", { months: child.months })
-    : t("common.children.ageYears", { years: child.age });
-}
 function childError(index) {
   const child = childPreviews.value[index];
   return !child || ["empty", "incomplete", "ready"].includes(child.status)
@@ -225,11 +223,11 @@ async function save() {
       <div class="booking-property">
         <img
           :src="
-            room?.media?.find((m) => m.kind === 'image')?.url ||
+            roomCover?.url ||
             '/assets/room.jpg'
           "
           :alt="
-            room?.media?.find((m) => m.kind === 'image')?.alt ||
+            roomCover?.alt ||
             t('public.illustrativeRoomImage')
           "
         />
@@ -407,10 +405,6 @@ async function save() {
             :id="`${childInputPrefix}-${child.id}-result`"
             aria-live="polite"
           >
-            <p v-if="childPreviews[index]?.birth" class="child-age">
-              <span>{{ dateLabel(childPreviews[index].birth) }}</span>
-              <strong>{{ ageDescription(childPreviews[index]) }}</strong>
-            </p>
             <p v-if="childError(index)" class="form-error">
               {{ childError(index) }}
             </p>
@@ -433,20 +427,9 @@ async function save() {
         <p v-if="partyTotal === 4" class="field-help">
           {{ t("common.children.maxParty") }}
         </p>
-        <p
-          v-if="
-            children.length &&
-            (tariff?.childrenUnderTwoFree ?? tariff?.childrenUnderThreeFree)
-          "
-          class="child-benefit"
-        >
-          {{ t("common.children.underTwoFree") }}
+        <p v-if="children.length" class="child-benefit">
+          {{ t("common.children.agePolicy") }}
         </p>
-        <details v-if="children.length" class="child-help">
-          <summary>{{ t("common.children.howCalculated") }}</summary>
-          <p>{{ t("common.children.hint") }}</p>
-          <p>{{ t("common.children.agePolicy") }}</p>
-        </details>
       </section>
       <label v-if="!staff"
         >{{ t("public.rate")
@@ -753,39 +736,21 @@ async function save() {
   opacity: 0.5;
   cursor: default;
 }
-.child-age {
-  display: flex;
-  flex-wrap: wrap;
-  column-gap: 8px;
-  margin: 2px 0 0;
-  font-size: 12px;
-  line-height: 1.5;
-  color: #647169;
-}
-.child-age strong {
-  font-weight: 500;
-  color: #35513e;
-}
 .child-benefit {
   margin: 0;
   font-size: 12px;
   line-height: 1.5;
   color: #35513e;
 }
-.child-help,
 .booking-conditions {
   color: #617067;
   font-size: 12px;
   line-height: 1.5;
 }
-.child-help summary,
 .booking-conditions summary {
   min-height: 44px;
   align-content: center;
   cursor: pointer;
-}
-.child-help p {
-  margin: 6px 0 0;
 }
 .booking-editor .quote {
   padding: 14px;

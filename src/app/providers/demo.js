@@ -189,6 +189,12 @@ function initialState(legacy = []) {
   });
   return db;
 }
+function canRemoveDemoBooking(booking) {
+  return ["pending", "cancelled", "expired", "rejected"].includes(booking.status) &&
+    !booking.checkedInAt &&
+    (!booking.payment || booking.payment.status === "failed");
+}
+
 function busyRoomPlaceIds(bookings, roomId, activePlaces, range) {
   const busy = new Set();
   for (const b of bookings) {
@@ -754,7 +760,9 @@ export function createDemoTransport({
       });
     }
     if (pathname === "/my-bookings" && method === "GET")
-      return clone(db.bookings.filter((b) => b.ownerId === ownerOf(db)));
+      return clone(db.bookings
+        .filter((b) => b.ownerId === ownerOf(db) && !b.guestHidden)
+        .map((b) => ({ ...b, canRemove: canRemoveDemoBooking(b) })));
     const match = pathname.match(
       /^\/(resorts|rooms|tariffs|accounts|bookings|my-bookings)(?:\/([^/]+))?$/,
     );
@@ -765,6 +773,20 @@ export function createDemoTransport({
     const item = id ? collection.find((x) => x.id === id) : null;
     if (id && !item) fail("Запись не найдена. Обновите список.", 404);
     if (entity === "bookings") {
+      if (kind === "my-bookings" && method === "DELETE" && item) {
+        if (item.ownerId !== ownerOf(db)) fail("Бронирование не найдено.", 404);
+        if (item.guestHidden) return null;
+        version(item);
+        if (!canRemoveDemoBooking(item)) fail("Эту бронь нельзя удалить.", 409);
+        if (item.status === "pending") {
+          item.status = "cancelled";
+          emitDemoBookingNotification(db, item, "booking_cancelled");
+        }
+        item.guestHidden = true;
+        item.version++;
+        commit(entity, item, undefined, "guest_hide");
+        return null;
+      }
       if (method === "POST") {
         if (kind === "my-bookings" && !db.guestAccount)
           fail("Войдите или зарегистрируйтесь для бронирования.", 401);

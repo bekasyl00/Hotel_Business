@@ -11,5 +11,7 @@
   "demo": "Documents are available on the site connected to the server. They are not issued in demo mode.",
   "emptyTitle": "No documents yet",
   "emptyHint": "They will appear here after check-out, once the property sends them to you.",
-  "ownerHint": "The booking owner receives documents for everyone on the booking."
+  "ownerHint": "The booking owner receives documents for everyone on the booking.",
+  "openBooking": "Open booking",
+  "bookingUnavailable": "This booking is unavailable."
 }

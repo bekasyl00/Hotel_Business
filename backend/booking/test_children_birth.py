@@ -56,11 +56,11 @@ class ChildBirthTests(TestCase):
             BookingInput(data=self.payload(childrenBirthDates=[], childrenAges=[14])).is_valid()
         )
 
-    def test_second_birthday_ends_opt_in_supplement_exemption(self):
+    def test_second_birthday_ends_free_stay_even_on_a_legacy_tariff(self):
         from .pricing import quote_stay
 
         _, room, tariff, _, _ = fixture()
-        tariff.children_under_two_free = True
+        tariff.children_under_two_free = False
         tariff.supplement = 1000
         for checkin, age, free in [("2027-11-08", 1, 1), ("2027-11-09", 2, 0)]:
             inp = BookingInput(data=self.payload(start=checkin, childrenBirthDates=["2025-11-09"]))
@@ -77,7 +77,7 @@ class ChildBirthTests(TestCase):
             )
             self.assertEqual(quote["freeChildren"], free)
             self.assertEqual(quote["total"], (room.price + 1000) * (2 - free))
-            self.assertEqual(quote["pricingVersion"], 4)
+            self.assertEqual(quote["pricingVersion"], 5)
             self.assertNotIn("childrenUnderThreeFree", quote)
 
     def test_booking_and_audit_only_keep_age(self):

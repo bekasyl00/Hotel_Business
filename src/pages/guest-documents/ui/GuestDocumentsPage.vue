@@ -14,7 +14,6 @@ const { t } = useI18n();
       </RouterLink>
       <header class="documents-heading">
         <h1>{{ t("documents.title") }}</h1>
-        <p>{{ t("documents.subtitle") }}</p>
       </header>
       <GuestDocuments />
     </main>
@@ -25,7 +24,7 @@ const { t } = useI18n();
 .documents-main {
   width: min(100% - 32px, 780px);
   margin-inline: auto;
-  padding-block: 20px 40px;
+  padding-block: 12px 28px;
 }
 .documents-back {
   display: inline-flex;
@@ -39,18 +38,12 @@ const { t } = useI18n();
   font-size: 24px;
 }
 .documents-heading {
-  margin-block: 12px 20px;
+  margin-block: 6px 12px;
 }
 .documents-heading h1 {
   font-size: clamp(24px, 4vw, 30px);
   font-weight: 600;
   line-height: 1.2;
   letter-spacing: -0.025em;
-}
-.documents-heading p {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 14px;
-  line-height: 1.5;
 }
 </style>

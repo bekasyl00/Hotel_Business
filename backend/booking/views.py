@@ -161,9 +161,7 @@ class Endpoint(APIView):
                 [
                     booking_data(b)
                     for b in bookings_with_relations(
-                        Booking.objects.filter(
-                            owner=guest_owner(request), source="website"
-                        )
+                        svc.guest_booking_list(guest_owner(request))
                     )
                 ]
             )
@@ -274,6 +272,9 @@ class Endpoint(APIView):
     def delete(self, request, resource, pk=None, action=None):
         if action:
             raise Problem("Для этого действия используйте POST.", 405)
+        if resource == "my-bookings" and pk:
+            svc.remove_guest_booking(request, pk)
+            return Response(status=204)
         if not pk or resource not in svc.SERIALIZERS:
             raise Problem("Не найдено.", 404)
         result = svc.delete_catalog(request, resource, pk)

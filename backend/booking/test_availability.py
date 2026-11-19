@@ -128,6 +128,18 @@ class AvailabilityCalendarTests(TestCase):
         self.resort.save()
         self.assertEqual(self.get().status_code, 404)
 
+    def test_checkout_cells_in_next_month_respect_continuous_place_availability(self):
+        same_grid = self.get(arrival="2027-01-29").json()
+        february = self.get(arrival="2027-01-29", month="2027-02").json()
+        self.assertEqual(len(same_grid["days"]), 31)
+        self.assertEqual(same_grid["followingDays"], [])
+        # A midweek boundary includes the remaining days of its calendar week.
+        march = self.get(arrival="2027-03-29", month="2027-03").json()
+        self.assertEqual([d["date"] for d in march["followingDays"]],
+                         ["2027-04-01", "2027-04-02", "2027-04-03", "2027-04-04"])
+        self.assertTrue(all(d["departureRooms"] == 1 for d in march["followingDays"]))
+        self.assertEqual(february["days"][3]["departureRooms"], 1)
+
     def test_bounded_inputs_and_property_local_cutoff(self):
         for extra in [
             {"month": "2027-13"},

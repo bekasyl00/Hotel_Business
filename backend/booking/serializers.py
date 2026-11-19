@@ -19,7 +19,7 @@ def resorts_with_reviews(queryset):
 
 def bookings_with_relations(queryset):
     return (
-        queryset.select_related("review", "bank_payment__refund", "room")
+        queryset.select_related("review", "bank_payment__refund", "room", "onsite_settlement")
         .prefetch_related("demo_payments", "allocations__place")
         .order_by("-created_at")
     )
@@ -604,6 +604,13 @@ def booking_data(b, staff=False):
         "payment": booking_payment_data(b),
         "reviewId": review.pk if review else None,
         "reviewStatus": review.status if review else None,
+        **(
+            {
+                "hasDocuments": b.has_guest_documents,
+                "canRemove": b.can_remove_from_guest_list(),
+            }
+            if not staff and hasattr(b, "has_guest_documents") else {}
+        ),
         **({"staffNotes": b.staff_notes} if staff else {}),
     }
 

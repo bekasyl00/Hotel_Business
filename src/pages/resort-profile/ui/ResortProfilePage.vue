@@ -24,6 +24,8 @@ import {
   categoryNames,
   whatsAppUrl,
   twoGisUrl,
+  twoGisSearchUrl,
+  catalogMedia,
 } from "@/shared/lib";
 const route = useRoute();
 const data = ref(null),
@@ -45,6 +47,9 @@ const {
 } = useAvailability(dates);
 const available = roomIds;
 const resort = computed(() => data.value?.resort);
+const resortMedia = computed(() =>
+  resort.value ? catalogMedia(resort.value, "resort", t("public.illustrativeResortImage")) : [],
+);
 const rooms = computed(() =>
   (data.value?.rooms || [])
     .filter(
@@ -180,7 +185,7 @@ watch(() => route.params.id, load, { immediate: true });
             }}
           </p>
         </section>
-        <MediaGallery :media="resort.media || []" :title="resort.name" />
+        <MediaGallery :media="resortMedia" :title="resort.name" />
         <section
           v-if="resort.descriptionAfter"
           class="profile-section profile-introduction"
@@ -308,7 +313,7 @@ watch(() => route.params.id, load, { immediate: true });
                 <RouterLink :to="roomLink(room)"
                   ><img
                     :src="
-                      room.media?.find((m) => m.kind === 'image')?.url ||
+                      catalogMedia(room, 'room', t('public.illustrativeRoomImage')).find((m) => m.kind === 'image')?.url ||
                       '/assets/room.jpg'
                     "
                     :alt="
@@ -420,12 +425,20 @@ watch(() => route.params.id, load, { immediate: true });
             </section>
             <section id="location" class="profile-section">
               <h2>{{ t("public.location") }}</h2>
-              <p class="field-help">
-                {{ resort.address }}
+              <div class="profile-contact-links">
+                <p class="field-help">{{ resort.address }}</p>
+                <a
+                  :href="twoGisUrl(resort.twoGisUrl) || twoGisSearchUrl(resort)"
+                  class="secondary button-link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >{{ t(twoGisUrl(resort.twoGisUrl) ? "common.catalogContent.openTwoGis" : "public.findTwoGis") }}</a>
+              </div>
+              <p v-if="resort.media?.some((m) => m.url === '/assets/resort.jpg')" class="field-help">
                 {{ t("public.demoPropertyCoordinatesAreApproximate") }}
               </p>
               <div class="profile-location">
-                <GeoMap :points="point" :lat="resort.lat" :lng="resort.lng" />
+                <GeoMap :points="point" :selected="resort.id" :lat="resort.lat" :lng="resort.lng" />
               </div>
             </section>
           </div>

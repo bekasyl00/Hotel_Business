@@ -170,6 +170,56 @@ class ApiTests(TestCase):
         )
         self.create()
 
+    def test_guest_removes_only_owned_unpaid_booking_and_releases_places(self):
+        booking = self.create()
+        path = "/api/v1/my-bookings/" + booking["id"]
+        self.assertTrue(self.client.get("/api/v1/my-bookings").json()[0]["canRemove"])
+        self.assertEqual(APIClient().delete(path, {"version": 1}, format="json").status_code, 404)
+        self.assertEqual(self.write("delete", path, {"version": 0}).status_code, 409)
+        self.assertEqual(self.write("delete", path, {"version": 1}).status_code, 204)
+        self.assertEqual(self.write("delete", path, {"version": 1}).status_code, 204)
+        self.assertEqual(self.client.get("/api/v1/my-bookings").json(), [])
+        self.assertEqual(self.client.get("/api/v1/profile").json()["bookings"], [])
+        saved = Booking.objects.get(pk=booking["id"])
+        self.assertEqual(saved.status, "cancelled")
+        self.assertIsNotNone(saved.guest_hidden_at)
+        self.assertFalse(saved.allocations.exclude(status="cancelled").exists())
+        self.data["requestId"] = str(uuid.uuid4())
+        self.create()
+
+    def test_confirmed_booking_cannot_be_removed(self):
+        booking = self.create()
+        Booking.objects.filter(pk=booking["id"]).update(status="confirmed")
+        self.assertEqual(
+            self.write("delete", "/api/v1/my-bookings/" + booking["id"], {"version": 1}).status_code,
+            409,
+        )
+        self.assertFalse(self.client.get("/api/v1/my-bookings").json()[0]["canRemove"])
+
+    def test_expired_unpaid_can_be_removed_but_refunded_cannot(self):
+        from commerce.models import DemoPayment
+
+        booking = self.create()
+        item = Booking.objects.get(pk=booking["id"])
+        item.status = "cancelled"
+        item.save(update_fields=["status"])
+        DemoPayment.objects.create(
+            booking=item, amount=100, refunded_amount=100, status="refunded",
+            outcome="success", request_key=uuid.uuid4(),
+        )
+        path = "/api/v1/my-bookings/" + booking["id"]
+        self.assertEqual(self.write("delete", path, {"version": 1}).status_code, 409)
+        self.assertFalse(self.client.get("/api/v1/my-bookings").json()[0]["canRemove"])
+
+        self.data["requestId"] = str(uuid.uuid4())
+        expired = self.create()
+        Booking.objects.filter(pk=expired["id"]).update(status="expired")
+        self.assertEqual(
+            self.write("delete", "/api/v1/my-bookings/" + expired["id"], {"version": 1}).status_code,
+            204,
+        )
+        self.assertEqual([b["id"] for b in self.client.get("/api/v1/my-bookings").json()], [booking["id"]])
+
     def test_guest_cannot_confirm_or_see_other_session(self):
         b = self.create()
         self.assertEqual(

@@ -13,7 +13,7 @@ import { useRoute, useRouter } from "vue-router";
 import { useResortStore } from "@/entities/resort";
 import { PublicHeader } from "@/widgets/public-header";
 import { GeoMap } from "@/shared/ui";
-import { money } from "@/shared/lib";
+import { catalogMedia, money, twoGisSearchUrl, twoGisUrl } from "@/shared/lib";
 import { customerNightPrice, propertyToday } from "@/entities/booking";
 const catalog = useResortStore(),
   route = useRoute(),
@@ -48,8 +48,9 @@ onBeforeUnmount(() => {
   if (mapOpen.value) document.body.style.overflow = previousOverflow || "";
 });
 const category = computed(() => String(route.query.category || "all"));
-const cover = (r) =>
-  r.media?.find((m) => m.kind === "image")?.url || "/assets/resort.jpg";
+const cover = (resort) =>
+  catalogMedia(resort, "resort", t("public.illustrativeResortImage"))
+    .find((entry) => entry.kind === "image");
 const filtered = computed(() => {
   let items = catalog.resorts
     .filter(
@@ -205,12 +206,8 @@ onBeforeUnmount(() => window.removeEventListener("storage", storageChanged));
             >
               <RouterLink :to="`/resorts/${r.id}`" class="discovery-card-image"
                 ><img
-                  :src="cover(r)"
-                  :alt="
-                    r.media?.length
-                      ? r.name
-                      : t('public.illustrativeResortImage')
-                  "
+                  :src="cover(r)?.url || '/assets/resort.jpg'"
+                  :alt="cover(r)?.alt || r.name"
                   loading="lazy"
                 /></RouterLink
               >
@@ -315,14 +312,22 @@ onBeforeUnmount(() => window.removeEventListener("storage", storageChanged));
                 @click="selected = null"
               >
                 ×</button
-              ><span class="eyebrow">{{ t("public.yourPlaceOnTheMap") }}</span>
+              >
               <h2>{{ chosen.name }}</h2>
               <p>{{ chosen.city }} · {{ chosen.address }}</p>
-              <RouterLink
+              <div class="map-selection-actions">
+                <RouterLink
                 class="primary button-link"
                 :to="`/resorts/${chosen.id}`"
                 >{{ t("public.viewResort") }}</RouterLink
-              >
+                >
+                <a
+                  :href="twoGisUrl(chosen.twoGisUrl) || twoGisSearchUrl(chosen)"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="secondary button-link"
+                >{{ t(twoGisUrl(chosen.twoGisUrl) ? "common.catalogContent.openTwoGis" : "public.findTwoGis") }}</a>
+              </div>
             </div>
             <div v-else class="discovery-map-label">
               {{ t("public.selectAResortOnTheMap") }}

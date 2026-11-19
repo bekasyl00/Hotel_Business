@@ -52,7 +52,11 @@ const leadingDays = computed(() =>
   ),
 );
 const firstMonth = computed(() => today.value.slice(0, 7));
-const lastMonth = computed(() => shiftDay(today.value, 365).slice(0, 7));
+const lastMonth = computed(() => {
+  const horizon = shiftDay(today.value, 365);
+  const departure = anchor.value ? shiftDay(anchor.value, 30) : horizon;
+  return (departure > horizon ? departure : horizon).slice(0, 7);
+});
 const previewDate = ref(props.start);
 const calendarIdentity = computed(() =>
   JSON.stringify([
@@ -84,6 +88,7 @@ const priceDays = computed(() =>
     priceDisplay: calendarDayPrice(day),
   })),
 );
+const followingDays = computed(() => anchor.value ? data.value?.followingDays || [] : []);
 const trailingDays = computed(
   () => (7 - ((padding.value + priceDays.value.length) % 7)) % 7,
 );
@@ -145,6 +150,7 @@ function select(day) {
     previewDate.value = day.date;
     anchor.value = day.date;
   } else {
+    month.value = day.date.slice(0, 7);
     emit("select", { start: anchor.value, end: day.date });
     anchor.value = "";
   }
@@ -286,6 +292,12 @@ onBeforeUnmount(() => generation++);
           <span aria-hidden="true">↺</span>
         </button>
       </div>
+      <button
+        v-if="anchor && month === anchor.slice(0, 7) && month < lastMonth && shiftDay(anchor, 30).slice(0, 7) > month"
+        class="calendar-next-month text-button"
+        type="button"
+        @click="moveMonth(1)"
+      >{{ t("public.calendar.next") }} →</button>
       <p v-if="data && !data.totalRooms" class="field-help">
         {{ t("public.calendar.noRooms") }}
       </p>
@@ -379,8 +391,20 @@ onBeforeUnmount(() => generation++);
                   : "—"
           }}</small>
         </button>
+        <button
+          v-for="day in followingDays"
+          :key="day.date"
+          type="button"
+          :class="day.departureRooms ? 'free departure' : 'unknown'"
+          :disabled="!selectable(day)"
+          :aria-label="label(day)"
+          @click="select(day)"
+        >
+          {{ Number(day.date.slice(-2)) }}
+          <small v-if="day.departureRooms" aria-hidden="true">↗</small>
+        </button>
         <span
-          v-for="day in trailingDays"
+          v-for="day in trailingDays - followingDays.length"
           :key="`trailing-${day}`"
           class="calendar-padding-day"
           aria-hidden="true"
@@ -534,6 +558,12 @@ onBeforeUnmount(() => generation++);
 .availability-prompt p {
   margin: 0;
   line-height: 1.4;
+}
+.calendar-next-month {
+  margin-bottom: 6px;
+  padding: 6px 0;
+  color: #34513d;
+  font-size: 13px;
 }
 .availability-grid {
   display: grid;

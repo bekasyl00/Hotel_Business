@@ -467,15 +467,6 @@
   html .guest-avatar-controls label {
     font-size: 13px;
   }
-  html .profile-account-banner {
-    padding: 16px;
-    margin: 16px 0;
-    gap: 12px;
-    border-radius: 14px;
-  }
-  html .profile-account-banner p {
-    font-size: 13px;
-  }
   html .public-site .guest-auth-main {
     padding: 16px;
   }

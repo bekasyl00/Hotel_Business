@@ -75,7 +75,7 @@ export function demoGuestRequest({
   });
   if (pathname === "/profile") {
     const profile = db.guestProfiles.find((p) => p.owner === ownerOf(db));
-    if (method === "GET") return done(bundle(profile));
+    if (method === "GET") return done(bundle(profile, (booking) => !booking.guestHidden));
     if (method === "PATCH") {
       if (
         db.guestAccount &&
@@ -106,7 +106,7 @@ export function demoGuestRequest({
         updatedAt: new Date().toISOString(),
       });
       commit("profiles", profile, before, "update");
-      return done(bundle(profile));
+      return done(bundle(profile, (booking) => !booking.guestHidden));
     }
   }
   const accountFor = (profile) =>

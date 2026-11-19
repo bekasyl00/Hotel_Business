@@ -76,25 +76,22 @@ export function demoAvailability(db, params, now = new Date()) {
     timeZone = resort.timeZone || "Asia/Almaty",
     today = propertyToday(timeZone, now),
     horizon = shiftDay(today, 365);
+  const validArrival =
+    arrival && /^\d{4}-\d{2}-\d{2}$/.test(arrival) &&
+    Number.isFinite(Date.parse(arrival)) && shiftDay(arrival, 0) === arrival &&
+    arrival >= today && arrival <= horizon;
+  const latestDeparture = validArrival ? shiftDay(arrival, 30) : horizon;
   if (
     !["standard", "comfort", "suite"].includes(category) ||
     !/^\d{4}-(0[1-9]|1[0-2])$/.test(month) ||
     month < today.slice(0, 7) ||
-    month > horizon.slice(0, 7) ||
+    month > (latestDeparture > horizon ? latestDeparture : horizon).slice(0, 7) ||
     !Number.isInteger(guests) ||
     guests < 1 ||
     guests > 4
   )
     fail();
-  if (
-    arrival &&
-    (!/^\d{4}-\d{2}-\d{2}$/.test(arrival) ||
-      !Number.isFinite(Date.parse(arrival)) ||
-      shiftDay(arrival, 0) !== arrival ||
-      arrival < today ||
-      arrival > horizon)
-  )
-    fail();
+  if (arrival && !validArrival) fail();
   const matching = db.rooms.filter(
     (r) =>
       r.resortId === resort.id &&
@@ -135,10 +132,16 @@ export function demoAvailability(db, params, now = new Date()) {
     hourCycle: "h23",
   }).format(now);
   const canArriveToday = localTime < (resort.checkInTime || "14:00");
+  const first = new Date(`${month}-01T12:00:00Z`);
+  const last = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 1));
+  const lastDay = last.toISOString().slice(0, 10);
+  const following = arrival && arrival < lastDay ? (8 - last.getUTCDay()) % 7 : 0;
+  const displayEnd = shiftDay(lastDay, following);
   const days = [];
+  const followingDays = [];
   for (
     let day = `${month}-01`;
-    day.slice(0, 7) === month;
+    day < displayEnd;
     day = shiftDay(day, 1)
   ) {
     const bookable =
@@ -207,7 +210,7 @@ export function demoAvailability(db, params, now = new Date()) {
         }
       }
     }
-    days.push({
+    (day < lastDay ? days : followingDays).push({
       date: day,
       availableRooms: availableRoomsList.length,
       availablePlaces,
@@ -238,5 +241,6 @@ export function demoAvailability(db, params, now = new Date()) {
     totalRooms: rooms.length,
     totalPlaces,
     days,
+    followingDays,
   };
 }

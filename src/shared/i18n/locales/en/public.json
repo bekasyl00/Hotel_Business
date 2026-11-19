@@ -364,5 +364,9 @@
     "refund": "Cancellation before arrival: 48 hours or more — 100%; 24–48 hours — 70%; less than 24 hours — no refund.",
     "continuePayment": "Continue to pay {amount}",
     "nextStep": "Next: payment and booking confirmation. Places are held for up to 15 minutes; the timer shows the exact deadline."
-  }
+  },
+  "removeUnpaidBooking": "Remove booking",
+  "removeUnpaidBookingHint": "The booking will be removed from your list and any held places will be released.",
+  "keepBooking": "Keep booking",
+  "findTwoGis": "Find on 2GIS"
 }
