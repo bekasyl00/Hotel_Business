@@ -39,7 +39,7 @@
       }
     },
     {
-      "src": "/(profile|bookings)",
+      "src": "/(profile|bookings|documents)/?",
       "dest": "/index.html",
       "headers": {
         "Cache-Control": "public, max-age=0, must-revalidate"

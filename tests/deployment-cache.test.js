@@ -50,6 +50,14 @@ test("production web commands override conflicting demo and native build setting
   assert.equal(configs[1].value.buildCommand, "npm run build:release:staff");
 });
 
+test("direct guest document links load the public app", () => {
+  const routes = configs.find(({ name }) => name === "vercel.json").value.routes;
+  for (const path of ["/documents", "/documents/"]) {
+    const route = routes.find(({ src }) => src && new RegExp(`^(?:${src})$`).test(path));
+    assert.equal(route?.dest, "/index.html", path);
+  }
+});
+
 test("release validation rejects stale metadata, demo transport and the wrong audience", async () => {
   const root = await mkdtemp(join(tmpdir(), "tynys-web-contract-"));
   try {
