@@ -146,7 +146,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/staff-profile 'Исходный код'
   }
   pages_workspace = module 'pages/workspace' {
-    description 'Кабинет: реестры, фильтры, действия и история изменений.. Файлов: 12'
+    description 'Кабинет: реестры, фильтры, действия и история изменений.. Файлов: 13'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/pages/workspace 'Исходный код'
   }
   shared_api = module 'shared/api' {
@@ -170,7 +170,7 @@ model {
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/native 'Исходный код'
   }
   shared_ui = module 'shared/ui' {
-    description 'Общие native dialog, карта Leaflet и редактор медиа.. Файлов: 6'
+    description 'Общие native dialog, карта Leaflet и редактор медиа.. Файлов: 7'
     link https://github.com/bekasyl00/Hotel_Business/tree/main/src/shared/ui 'Исходный код'
   }
   widgets_availability_calendar = module 'widgets/availability-calendar' {
@@ -325,6 +325,7 @@ model {
   pages_catalog -> shared_ui 'import'
   pages_catalog -> shared_lib 'import'
   pages_catalog -> entities_booking 'import'
+  pages_clients -> shared_ui 'import'
   pages_clients -> widgets_staff_shell 'import'
   pages_clients -> entities_session 'import'
   pages_clients -> shared_api 'import'
@@ -387,6 +388,7 @@ model {
   pages_staff_documents -> shared_config 'import'
   pages_staff_documents -> shared_lib 'import'
   pages_staff_documents -> shared_ui 'import'
+  pages_staff_guest -> shared_ui 'import'
   pages_staff_guest -> widgets_staff_shell 'import'
   pages_staff_guest -> widgets_guest_booking_history 'import'
   pages_staff_guest -> entities_session 'import'
@@ -404,6 +406,7 @@ model {
   pages_workspace -> entities_booking 'import'
   pages_workspace -> shared_lib 'import'
   pages_workspace -> shared_api 'import'
+  pages_workspace -> shared_ui 'import'
   pages_workspace -> features_pay_booking 'import'
   pages_workspace -> shared_config 'import'
   pages_workspace -> entities_session 'import'
@@ -417,7 +420,6 @@ model {
   pages_workspace -> features_edit_account 'import'
   pages_workspace -> widgets_payment_dialog 'import'
   pages_workspace -> features_create_booking 'import'
-  pages_workspace -> shared_ui 'import'
   pages_workspace -> shared_native 'import'
   shared_api -> shared_i18n 'import'
   shared_lib -> shared_i18n 'import'

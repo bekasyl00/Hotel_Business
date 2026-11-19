@@ -38,17 +38,23 @@ const nav = computed(() =>
   ]),
 );
 let pollTimer = null;
+let pollVersion = 0;
 async function pollNotifications() {
   if (!canReceiveNotifications.value) return;
   if (isStaffApp && typeof document !== "undefined" && document.visibilityState === "hidden")
     return;
   try {
+    const run = ++pollVersion;
     const accountId = session.user.id;
     const res = await request("GET", "/staff/notifications");
-    if (session.user?.id !== accountId) return;
-    await syncLocalRequests(session.user, res.items || [], props.section === "notifications");
+    if (run !== pollVersion || session.user?.id !== accountId) return;
+    const items = res.items || [];
+    const localItems = items.map((item) => item.kind === "review_created"
+      ? { ...item, title: t("staff.notifications.review_created") } : item);
+    await syncLocalRequests(session.user, localItems, props.section === "notifications");
+    if (run !== pollVersion || session.user?.id !== accountId) return;
     localUnread.value = Number(res?.unreadCount || 0);
-    emit("unread", localUnread.value);
+    emit("unread", localUnread.value, items);
   } catch {
     // ignore transient poll failures
   }
@@ -65,6 +71,13 @@ function onVisibilityChange() {
   }
 }
 function routeToPushTarget(target) {
+  if (target?.reviewId && !session.isAccountant) {
+    pendingPushTarget.value = null;
+    router.push({ path: "/staff/reviews", query: {
+      reviewId: target.reviewId, notificationId: target.notificationId || undefined,
+    } }).catch(() => {});
+    return;
+  }
   if (target?.section === "notifications" && !session.isAccountant) {
     pendingPushTarget.value = null;
     router.push("/staff/notifications").catch(() => {});

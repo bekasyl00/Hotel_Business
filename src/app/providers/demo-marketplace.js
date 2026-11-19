@@ -161,7 +161,7 @@ export function applyDemoCancellation(booking, staff = false) {
   }
   return preview;
 }
-export function emitDemoBookingNotification(db, booking, kind) {
+export function emitDemoBookingNotification(db, booking, kind, review = null) {
   const resort = db.resorts.find((r) => r.id === booking.resortId);
   if (!resort) return;
   const recipients = db.accounts.filter(
@@ -172,6 +172,7 @@ export function emitDemoBookingNotification(db, booking, kind) {
           (resort.accountId === a.id || a.resortIds?.includes(resort.id)))),
   );
   const titles = {
+    review_created: "Новый отзыв",
     booking_created: `Новая бронь № ${booking.unit}`,
     booking_paid: `Бронь оплачена № ${booking.unit}`,
     booking_cancelled: `Бронь отменена № ${booking.unit}`,
@@ -192,8 +193,9 @@ export function emitDemoBookingNotification(db, booking, kind) {
       bookingId: booking.id,
       kind,
       title: titles[kind] || `Событие брони № ${booking.unit}`,
-      body: `${booking.resortName || resort.name} · № ${booking.unit}${labels ? ` (${labels})` : ""} · ${booking.start} — ${booking.end} · мест: ${placesCount}`,
-      payload: {
+      ...(review && { reviewId: review.id }),
+      body: review ? `${resort.name} · ${review.rating}/5` : `${booking.resortName || resort.name} · № ${booking.unit}${labels ? ` (${labels})` : ""} · ${booking.start} — ${booking.end} · мест: ${placesCount}`,
+      payload: review ? { reviewId: review.id, resortName: resort.name, rating: review.rating } : {
         bookingId: booking.id,
         resortId: resort.id,
         resortName: booking.resortName || resort.name,
@@ -457,14 +459,16 @@ export function marketplaceRequest({
       createdAt: new Date().toISOString(),
     };
     db.reviews.push(review);
+    emitDemoBookingNotification(db, b, "review_created", review);
     b.reviewId = review.id;
     b.reviewStatus = review.status;
     return done(commit("reviews", review));
   }
-  if (pathname.startsWith("/reviews/") && method === "PATCH") {
+  if (pathname.startsWith("/reviews/") && ["GET", "PATCH"].includes(method)) {
     const r = db.reviews.find((r) => r.id === pathname.split("/").at(-1));
     if (!r) fail("Отзыв не найден.", 404);
     authorize(r.resortId);
+    if (method === "GET") return done(r);
     version(r);
     if (
       !["approved", "rejected"].includes(payload.status) ||

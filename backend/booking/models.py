@@ -447,6 +447,7 @@ class StaffNotification(Record):
                 "booking_paid",
                 "booking_cancelled",
                 "booking_expired",
+                "review_created",
             ]
         ],
     )
@@ -475,6 +476,7 @@ class StaffNotification(Record):
                         "booking_paid",
                         "booking_cancelled",
                         "booking_expired",
+                        "review_created",
                     ]
                 ),
                 name="staff_notification_kind_valid",

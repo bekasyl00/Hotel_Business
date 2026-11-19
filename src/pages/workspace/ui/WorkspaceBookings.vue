@@ -1,4 +1,5 @@
 <script setup>
+import { GuestIdentity } from "@/shared/ui";
 import { useI18n } from "vue-i18n";
 import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
 import { isBankProvider } from "@/features/pay-booking";
@@ -35,6 +36,7 @@ const emit = defineEmits(["focus", "pay", "cancel", "stay"]);
       <tbody>
         <tr v-for="b in filteredBookings" :key="b.id">
           <td :data-label="t('staff.bookingGuest')">
+            <GuestIdentity :name="b.guestLabel" :photo="isAccountant ? null : b.guestAvatarUrl" style="--avatar-size: 30px">
             <RouterLink
               v-if="b.guestProfileId && !isAccountant"
               :to="`/staff/guests/${b.guestProfileId}`"
@@ -49,6 +51,7 @@ const emit = defineEmits(["focus", "pay", "cancel", "stay"]);
                 b.source === "staff" ? t("staff.manual") : t("staff.website")
               }}</small
             >
+            </GuestIdentity>
           </td>
           <td :data-label="t('staff.room')">
             № {{ b.unit }} · {{ b.roomName

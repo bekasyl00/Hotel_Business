@@ -201,6 +201,8 @@ def _deliver_one(client) -> bool:
                 "bookingId": str(delivery.notification.booking_id or ""),
                 "resortId": str(delivery.notification.resort_id),
             }
+            if item.get("reviewId"):
+                data["reviewId"] = str(item["reviewId"])
             send = _send_fcm if platform == "android" else _send_apns
             try:
                 outcome, error = send(client, delivery.device.push_token, item["title"], item["body"], data)

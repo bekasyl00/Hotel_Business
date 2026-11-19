@@ -39,3 +39,11 @@ test('local notification failures are silent and accountants never receive a loc
   assert.equal(account, '');
   assert.equal(state.staffPushState.error, '');
 });
+
+test('iOS review tap resolves to its review through the local bridge', async () => {
+  const state = load({ addListener: async () => {}, localRequests: async () => ({
+    permission: 'granted', openRequests: true, reviewId: 'review-7', notificationId: 'notice-7',
+  }) });
+  await state.syncLocalRequests({ id: 'manager', role: 'manager' });
+  assert.deepEqual(state.pendingPushTarget.value, { section: 'reviews', reviewId: 'review-7', notificationId: 'notice-7' });
+});

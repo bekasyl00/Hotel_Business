@@ -61,6 +61,10 @@ class Endpoint(APIView):
             return Response(svc.current_guest_profile(request))
         if resource == "guests" and pk:
             return Response(svc.staff_guest_profile(request, pk))
+        if resource == "reviews" and pk:
+            require_staff(request.user)
+            review = get_object_or_404(Review, pk=pk, resort__in=scoped_resorts(request.user))
+            return Response(review_data(review, staff=True))
         if resource == "analytics" and not pk:
             from .analytics import analytics_for_request
 
@@ -183,8 +187,10 @@ class Endpoint(APIView):
                         Tariff.objects.filter(resort__in=resorts), many=True
                     ).data,
                     "bookings": [
-                        booking_data(b, staff=True)
-                        for b in bookings_with_relations(Booking.objects.filter(resort__in=resorts))
+                        booking_data(b, staff=True, include_guest_avatar=request.user.role != "accountant")
+                        for b in bookings_with_relations(
+                            Booking.objects.filter(resort__in=resorts).select_related("guest_profile")
+                        )
                     ],
                     "unreadNotificationCount": unread_notification_count(request.user),
                     "accounts": [

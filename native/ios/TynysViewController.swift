@@ -101,7 +101,7 @@ final class RequestNotificationService: NSObject, UNUserNotificationCenterDelega
     private let center = UNUserNotificationCenter.current()
     private var busy = false
     private var activeAccount = UserDefaults.standard.string(forKey: "local-request-account") ?? ""
-    private var tappedAccount: String?
+    private var tappedNotice: [String: String]?
 
     func install() { center.delegate = self }
 
@@ -123,9 +123,14 @@ final class RequestNotificationService: NSObject, UNUserNotificationCenterDelega
         }
         let granted = settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
         let permission = settings.authorizationStatus == .denied ? "denied" : (granted ? "granted" : "prompt")
-        let shouldOpen = !account.isEmpty && tappedAccount == account
-        tappedAccount = nil
         guard !account.isEmpty else { return ["permission": permission] }
+        let tapped = tappedNotice
+        tappedNotice = nil
+        var result: JSObject = ["permission": permission, "openRequests": tapped?["account"] == account]
+        if tapped?["account"] == account, let review = tapped?["reviewId"] {
+            result["reviewId"] = review
+            result["notificationId"] = tapped?["notificationId"] ?? ""
+        }
         let key = "local-request-ids." + account
         var seen = Set(UserDefaults.standard.stringArray(forKey: key) ?? [])
         for item in items {
@@ -139,10 +144,17 @@ final class RequestNotificationService: NSObject, UNUserNotificationCenterDelega
             }
             guard granted, !seen.contains(id) else { continue }
             let content = UNMutableNotificationContent()
-            content.title = "Новый запрос"
+            let reviewId = item["kind"] as? String == "review_created" ? item["reviewId"] as? String : nil
+            content.title = reviewId == nil ? "Новый запрос" : (item["title"] as? String ?? "Новый отзыв")
             content.body = String((item["body"] as? String ?? item["title"] as? String ?? "Откройте раздел запросов").prefix(180))
             content.sound = .default
-            content.userInfo = ["account": account, "section": "notifications"]
+            var info = ["account": account, "section": "notifications"]
+            if let reviewId {
+                info["section"] = "reviews"
+                info["reviewId"] = reviewId
+                info["notificationId"] = id
+            }
+            content.userInfo = info
             do {
                 try await center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
                 seen.insert(id)
@@ -151,7 +163,7 @@ final class RequestNotificationService: NSObject, UNUserNotificationCenterDelega
             } catch { /* Keep unseen: a future foreground check can retry. */ }
         }
         UserDefaults.standard.set(Array(seen), forKey: key)
-        return ["permission": permission, "openRequests": shouldOpen]
+        return result
     }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
@@ -163,9 +175,9 @@ final class RequestNotificationService: NSObject, UNUserNotificationCenterDelega
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
         didReceive response: UNNotificationResponse,
         withCompletionHandler completionHandler: @escaping () -> Void) {
-        let account = response.notification.request.content.userInfo["account"] as? String
+        let notice = response.notification.request.content.userInfo as? [String: String]
         Task { @MainActor in
-            self.tappedAccount = account
+            self.tappedNotice = notice
             NotificationCenter.default.post(name: Notification.Name("TynysOpenRequests"), object: nil)
             completionHandler()
         }

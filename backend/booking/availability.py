@@ -256,9 +256,9 @@ def planner_window(user, params):
             many=True,
         ).data,
         "bookings": [
-            booking_data(b, staff=True)
+            booking_data(b, staff=True, include_guest_avatar=user.role != "accountant")
             for b in bookings_with_relations(
-                Booking.objects.filter(resort__in=resorts, stay__overlap=window)
+                Booking.objects.filter(resort__in=resorts, stay__overlap=window).select_related("guest_profile")
             )
         ],
     }

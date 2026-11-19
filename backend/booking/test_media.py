@@ -1,5 +1,6 @@
 import io
 import tempfile
+import uuid
 from datetime import timedelta
 
 from django.contrib.auth.hashers import make_password
@@ -9,11 +10,12 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from PIL import Image
+from psycopg.types.range import Range
 from rest_framework.test import APIClient
 
 from booking.test_helpers import unrelated_owner
 
-from .models import GuestAccount, GuestProfile, MediaAsset, Resort
+from .models import Booking, GuestAccount, GuestProfile, MediaAsset, Resort, User
 from .tests import PASSWORD, fixture
 
 
@@ -148,6 +150,30 @@ class ManagedMediaTests(TestCase):
         self.assertEqual(removed.status_code, 200)
         self.assertIsNone(removed.json()["profile"]["avatarUrl"])
         self.assertEqual(self.guest.get(next_url).status_code, 404)
+
+    def test_guest_photo_in_staff_booking_views_requires_scoped_linked_profile(self):
+        photo_url = self.guest.post("/api/profile/avatar", {"file": photo()}, format="multipart").json()["profile"]["avatarUrl"]
+        today = timezone.localdate()
+        for index, source in enumerate(("website", "staff")):
+            Booking.objects.create(
+                guest_profile=self.profile if source == "website" else None,
+                owner=self.profile.owner if source == "website" else "",
+                guest_label=self.profile.name, guest_phone=self.profile.phone,
+                resort=self.resort, room=self.room, guests=1, source=source,
+                stay=Range(today + timedelta(days=index), today + timedelta(days=index + 1), "[)"),
+                status="confirmed", request_key=uuid.uuid4(), request_hash="b" * 64,
+            )
+        for path in ("/api/workspace", "/api/planner"):
+            rows = {b["source"]: b for b in self.staff.get(path).json()["bookings"]}
+            self.assertEqual(rows["website"]["guestAvatarUrl"], photo_url)
+            self.assertNotIn("guestAvatarUrl", rows["staff"])
+        self.assertEqual(self.staff.get(photo_url).status_code, 200)
+        self.staff.force_login(unrelated_owner())
+        self.assertEqual(self.staff.get(photo_url).status_code, 404)
+        self.staff.force_login(User.objects.create(username="finance", email="finance@example.test", role="accountant"))
+        for row in self.staff.get("/api/workspace").json()["bookings"]:
+            self.assertNotIn("guestAvatarUrl", row)
+        self.assertEqual(self.staff.get(photo_url).status_code, 404)
 
     def test_anonymous_avatar_and_forged_image_rejected(self):
         client = APIClient(enforce_csrf_checks=True)

@@ -72,6 +72,7 @@ export function createMobileTransport(base, audience = "guest") {
       );
     if (typeof value !== "string") return value;
     if (/^\/api\/media\/files\//.test(value)) {
+      if (audience === "staff" && (key === "guestAvatarUrl" || key === "avatarUrl")) return value;
       if (key === "avatarUrl" || audience === "staff")
         return preview(value, null).catch(() => "");
       return `${client.origin}${value}`;

@@ -13,7 +13,7 @@ from rest_framework.test import APIClient
 
 from booking.test_helpers import unrelated_owner
 
-from .models import Audit, Booking, MediaAsset, Resort, Review
+from .models import Audit, Booking, MediaAsset, Resort, Review, StaffNotification, User
 from .tests import fixture
 
 
@@ -141,6 +141,34 @@ class CatalogueTests(TestCase):
         self.assertEqual(self.write("post", "/api/reviews", payload).status_code, 409)
         self.assertEqual(self.client.get("/api/reviews", {"resortId": self.resort.pk}).json(), [])
         self.assertEqual(Audit.objects.filter(entity="reviews").count(), 1)
+
+    def test_new_review_notifies_only_own_staff_once_and_links_to_private_detail(self):
+        booking = self.completed_booking()
+        other = unrelated_owner()
+        finance = User.objects.create(username="finance", email="finance@example.test", role="accountant")
+        payload = {"bookingId": booking.id, "rating": 4, "text": "Хороший отдых в санатории", "photos": []}
+        response = self.write("post", "/api/reviews", payload)
+        self.assertEqual(response.status_code, 201, response.content)
+        review_id = response.json()["id"]
+        self.assertEqual(self.write("post", "/api/reviews", payload).status_code, 409)
+        events = StaffNotification.objects.filter(booking=booking, kind="review_created")
+        self.assertCountEqual(events.values_list("recipient_id", flat=True), [self.manager.pk, self.admin.pk])
+        detail = f"/api/reviews/{review_id}"
+        self.assertEqual(self.client.get(detail).status_code, 401)
+        self.staff(other)
+        self.assertEqual(self.client.get(detail).status_code, 404)
+        self.assertEqual(self.client.get("/api/staff/notifications").json()["items"], [])
+        self.staff(finance)
+        self.assertEqual(self.client.get(detail).status_code, 403)
+        self.staff()
+        item = self.client.get("/api/staff/notifications").json()["items"][0]
+        self.assertEqual((item["kind"], item["reviewId"], item["read"]), ("review_created", review_id, False))
+        self.assertNotIn(payload["text"], item["body"])
+        self.assertEqual(self.client.get(detail).json()["text"], payload["text"])
+        self.assertEqual(self.write("post", f"/api/staff/notifications/{item['id']}/read", {}).status_code, 200)
+        self.assertEqual(self.write("patch", detail, {"version": 1, "status": "approved"}).status_code, 200)
+        self.assertEqual(events.count(), 2)
+        self.assertIsNone(events.get(recipient=self.admin).read_at)
 
     def test_future_stay_and_staff_cannot_review(self):
         booking = self.completed_booking()

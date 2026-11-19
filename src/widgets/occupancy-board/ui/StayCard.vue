@@ -8,7 +8,7 @@ import { BookingVoucher, canOpenVoucher } from "@/features/booking-voucher";
 import { ArrivalCheckIn } from "@/features/arrival-check-in";
 import { isBankProvider } from "@/features/pay-booking";
 import { isDemo } from "@/shared/config";
-import { Modal } from "@/shared/ui";
+import { Modal, GuestIdentity } from "@/shared/ui";
 import { money, dateLabel, timeLabel, statusNames } from "@/shared/lib";
 const props = defineProps({
   booking: Object,
@@ -96,10 +96,10 @@ const actionName = (action) =>
     @close="close"
   >
     <div class="stay-card-intro">
-      <div>
+      <GuestIdentity :name="booking.guestLabel" :photo="readOnly ? null : booking.guestAvatarUrl">
         <h3>{{ booking.guestLabel }}</h3>
         <p>{{ booking.roomName }} · #{{ booking.id.slice(0, 8) }}</p>
-      </div>
+      </GuestIdentity>
       <span :class="['stay-chip', state]">{{
         state === "closed"
           ? statusNames[booking.status]

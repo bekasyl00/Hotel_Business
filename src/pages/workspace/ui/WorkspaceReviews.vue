@@ -1,17 +1,33 @@
 <script setup>
+import { computed } from "vue";
+import { useBookingStore } from "@/entities/booking";
+import { GuestIdentity } from "@/shared/ui";
 import { useI18n } from "vue-i18n";
 import { timeLabel } from "@/shared/lib";
 const { t } = useI18n();
-defineProps(["filteredReviews", "busy"]);
+const bookings = useBookingStore();
+const props = defineProps(["filteredReviews", "busy"]);
+const authors = computed(() => new Map(bookings.items.map(booking => [booking.id, booking])));
+const entries = computed(() => props.filteredReviews.map(review => ({
+  review, author: authors.value.get(review.bookingId),
+})));
 const emit = defineEmits(["moderate"]);
 </script>
 <template>
   <div>
     <article
-      v-for="review in filteredReviews"
+      v-for="{ review, author } in entries"
       :key="review.id"
       class="staff-review"
     >
+      <GuestIdentity v-if="author" class="review-author"
+        :photo="author.guestAvatarUrl" :name="author.guestLabel">
+        <RouterLink v-if="author.guestProfileId"
+          :to="`/staff/guests/${author.guestProfileId}`">
+          {{ author.guestLabel }}
+        </RouterLink>
+        <span v-else>{{ author.guestLabel }}</span>
+      </GuestIdentity>
       <strong
         >{{ review.rating }} / 5 ·
         {{
@@ -58,3 +74,6 @@ const emit = defineEmits(["moderate"]);
     </article>
   </div>
 </template>
+<style scoped>
+.review-author { --avatar-size: 30px; margin-bottom: .5rem; }
+</style>

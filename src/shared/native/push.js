@@ -21,8 +21,8 @@ export async function syncLocalRequests(user, items = [], askPermission = false)
     if (pushPluginOverride) return;
     try {
       const account = user && ["admin", "manager"].includes(user.role) ? String(user.id) : "";
-      staffPushState.permission = await deliverLocalRequests(account, items, () => {
-        pendingPushTarget.value = { section: "notifications" };
+      staffPushState.permission = await deliverLocalRequests(account, items, (target) => {
+        pendingPushTarget.value = target || { section: "notifications" };
       });
     } catch { /* Local delivery must not interrupt work. */ }
     return;
@@ -37,7 +37,11 @@ export async function syncLocalRequests(user, items = [], askPermission = false)
       items, askPermission,
     });
     if (result.permission) staffPushState.permission = result.permission;
-    if (result.openRequests) pendingPushTarget.value = { section: "notifications" };
+    if (result.openRequests) {
+      pendingPushTarget.value = result.reviewId
+        ? { section: "reviews", reviewId: result.reviewId, notificationId: result.notificationId }
+        : { section: "notifications" };
+    }
   } catch { /* Notification permission never blocks the staff workspace. */ }
 }
 let pushPluginOverride = null;
@@ -147,7 +151,12 @@ export async function initStaffPushListeners(onOpenTarget) {
       resortId: String(data.resortId || "").trim(),
       notificationId: String(data.notificationId || "").trim(),
     };
-    if (!target.bookingId && !target.notificationId) return;
+    if (data.reviewId) {
+      target.section = "reviews";
+      target.reviewId = String(data.reviewId);
+      delete target.bookingId;
+    }
+    if (!target.reviewId && !target.bookingId && !target.notificationId) return;
     pendingPushTarget.value = target;
     actionHandler?.(target);
   });

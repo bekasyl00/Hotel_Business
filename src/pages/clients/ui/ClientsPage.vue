@@ -1,4 +1,5 @@
 <script setup>
+import { GuestIdentity } from "@/shared/ui";
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
@@ -79,8 +80,10 @@ onMounted(() => load());
             :key="item.profile.id"
             class="client-card"
           >
+            <GuestIdentity :name="item.profile.name" :photo="item.profile.avatarUrl">
             <h2>{{ item.profile.name || t("staff.websiteGuest") }}</h2>
             <p>{{ item.profile.phone || t("staff.noPhone") }}</p>
+            </GuestIdentity>
             <span class="status-pill" :class="item.account?.status">{{
               item.account
                 ? t("staff.directory.registered") +

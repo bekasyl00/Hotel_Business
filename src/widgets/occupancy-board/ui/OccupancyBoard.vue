@@ -34,13 +34,49 @@ const states = ["past", "active", "reserved", "pending"];
 const dates = computed(() =>
   Array.from({ length: days.value }, (_, i) => shiftDay(start.value, i)),
 );
-const groups = computed(() =>
-  calendarRoomGroups(props.rooms, props.bookings, start.value, days.value, {
-    query: query.value,
-    state: state.value,
-    now: now.value,
-  }),
+const allGroups = computed(() =>
+  calendarRoomGroups(props.rooms, props.bookings, start.value, days.value, { now: now.value }),
 );
+const groups = computed(() => query.value.trim() || state.value !== "all"
+  ? calendarRoomGroups(props.rooms, props.bookings, start.value, days.value, {
+      query: query.value, state: state.value, now: now.value,
+    })
+  : allGroups.value);
+const scrollArea = ref(null);
+const scrollTop = ref(0);
+const viewportHeight = ref(640);
+const touch = ref(false);
+const laneHeight = computed(() => touch.value ? 32 : 24);
+const groupHeight = computed(() => touch.value ? 34 : 26);
+// Offsets account for collapsed rooms and bookings which share a legacy place lane.
+const layout = computed(() => {
+  const rows = [];
+  let height = 0;
+  for (const group of groups.value) {
+    rows.push({ key: "room-" + group.room.id, group, top: height, height: groupHeight.value });
+    height += groupHeight.value;
+    if (collapsed.value[group.room.id]) continue;
+    for (const row of group.rows) {
+      const size = row.lanes * laneHeight.value;
+      rows.push({ key: "place-" + row.place.id, group, row, top: height, height: size });
+      height += size;
+    }
+  }
+  return { rows, height };
+});
+const visibleRows = computed(() => {
+  const { rows, height } = layout.value;
+  const top = Math.min(scrollTop.value, Math.max(0, height - viewportHeight.value));
+  const margin = 6 * laneHeight.value;
+  const first = Math.max(0, top - margin);
+  const last = top + viewportHeight.value + margin + 48;
+  return rows.filter(item => item.top + item.height > first && item.top < last);
+});
+function updateWindow() {
+  if (!scrollArea.value) return;
+  scrollTop.value = scrollArea.value.scrollTop;
+  viewportHeight.value = scrollArea.value.clientHeight;
+}
 const totalActivePlaces = computed(() =>
   groups.value.reduce((sum, g) => sum + g.places.length, 0),
 );
@@ -81,6 +117,16 @@ const dayHeaders = computed(() => {
     };
   });
 });
+const monthBands = computed(() => {
+  const bands = [];
+  for (const date of dayHeaders.value) {
+    const key = date.day.slice(0, 7);
+    const last = bands.at(-1);
+    if (last?.key === key) last.span++;
+    else bands.push({ key, label: date.month, span: 1 });
+  }
+  return bands;
+});
 const period = computed(() => {
   const f = dateFormatters.value;
   const end = shiftDay(start.value, days.value - 1);
@@ -112,14 +158,12 @@ const stats = computed(() => [
 ]);
 const blockedPlaceDays = computed(() => {
   const result = new Map();
-  for (const group of groups.value) {
+  for (const group of allGroups.value) {
     for (const row of group.rows) {
       const set = new Set();
       for (const bar of row.bars) {
         if (!["pending", "confirmed"].includes(bar.booking.status)) continue;
-        for (const day of dates.value) {
-          if (bar.booking.start <= day && day < bar.booking.end) set.add(day);
-        }
+        for (let i = bar.from; i < bar.from + bar.span; i++) set.add(dates.value[i]);
       }
       result.set(row.place.id, set);
     }
@@ -174,13 +218,24 @@ watch(
 );
 const label = (b) =>
   `${b.guestLabel} · № ${b.unit}${b.placeLabels?.length ? ` (${b.placeLabels.join(", ")})` : ""} · ${b.start} — ${b.end} · ${money(b.paymentTerms?.total ?? b.total)}`;
-let timer;
+let timer, resize, pointer;
+function updatePointer() { touch.value = pointer.matches; }
 onMounted(() => {
+  pointer = window.matchMedia("(pointer: coarse)");
+  updatePointer();
+  pointer.addEventListener("change", updatePointer);
+  resize = new ResizeObserver(updateWindow);
+  resize.observe(scrollArea.value);
+  updateWindow();
   timer = setInterval(() => {
     now.value = Date.now();
   }, 30000);
 });
-onBeforeUnmount(() => clearInterval(timer));
+onBeforeUnmount(() => {
+  clearInterval(timer);
+  resize?.disconnect();
+  pointer?.removeEventListener("change", updatePointer);
+});
 </script>
 <template>
   <section class="occupancy-board" :aria-label="t('staff.board.title')">
@@ -272,154 +327,75 @@ onBeforeUnmount(() => clearInterval(timer));
       </div>
       <p class="board-hint">{{ t("staff.board.hint") }}</p>
       <div
+        ref="scrollArea"
         class="board-scroll"
         tabindex="0"
         role="region"
         :aria-label="t('staff.board.title')"
+        @scroll.passive="updateWindow"
       >
-        <div class="board-grid" :style="{ '--days': days }">
+        <div class="board-grid" :style="{ '--days': days, '--lane-height': laneHeight + 'px' }">
           <div class="board-head">
-            <div class="board-room-label">
-              {{ t("staff.room")
-              }}<small
-                >{{ t("staff.board.places") }} ·
-                {{ t("staff.board.roomType") }}</small
-              >
-            </div>
-            <div
-              v-for="h in dayHeaders"
-              :key="h.day"
-              :class="[
-                'board-date',
-                {
-                  today: h.isToday,
-                  weekend: h.isWeekend,
-                },
-              ]"
-            >
-              <small>{{ h.month }}</small
-              ><strong>{{ h.dayNum }}</strong
-              ><small>{{ h.weekday }}</small>
+            <div class="board-room-label">{{ t("staff.room") }} / {{ t("staff.board.place") }}</div>
+            <div>
+              <div class="board-months">
+                <span v-for="band in monthBands" :key="band.key"
+                  :style="{ width: 'calc(' + band.span + ' * var(--day-width))' }">{{ band.label }}</span>
+              </div>
+              <div class="board-days">
+                <div v-for="h in dayHeaders" :key="h.day" class="board-date"
+                  :class="{ today: h.isToday, weekend: h.isWeekend }" :title="h.day">
+                  <strong>{{ h.dayNum }}</strong><small>{{ h.weekday }}</small>
+                </div>
+              </div>
             </div>
           </div>
-          <template v-for="group in groups" :key="group.room.id">
-            <div class="board-group-header">
-              <div class="board-room-label board-room-group-label">
-                <div class="room-group-top">
-                  <strong>№ {{ group.room.number }}</strong>
-                  <button
-                    type="button"
-                    class="room-collapse-toggle"
-                    :aria-expanded="!collapsed[group.room.id]"
-                    :aria-label="
-                      t(
-                        collapsed[group.room.id]
-                          ? 'staff.board.expandRoom'
-                          : 'staff.board.collapseRoom',
-                        { room: group.room.number },
-                      )
-                    "
-                    @click="toggleRoom(group.room.id)"
-                  >
-                    {{ collapsed[group.room.id] ? "▸" : "▾" }}
+          <div :style="{ height: layout.height + 'px' }">
+            <div :style="{ paddingTop: (visibleRows[0]?.top || 0) + 'px' }">
+              <div v-for="item in visibleRows" :key="item.key"
+                :class="item.row ? 'board-row' : 'board-group-header'"
+                :style="{ height: item.height + 'px' }">
+                <template v-if="!item.row">
+                  <button type="button" class="board-room-label board-room-toggle"
+                    :aria-expanded="!collapsed[item.group.room.id]"
+                    :aria-label="t(collapsed[item.group.room.id] ? 'staff.board.expandRoom' : 'staff.board.collapseRoom', { room: item.group.room.number })"
+                    :title="[item.group.room.title, t('staff.board.placesCount', { count: item.group.rows.length }), money(item.group.room.price) + ' / ' + t('staff.board.night')].join(' · ')"
+                    @click="toggleRoom(item.group.room.id)">
+                    <span aria-hidden="true">{{ collapsed[item.group.room.id] ? '▸' : '▾' }}</span>
+                    <strong>№ {{ item.group.room.number }}</strong>
+                    <small>{{ item.group.room.status === 'maintenance' ? t('staff.maintenance') : item.group.room.title }}</small>
                   </button>
-                </div>
-                <small
-                  >{{ group.room.title }} ·
-                  {{
-                    t("staff.board.placesCount", {
-                      count: group.places.length,
-                    })
-                  }}</small
-                ><span
-                  >{{ money(group.room.price) }} /
-                  {{ t("staff.board.night") }}</span
-                ><small
-                  v-if="group.room.status !== 'active'"
-                  class="danger"
-                  >{{ t("staff.maintenance") }}</small
-                >
-              </div>
-              <div class="board-track board-group-track">
-                <div class="board-cells">
-                  <span
-                    v-for="day in dates"
-                    :key="day"
-                    :class="['board-group-cell', { today: day === today }]"
-                  ></span>
-                </div>
-              </div>
-            </div>
-            <template v-if="!collapsed[group.room.id]">
-              <div
-                v-for="row in group.rows"
-                :key="row.place.id"
-                class="board-row board-place-row"
-                :style="{
-                  '--row-height': Math.max(58, row.lanes * 54 + 10) + 'px',
-                }"
-              >
-                <div class="board-room-label board-place-label">
-                  <strong>{{ row.place.unitLabel }}</strong>
-                  <small
-                    >{{ t("staff.board.place") }}
-                    {{ row.place.label.toUpperCase() }}</small
-                  >
-                </div>
-                <div class="board-track">
-                  <div class="board-cells">
-                    <button
-                      v-for="day in dates"
-                      :key="day"
-                      :disabled="!available(group.room, row.place, day) || busy"
-                      :class="{ today: day === today }"
-                      :aria-label="`${row.place.unitLabel} · ${day}`"
-                      @click="create(group.room, day, row.place)"
-                    >
-                      <span aria-hidden="true">+</span>
+                  <div class="board-group-track" aria-hidden="true"></div>
+                </template>
+                <template v-else>
+                  <div class="board-room-label board-place-label"><strong>{{ item.row.place.unitLabel }}</strong></div>
+                  <div class="board-track">
+                    <div class="board-cells">
+                      <button v-for="day in dates" :key="day" type="button"
+                        :disabled="!available(item.group.room, item.row.place, day) || busy"
+                        :class="{ today: day === today }"
+                        :aria-label="item.row.place.unitLabel + ' · ' + day"
+                        @click="create(item.group.room, day, item.row.place)"><span aria-hidden="true">+</span></button>
+                    </div>
+                    <button v-for="bar in item.row.bars" :key="bar.booking.id" type="button"
+                      :class="['stay-bar', bar.status]"
+                      :style="{
+                        left: 'calc(' + bar.from + ' * var(--day-width) + 1px)',
+                        width: 'calc(' + bar.span + ' * var(--day-width) - 2px)',
+                        top: (bar.lane * laneHeight + 1) + 'px',
+                      }"
+                      :title="t(`staff.board.${bar.status}`) + ' · ' + label(bar.booking)"
+                      :aria-label="t(`staff.board.${bar.status}`) + ' · ' + label(bar.booking)"
+                      @click="emit('select', bar.booking)">
+                      <span v-if="bar.status === 'reserved' && bar.booking.start < today"
+                        :title="t('staff.board.notArrived')">!</span>
+                      <strong>{{ bar.booking.guestLabel }}</strong>
                     </button>
                   </div>
-                  <button
-                    v-for="bar in row.bars"
-                    :key="`${bar.booking.id}-${row.place.id}`"
-                    :class="['stay-bar', bar.status]"
-                    :style="{
-                      left: `calc(${bar.from} * var(--day-width) + 3px)`,
-                      width: `calc(${bar.span} * var(--day-width) - 6px)`,
-                      top: `${bar.lane * 54 + 5}px`,
-                    }"
-                    :title="label(bar.booking)"
-                    :aria-label="
-                      t(`staff.board.${bar.status}`) + ': ' + label(bar.booking)
-                    "
-                    @click="emit('select', bar.booking)"
-                  >
-                    <strong>{{ bar.booking.guestLabel }}</strong
-                    ><small
-                      >{{ t(`staff.board.${bar.status}`)
-                      }}<template v-if="(bar.booking.placesCount || bar.booking.guests) > 1">
-                        · {{ row.place.unitLabel }} ({{
-                          bar.booking.placesCount || bar.booking.guests
-                        }})</template
-                      >
-                      ·
-                      {{
-                        money(
-                          bar.booking.paymentTerms?.total ?? bar.booking.total,
-                        )
-                      }}</small
-                    ><span
-                      v-if="
-                        bar.status === 'reserved' && bar.booking.start < today
-                      "
-                      class="stay-alert"
-                      >{{ t("staff.board.notArrived") }}</span
-                    >
-                  </button>
-                </div>
+                </template>
               </div>
-            </template>
-          </template>
+            </div>
+          </div>
         </div>
       </div>
       <div v-if="!groups.length" class="work-empty">

@@ -42,7 +42,7 @@ from .models import (
     place_label,
     place_pk_for,
 )
-from .notifications import emit_booking_notification
+from .notifications import emit_booking_notification, emit_review_notification
 from .pricing import quote_stay
 from .rate_limits import client_ip, consume_limits
 from .serializers import (
@@ -617,7 +617,7 @@ def create_review(request):
     inp.is_valid(raise_exception=True)
     data = inp.validated_data
     booking = review_booking(request, data["bookingId"])
-    Resort.objects.select_for_update().get(pk=booking.resort_id)
+    booking.resort = Resort.objects.select_for_update().get(pk=booking.resort_id)
     validate_asset_references(
         data["photos"], purpose="review", resort_id=booking.resort_id, booking_id=booking.pk
     )
@@ -630,6 +630,7 @@ def create_review(request):
         text=data["text"],
         photos=data["photos"],
     )
+    emit_review_notification(review)
     log_change(
         request.user,
         "reviews",

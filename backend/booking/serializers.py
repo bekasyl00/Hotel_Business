@@ -551,11 +551,14 @@ def account_data(user):
     }
 
 
-def booking_data(b, staff=False):
+def booking_data(b, staff=False, include_guest_avatar=False):
     from commerce.services import booking_payment_data, cancellation_terms
     from commerce.settlement import onsite_data, payment_terms
 
     review = getattr(b, "review", None)
+    avatar_id = None
+    if staff and include_guest_avatar and b.source == "website" and b.guest_profile_id:
+        avatar_id = b.guest_profile.avatar_id
     snapshot = dict(b.snapshot)
     if not staff:
         snapshot.pop("commissionTerms", None)
@@ -612,6 +615,7 @@ def booking_data(b, staff=False):
             if not staff and hasattr(b, "has_guest_documents") else {}
         ),
         **({"staffNotes": b.staff_notes} if staff else {}),
+        **({"guestAvatarUrl": f"/api/media/files/{avatar_id}"} if avatar_id else {}),
     }
 
 

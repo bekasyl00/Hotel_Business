@@ -214,6 +214,15 @@ function busyRoomPlaceIds(bookings, roomId, activePlaces, range) {
 }
 
 
+function staffBookingAvatars(db, user, bookings) {
+  if (user.role === "accountant") return bookings;
+  const photos = new Map(db.guestProfiles.map((profile) => [profile.id, profile.avatarUrl]));
+  return bookings.map((booking) => {
+    const photo = booking.source === "website" && photos.get(booking.guestProfileId);
+    return photo ? { ...booking, guestAvatarUrl: photo } : booking;
+  });
+}
+
 export function createDemoTransport({
   storage = localStorage,
   session = sessionStorage,
@@ -571,13 +580,13 @@ export function createDemoTransport({
             (user.role === "accountant" || scoped(item)) &&
             (!resortId || item.resortId === resortId),
         ),
-        bookings: db.bookings.filter(
+        bookings: staffBookingAvatars(db, user, db.bookings.filter(
           (item) =>
             (user.role === "accountant" || scoped(item)) &&
             (!resortId || item.resortId === resortId) &&
             item.start < end &&
             item.end > start,
-        ),
+        )),
       });
     }
     const notificationResult = demoNotifications({
@@ -750,9 +759,9 @@ export function createDemoTransport({
         tariffs: db.tariffs.filter(
           (item) => user.role === "accountant" || scoped(item),
         ),
-        bookings: db.bookings.filter(
+        bookings: staffBookingAvatars(db, user, db.bookings.filter(
           (item) => user.role === "accountant" || scoped(item),
-        ),
+        )),
         accounts: user.role === "admin" ? db.accounts : [],
         audit: user.role === "admin" ? db.audit.filter(scoped) : [],
         reviews: user.role === "accountant" ? [] : db.reviews.filter(scoped),

@@ -101,7 +101,21 @@ def emit_booking_notification(booking, kind: str):
         "source": booking.source,
     }
 
+    return _emit_staff_notification(booking, kind, payload)
+
+
+def emit_review_notification(review):
+    return _emit_staff_notification(
+        review.booking,
+        "review_created",
+        {"reviewId": review.pk, "resortName": review.resort.name, "rating": review.rating},
+    )
+
+
+def _emit_staff_notification(booking, kind, payload):
+    resort = booking.resort
     created_notifications = []
+    has_pending = False
     recipients = notification_recipients_for_resort(resort)
     for recipient in recipients:
         dedup_key = f"{booking.pk}:{kind}:{recipient.pk}"
@@ -120,7 +134,6 @@ def emit_booking_notification(booking, kind: str):
             active_devices = list(
                 StaffPushDevice.objects.filter(user=recipient, is_active=True)
             )
-            has_pending = False
             for device in active_devices:
                 configured = platform_configured(device.platform)
                 StaffPushDelivery.objects.get_or_create(
@@ -132,13 +145,27 @@ def emit_booking_notification(booking, kind: str):
                     },
                 )
                 has_pending = has_pending or configured
-            if has_pending:
-                transaction.on_commit(lambda: send_due_pushes(limit=10))
+    if has_pending:
+        transaction.on_commit(lambda: send_due_pushes(limit=10), robust=True)
     return created_notifications
 
 
 def notification_data(item: StaffNotification):
     payload = item.payload if isinstance(item.payload, dict) else {}
+    if item.kind == "review_created":
+        return {
+            "id": item.pk,
+            "kind": item.kind,
+            "title": "Новый отзыв",
+            "body": f"{payload.get('resortName', '')} · {payload.get('rating', '')}/5",
+            "bookingId": item.booking_id,
+            "resortId": item.resort_id,
+            "reviewId": payload["reviewId"],
+            "payload": payload,
+            "read": item.read_at is not None,
+            "readAt": item.read_at.isoformat() if item.read_at else None,
+            "createdAt": item.created_at.isoformat(),
+        }
     unit = payload.get("roomNumber") or payload.get("unit") or ""
     resort_name = payload.get("resortName", "")
     start = payload.get("start", "")

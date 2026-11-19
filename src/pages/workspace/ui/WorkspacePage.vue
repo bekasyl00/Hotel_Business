@@ -7,6 +7,7 @@ import WorkspaceResorts from "./WorkspaceResorts.vue";
 import WorkspaceRooms from "./WorkspaceRooms.vue";
 import WorkspaceBookings from "./WorkspaceBookings.vue";
 import WorkspaceAccounts from "./WorkspaceAccounts.vue";
+import WorkspaceReviewDetail from "./WorkspaceReviewDetail.vue";
 import WorkspaceReviews from "./WorkspaceReviews.vue";
 import WorkspaceHistory from "./WorkspaceHistory.vue";
 import { useI18n } from "vue-i18n";
@@ -51,6 +52,7 @@ const session = useSessionStore(),
 const route = useRoute(),
   router = useRouter();
 const section = computed(() => route.params.section || "overview");
+const reviewId = computed(() => section.value === "reviews" && typeof route.query.reviewId === "string" ? route.query.reviewId : "");
 const titles = computed(() => ({
   overview: t("staff.overviewTitle"),
   resorts: t("staff.resorts"),
@@ -142,6 +144,17 @@ const {
   load,
   t,
 });
+function showPolledNotifications(count, items) {
+  unreadNotifications.value = count;
+  if (section.value === "notifications") notifications.value = items;
+}
+function openNotificationReview(item) {
+  router.push({ path: "/staff/reviews", query: { reviewId: item.reviewId, notificationId: item.id } });
+}
+function reviewOpened(item) {
+  selected.value = item.resortId;
+  if (route.query.notificationId) markNotificationRead({ id: route.query.notificationId });
+}
 async function openNotificationBooking(item) {
   await markNotificationRead(item);
   if (item.resortId && item.resortId !== selected.value) {
@@ -154,7 +167,7 @@ async function openNotificationBooking(item) {
   }
 }
 async function applyDeepLinkBooking(list = bookings.items) {
-  const queued = consumePendingPushTarget();
+  const queued = pendingPushTarget.value?.bookingId && !pendingPushTarget.value.reviewId ? consumePendingPushTarget() : null;
   const bookingId = String(
     queued?.bookingId || route.query.bookingId || "",
   ).trim();
@@ -203,11 +216,12 @@ async function moderateReview(review, target) {
   busy.value = true;
   error.value = "";
   try {
-    await request("PATCH", `/reviews/${review.id}`, {
+    const updated = await request("PATCH", `/reviews/${review.id}`, {
       version: review.version,
       status: target,
       reply: review.reply || "",
     });
+    Object.assign(review, updated);
     notice.value = "staff.reviewUpdated";
     await load(true);
   } catch (e) {
@@ -365,7 +379,7 @@ onBeforeUnmount(() => {
     :section="section"
     :unread-count="unreadNotifications"
     @logout="logout"
-    @unread="unreadNotifications = $event"
+    @unread="showPolledNotifications"
     ><main
       class="work-main"
       :class="{ 'planner-workspace': section === 'bookings' }"
@@ -380,7 +394,7 @@ onBeforeUnmount(() => {
         v-if="
           !titles[section] ||
           (['accounts', 'history'].includes(section) && !session.isAdmin) ||
-          (section === 'notifications' && session.isAccountant)
+          (['notifications', 'reviews'].includes(section) && session.isAccountant)
         "
         class="surface work-empty"
       >
@@ -455,7 +469,7 @@ onBeforeUnmount(() => {
                 'notifications',
                 'reviews',
                 'history',
-              ].includes(section)
+              ].includes(section) && !reviewId
             "
             class="context-bar"
           >
@@ -527,6 +541,8 @@ onBeforeUnmount(() => {
               @select="focusedId = $event.id"
               @create="createAt"
             />
+            <WorkspaceReviewDetail v-else-if="reviewId" :id="reviewId" :busy="busy"
+              @loaded="reviewOpened" @moderate="moderateReview" />
             <section v-else class="surface">
               <div class="table-toolbar">
                 <label class="search-field"
@@ -631,6 +647,7 @@ onBeforeUnmount(() => {
                 :filtered-notifications="filteredNotifications"
                 @read="markNotificationRead"
                 @open-booking="openNotificationBooking"
+                @open-review="openNotificationReview"
               />
               <WorkspaceResorts
                 v-else-if="section === 'resorts' && filteredResorts.length"

@@ -1,7 +1,7 @@
 .occupancy-board {
   min-width: 0;
-  --day-width: 76px;
-  --room-width: 194px;
+  --day-width: 34px;
+  --room-width: 152px;
 }
 .board-summary {
   display: grid;
@@ -144,131 +144,75 @@
 .board-group-header {
   display: flex;
 }
-.board-group-header {
-  border-bottom: 1px solid #d9e2dc;
-  background: #f4f7f5;
+.board-row, .board-group-header {
+  box-sizing: border-box;
+  border-bottom: 1px solid #e2e8e4;
 }
-.board-room-group-label {
-  background: #f4f7f5;
-  padding: 10px 14px;
-}
-.room-group-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.room-collapse-toggle {
-  min-width: 32px;
-  min-height: 32px;
-  border: 1px solid #cbd6cf;
-  border-radius: 6px;
-  background: #fff;
-  color: #193e2b;
-  font-size: 13px;
-  line-height: 1;
-  padding: 0;
-  cursor: pointer;
-}
-.board-group-track {
-  min-height: 52px;
-  background: #f6f8f7;
-}
-.board-group-cell {
-  flex: 0 0 var(--day-width);
-  width: var(--day-width);
-  border-right: 1px solid #e6ece8;
-}
-.board-group-cell.today {
-  border-left: 2px solid #427b56;
-  background: #eaf3ec;
-}
-.board-place-label {
-  padding: 8px 14px 8px 22px;
-  background: #fff;
-}
-.board-place-label strong {
-  font-size: 13px;
-  color: #1a3d2b;
-}
+.board-group-header { background: #f1f5f2; }
 .board-head {
   position: sticky;
   top: 0;
   z-index: 4;
   background: #f8faf9;
-  border-top: 1px solid #e2e8e4;
-  border-bottom: 1px solid #d9e2dc;
+  border-block: 1px solid #d9e2dc;
 }
 .board-room-label {
   width: var(--room-width);
   flex: 0 0 var(--room-width);
   position: sticky;
   left: 0;
-  z-index: 3;
-  background: #fff;
-  border-right: 1px solid #d9e2dc;
-  display: flex;
-  justify-content: center;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 16px;
+  z-index: 2;
+  background: white;
+  border-right: 1px solid #cbd7cf;
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 7px;
+  font-size: 12px;
 }
-.board-head .board-room-label {
-  background: #f4f7f5;
-  z-index: 5;
-  font-weight: 650;
+.board-head .board-room-label { background: #f4f7f5; font-weight: 600; }
+.board-place-label { padding-left: 20px; color: #354d40; }
+.board-place-label strong { font-weight: 500; }
+.board-room-toggle {
+  text-align: left;
+  background: #eef3ef;
+  border: 0;
+  border-right: 1px solid #cbd7cf;
+  border-radius: 0;
+  min-height: 0;
+  cursor: pointer;
 }
-.board-room-label strong {
-  font-size: 14px;
-}
-.board-room-label small {
-  color: #64756b;
-  font-size: 11px;
+.board-room-toggle strong { flex: none; }
+.board-room-toggle small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #53695a; }
+.board-months, .board-days { display: flex; }
+.board-months span {
+  box-sizing: border-box;
+  padding-inline: 5px;
+  color: #53695a;
+  border-inline: 1px solid #d9e2dc;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 400;
-}
-.board-room-label span {
-  color: #52665a;
   font-size: 10px;
+  line-height: 15px;
 }
 .board-date {
   flex: 0 0 var(--day-width);
-  width: var(--day-width);
-  display: grid;
-  gap: 3px;
   text-align: center;
-  padding: 9px 0;
   box-sizing: border-box;
-  border-right: 1px solid #e8ede9;
+  border-right: 1px solid #e0e8e2;
+  display: grid;
+  line-height: 1;
+  padding: 2px 0 3px;
+  gap: 2px;
 }
-.board-date small {
-  font-size: 10px;
-  color: #6a7c70;
-}
-.board-date strong {
-  font-size: 17px;
-}
-.board-date.weekend {
-  background: #f0f4f1;
-}
-.board-date.today {
-  background: #143e2c;
-  color: white;
-}
-.board-date.today small {
-  color: #d4e6dc;
-}
-.board-row {
-  min-height: var(--row-height);
-  border-bottom: 1px solid #e4eae6;
-}
-.board-track {
-  position: relative;
-  flex: 1;
-  min-height: var(--row-height);
+.board-date strong { font-size: 12px; font-variant-numeric: tabular-nums; }
+.board-date small { font-size: 9px; color: #55685b; }
+.board-date.weekend { background: #edf2ee; }
+.board-date.today { background: #24573b; color: white; }
+.board-date.today small { color: #ecf6ef; }
+.board-track, .board-group-track { position: relative; flex: 1; }
+.board-group-track {
+  background: repeating-linear-gradient(to right, transparent 0 calc(var(--day-width) - 1px), #e0e7e2 0 var(--day-width));
 }
 .board-cells {
   position: absolute;
@@ -303,47 +247,32 @@
 }
 .stay-bar {
   position: absolute;
-  height: 48px;
+  height: calc(var(--lane-height) - 3px);
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
   z-index: 1;
   text-align: left;
   background: var(--stay-bg);
   color: var(--stay-ink);
-  border: 1px solid color-mix(in srgb, var(--stay-color) 35%, transparent);
-  border-left: 4px solid var(--stay-color);
-  border-radius: 6px;
-  padding: 6px 9px;
+  border: 0;
+  border-left: 3px solid var(--stay-color);
+  border-radius: 3px;
+  padding: 0 4px;
   cursor: pointer;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 3px;
 }
-.stay-bar:hover {
-  filter: brightness(0.96);
-  box-shadow: 0 2px 5px #0001;
-}
-.stay-bar strong,
-.stay-bar small {
+.stay-bar:hover { filter: brightness(.95); }
+.stay-bar strong {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
 }
-.stay-bar strong {
-  font-size: 12px;
-  font-weight: 650;
-}
-.stay-bar small {
-  font-size: 10px;
-}
-.stay-alert {
-  font-size: 9px;
-  position: absolute;
-  right: 4px;
-  top: 1px;
-  background: #fff6;
-}
+.board-scroll button:focus-visible { outline-offset: -2px; }
 .board-footer {
   display: flex;
   justify-content: space-between;
@@ -497,8 +426,8 @@
 }
 @media (max-width: 760px) {
   .occupancy-board {
-    --room-width: 126px;
-    --day-width: 72px;
+    --room-width: 104px;
+    --day-width: 33px;
   }
   .board-summary {
     grid-template-columns: repeat(2, 1fr);
@@ -528,9 +457,7 @@
     padding: 8px 6px;
     font-size: 11px;
   }
-  .board-room-label {
-    padding: 9px;
-  }
+
   .board-hint,
   .board-footer {
     padding-inline: 12px;

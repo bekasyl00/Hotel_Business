@@ -1,4 +1,5 @@
 <script setup>
+import { GuestIdentity } from "@/shared/ui";
 import { useI18n } from "vue-i18n";
 import { ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
@@ -101,11 +102,11 @@ watch(() => route.params.id, load, { immediate: true });
       </div>
       <template v-else-if="data"
         ><header class="work-title">
-          <div>
+          <GuestIdentity :name="data.profile.name" :photo="data.profile.avatarUrl" style="--avatar-size: 48px">
             <span class="eyebrow">{{ t("staff.guestEyebrow") }}</span>
             <h1>{{ data.profile.name || t("staff.websiteGuest") }}</h1>
             <p>{{ data.profile.phone || t("staff.noPhone") }}</p>
-          </div>
+          </GuestIdentity>
         </header>
         <p class="public-session-note">
           {{
