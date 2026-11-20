@@ -246,10 +246,18 @@ onBeforeUnmount(() => window.removeEventListener("storage", storageChanged));
                       {{ t("common.pricing.nightToday") }}</small
                     ></strong
                   ><button
-                    class="text-button"
+                    type="button"
+                    class="catalog-card-map"
                     :aria-label="t('public.showOnTheMap', [r.name])"
+                    aria-haspopup="dialog"
                     @click="showMap(r.id)"
                   >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" stroke-width="1.6" stroke-linecap="round"
+                      stroke-linejoin="round" aria-hidden="true" focusable="false">
+                      <path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 0 1 14 0Z" />
+                      <circle cx="12" cy="10" r="2.25" />
+                    </svg>
                     {{ t("public.onTheMap") }}
                   </button>
                 </div>
@@ -338,3 +346,26 @@ onBeforeUnmount(() => window.removeEventListener("storage", storageChanged));
     </main>
   </div>
 </template>
+
+<style scoped>
+.catalog-card-map {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--green-dark);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+@media (hover: hover) {
+  .catalog-card-map:hover {
+    background: #e8ebde;
+  }
+}
+</style>
